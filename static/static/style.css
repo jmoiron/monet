@@ -1,0 +1,12 @@
+body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
+code,pre,b,strong { color: #111; }
+.content { background-color: #fff; }
+.container { width: 600px; margin: 0 auto;  padding: 2em 0; font-size: 16px; line-height: 26px; }
+.footer { padding-bottom: 1em;}
+.clear { clear: both; }
+h1,h2,h3 { color: #000; }
+a { color: #014EA5; font-weight: bold; } a:hover { text-decoration: underline; }
+a:visited { color: #FF12AE;}
+
+/* site-specific */
+.date { color: #aaa; float: right; text-align: right;}

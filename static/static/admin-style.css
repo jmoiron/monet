@@ -1,0 +1,45 @@
+body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
+.content { background-color: #fff; }
+.container { width: 720px; margin: 0 auto;  padding: 2em 0; font-size: 18px; line-height: 1.40em; }
+.footer { background-color: #333; color: #eee; text-shadow: 1px 1px 1px #000;  padding-bottom: 1em;}
+.clear { clear: both; }
+tt,code { background-color: #f5f5fa; padding: 0 5px; border-radius: 5px; text-shadow: 1px 1px 1px #fff; }
+a { text-decoration: none; } a:hover { text-decoration: underline; }
+
+/* site-specific */
+input, textarea { font-family: "Open Sans"; padding: 10px; border: 0; border-radius: 4px; font-size: 18px; }
+.post-title-input { font-size: 22px; font-weight: bold; }
+.post-slug-input { font-size: 16px; color: #999; }
+.post-content-input { width: 695px; height: 35em; font-size: 16px;}
+.buttons { float: right; text-align: right; }
+
+.extras { display: none; }
+/* lists */
+.panel { color: #999; }
+.panel a:visited, .panel a { color: #999; }
+.panel:hover a { color: #000; }
+.panel:hover h3 a { background-color: #000; color: #fff; }
+
+.panel-left h3 { padding-left: 1em; }
+.panel-right h3 { padding-right: 1em; text-align: right; }
+.panel h3 a { color: #fff; background-color: #999; padding: 5px 10px; font-weight: bold; }
+.panel h3 a:hover { text-decoration: none; }
+.left-panel { float: left; width: 350px; }
+.right-panel { float: right; width: 350px; }
+.list-new { font-size: 18px; color: #999; }
+.panel ul { list-style: none; margin: 0; padding: 5px 0; }
+.panel ul li a { margin-left: 13px; }
+
+.buttons input { border-radius: 0; padding: 5px 10px; font-size: 16px; cursor: pointer; font-weight: bold; }
+.save-button { color: #fff; background-color: #2A8FBD; text-shadow: 2px 2px #257fa9; border-bottom: 4px solid #257fa9 }
+.preview-button { background-color: #025D8C; color: #fff; text-shadow: 2px 2px #03496d; border-bottom: 4px solid #03496d; }
+.more-button { background-color: #96ab96; color: #fff; text-shadow: 2px 2px #899b89; border-bottom: 4px solid #606f60; }
+.save-button:hover { background-color: #33a6dc; }
+.preview-button:hover { background-color: #0570a7; }
+.more-button:hover { background-color: #aabfaa; }
+
+.nav { background-color: #ffffcc; font-size: 20px; margin-bottom: 1em; }
+.nav a { color: black; display: inline-block; padding: 5px 10px; }
+.nav li { display: inline-block; margin: 0; }
+.nav li:hover { background-color: #ffffaa; }
+.nav ul { display: inline; list-style: none; margin: 0; padding: 0 }

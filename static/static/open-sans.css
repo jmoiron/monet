@@ -1,0 +1,24 @@
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Open Sans'), local('OpenSans'), url("/static/open-sans.woff") format('woff');
+}
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  src: local('Open Sans Bold'), local('OpenSans-Bold'), url("/static/open-sans-bold.woff") format('woff');
+}
+@font-face {
+  font-family: 'JustVector';
+  font-style: normal;
+  font-weight: 700;
+  src: local('JustVector'),  url("/static/justvector.woff") format('woff');
+}
+@font-face {
+  font-family: 'FontAwesome';
+  font-style: normal;
+  font-weight: 700;
+  src: local('FontAwesome'),  url("/static/fontawesome.woff") format('woff');
+}

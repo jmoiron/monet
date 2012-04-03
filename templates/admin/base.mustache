@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="/static/open-sans.css">
+        <link rel="stylesheet/less" href="/static/style.less">
+        <script src="/static/js/less.js"></script>
+        <script src="/static/js/jquery.js"></script>
+        <script src="/static/js/admin.js"></script>
+        <title>{{title}}</title>
+    </head>
+    <body>
+        <div class="content">
+            <div class="container admin">
+                {{{body}}}
+            </div>
+        </div>
+        <div class="footer">
+          <div class="container">
+            {{^login}}
+            <div class="admin-controls">
+              <a href="/admin/">back home</a> or <a href="/admin/logout/">logout</a>
+            </div>
+            {{/login}}
+          </div>
+        </div>
+    </body>
+</html>

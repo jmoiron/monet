@@ -1,5 +1,6 @@
 
 <form method="POST" action="" class="posts-form">
+    {{#Id}}<input type="hidden" name="id" id="id" value="{{IdHex}}" />{{/Id}}
     <div><input type="text" name="title" id="title" class="post-title-input js-clear-default" value="{{#Title}}{{Title}}{{/Title}}{{^Title}}Type a new title...{{/Title}}" data-default="Type a new title..."></div>
     <div><textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{#Content}}{{Content}}{{/Content}}{{^Content}}Type some new content...{{/Content}}</textarea></div>
     <div class="extras">

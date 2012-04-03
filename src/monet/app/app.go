@@ -27,9 +27,6 @@ func FmtTimestamp(ts uint64) string {
 }
 
 func RenderPost(post *db.Post) string {
-    if post.Content != "" && post.ContentRendered == "" {
-        post.Update()
-    }
     return template.Render("post.mustache", post, dict{
         "NaturalTime": FmtTimestamp(post.Timestamp)})
 }

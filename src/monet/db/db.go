@@ -4,6 +4,8 @@ import (
     "fmt"
     "io"
     "strings"
+    "strconv"
+    "time"
     "monet/conf"
     "monet/template"
     "crypto/sha1"
@@ -18,6 +20,7 @@ type Model interface{}
 
 // -- models --
 type Post struct {
+    Id bson.ObjectId "_id"
     Title string
     Slug string
     Content string
@@ -29,17 +32,20 @@ type Post struct {
 }
 
 type Note struct {
+    Id bson.ObjectId "_id"
     Title string
     Slug string
     Content string
 }
 
 type User struct {
+    Id bson.ObjectId "_id"
     Username string
     Password string
 }
 
 type Page struct {
+    Id bson.ObjectId "_id"
     Url string
     Content string
     ContentRendered string
@@ -79,7 +85,29 @@ func Pages() *PageCursor {
 
 func (p *Post) Update() error {
     p.ContentRendered = template.RenderMarkdown(p.Content)
-    Posts().C.Upsert(bson.M{"slug": p.Slug}, p)
+    if len(p.Id) > 0 {
+        Posts().C.Update(bson.M{"_id": p.Id}, p)
+    } else {
+        Posts().C.Upsert(bson.M{"slug": p.Slug}, p)
+    }
+    return nil
+}
+
+func (p *Post) FromParams(params map[string]string) error {
+    p.Content = params["content"]
+    p.Title = params["title"]
+    p.Slug = params["slug"]
+    if len(params["timestamp"]) > 0 {
+        ts,_ := strconv.ParseInt(params["timestamp"], 10, 0)
+        p.Timestamp = uint64(ts)
+    } else {
+        p.Timestamp = uint64(time.Now().Unix())
+    }
+    if len(params["id"]) > 0 {
+        p.Id = bson.ObjectIdHex(params["id"])
+    }
+    p.Published,_ = strconv.Atoi(params["published"])
+    p.ContentRendered = template.RenderMarkdown(p.Content)
     return nil
 }
 

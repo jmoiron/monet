@@ -2,9 +2,7 @@ package app
 
 import (
     "fmt"
-    "strconv"
     "monet/db"
-    "time"
     "github.com/hoisie/web.go"
     "monet/template"
     "monet/conf"
@@ -25,11 +23,13 @@ func AttachAdmin(url string) {
     web.Get(url + "posts/delete/(.*)", postDelete)
     web.Get(url + "posts/add/", postAdd)
     web.Post(url + "posts/add/", postAddPost)
+    web.Post(url + "posts/preview/", postPreview)
     // pages
     web.Get(url + "pages/add/", pageAdd)
     web.Post(url + "pages/add/", pageAddPost)
     web.Get(url + "pages/edit/(.*)", pageEdit)
     web.Post(url + "pages/edit/(.*)", pageEdit)
+    web.Post(url + "pages/preview/", pagePreview)
     // notes
     web.Get(url + "notes/edit/", noteEdit)
     // web.Get(url + "/users/", usersList)
@@ -97,16 +97,13 @@ func postEdit(ctx *web.Context, slug string) string {
         return ""
     }
     if len(ctx.Params) > 1 {
-        p := ctx.Params
-        post.Content = p["content"]
-        post.Title = p["title"]
-        post.Slug = p["slug"]
-        post.Published,_ = strconv.Atoi(p["published"])
-        ts,_ := strconv.ParseInt(p["timestamp"], 10, 0)
-        post.Timestamp = uint64(ts)
+        post.FromParams(ctx.Params)
         post.Update()
     }
-    return adminBase.Render("admin/posts-edit.mustache", post, dict{"IsPublished": post.Published == 1})
+
+    return adminBase.Render("admin/posts-edit.mustache", post, dict{
+        "IsPublished": post.Published == 1,
+        "IdHex": post.Id.Hex()})
 }
 
 func postAdd(ctx *web.Context) string {
@@ -118,17 +115,19 @@ func postAdd(ctx *web.Context) string {
 }
 
 func postAddPost(ctx *web.Context) string {
-    var post = new(db.Post)
-    p := ctx.Params
-    post.Content = p["content"]
-    post.Title = p["title"]
-    post.Slug = p["slug"]
-    post.Published,_ = strconv.Atoi(p["published"])
-    post.Timestamp = uint64(time.Now().Unix())
+    post := new(db.Post)
+    post.FromParams(ctx.Params)
     post.Update()
     ctx.Redirect(302, "/admin/")
     return ""
     //ctx.Redirect(302, "/admin/posts/edit/" + post.Slug + "/")
+}
+
+func postPreview(ctx *web.Context) string {
+    var post = new(db.Post)
+    post.FromParams(ctx.Params)
+    /* not sure the ettiquite here, RenderPost is defined in app.go */
+    return RenderPost(post)
 }
 
 func postDelete(ctx *web.Context) string {
@@ -167,7 +166,10 @@ func pageEdit(ctx *web.Context, url string) string {
         page.Update()
     }
     return adminBase.Render("admin/pages-edit.mustache", page)
+}
 
+func pagePreview(ctx *web.Context) string {
+    return ""
 }
 
 func noteEdit(ctx *web.Context) string {

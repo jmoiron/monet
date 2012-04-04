@@ -83,6 +83,19 @@ func Pages() *PageCursor {
 
 // -- Posts --
 
+func FmtTimestamp(ts uint64) string {
+    now := time.Now()
+    ut := time.Unix(int64(ts), 0)
+    if now.Year() == ut.Year() {
+        return ut.Format("Jan _2")
+    }
+    return ut.Format("Jan _2 2006")
+}
+
+func (p Post) NaturalTime() string {
+    return FmtTimestamp(p.Timestamp)
+}
+
 func (p *Post) Update() error {
     p.ContentRendered = template.RenderMarkdown(p.Content)
     if len(p.Id) > 0 {

@@ -1,7 +1,7 @@
 
 <div class="left-panel panel">
     <h3><a href="/admin/posts/">Posts</a></h3>
-    <ul class="post-list list">
+    <ul class="post-list shortlist">
         <li><form method="GET" action="/admin/posts/add/"><input type="text" data-default="Type a new title..." value="Type a new title..." class="list-new js-clear-default" id="post-title" name="Title"></form></li>
     {{#posts}}
     <li><a href="/admin/posts/edit/{{Slug}}">{{Title}}</a> <a class="del" href="/admin/posts/delete/{{Slug}}"><i class="icon icon-remove-sign"></i></a></li>
@@ -11,7 +11,7 @@
 
 <div class="right-panel panel">
     <h3><a href="/admin/notes/">Notes</a></h3>
-    <ul class="note-list list">
+    <ul class="note-list shortlist">
         <li><form method="GET" action="/admin/notes/add/"><input type="text" data-default="Type a new note..." value="Type a new note..." class="list-new js-clear-default" id="note-title" name="Title"></form></li>
     {{#notes}}
         <li><a href="/admin/notes/edit/{{Slug}}">{{Name}}</a></li>
@@ -21,7 +21,7 @@
 <div class="clear panel-sep"></div>
 <div class="left-panel panel">
     <h3><a href="/admin/posts/">Unpublished</a></h3>
-    <ul class="post-list list">
+    <ul class="post-list shortlist">
     {{#unpublished}}
     <li><a href="/admin/posts/edit/{{Slug}}">{{Title}}</a> <a class="del" href="/admin/posts/delete/{{Slug}}"><i class="icon icon-remove-sign"></i></a></li>
     {{/unpublished}}
@@ -30,7 +30,7 @@
 
 <div class="right-panel panel">
     <h3><a href="/admin/notes/">Pages</a></h3>
-    <ul class="note-list list">
+    <ul class="note-list shortlist">
         <li><form method="GET" action="/admin/pages/add/"><input type="text" data-default="Type a new URL..." value="Type a new URL..." class="list-new js-clear-default" id="page-url" name="Url"></form></li>
     {{#pages}}
     <li><a href="/admin/pages/edit/{{Url}}">/{{Url}}</a> <a class="del" href="/admin/pages/delete/{{Url}}"><i class="icon icon-remove-sign"></i></a></li>

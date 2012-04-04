@@ -68,23 +68,28 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .admin {
+  ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
+    li { padding: 5px;
+      a { padding: 5px 10px; margin-left: 5px; }
+      a.del { padding: 0; margin-top: -1px; display:none; float: right; font-size: 22px}
+      &:hover {
+        a.del { display: inline-block; color: #fa2a00; 
+          &:hover { color: darken(#fa2a00, 15%); }
+        }
+      }
+    }
+  }
+  ul.listpage {
+    a { color: #000; &:hover { color: @bluelink; }}
+    li {
+      span.date { margin-right: 32px; }
+      &:hover { span.date { margin-right: 0; }}
+    }
+  }
   .panel-sep { height: 1em; border-bottom: 1px solid #fbfbfb; margin-bottom: 1em; }
   .panel { color: #999;
     a { color: #999; &:visited { color: #999 }}
     &:hover a { color: #000; &:hover { color: @bluelink; }}
-    ul { list-style: none; margin: 0; padding: 5px 0;
-      li { padding: 5px; 
-        a { padding: 5px 10px; margin-left: 5px; }
-        a.del { padding: 0; margin-top: -1px; }
-      }
-    }
-    a.del { display: none; }
-
-    li:hover {
-      a.del { display: inline-block; float: right; color: #fa2a00; font-size: 22px;
-        &:hover { color: darken(#fa2a00, 15%); } 
-      }
-    }
   }
   .left-panel { float: left; width: (@site-width/2); }
   .right-panel { float: right; width: (@site-width/2); }
@@ -125,6 +130,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   .extras { padding: 1em 0; border-top: 1px solid #eee;
     input { color: #444; }
   }
+  input.search { width: 100%; }
 }
 
 .posts-form {
@@ -148,3 +154,18 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   .page-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
 }
 
+.paginator {
+  text-align: center;
+  margin: 1em 0;
+  padding: 0;
+  list-style: none;
+  li { display: inline-block;
+    a { padding: 3px 8px; border: 1px solid @bluelink;
+      &:hover { background-color: @bluehover; color: white; text-shadow: 2px 2px darken(@bluehover, 20%); }
+    }
+    &.num { padding: 1px 9px; border: 1px solid #ccc;
+      &:hover { background-color: #eee; text-shadow: 1px 1px 2px darken(#eee, 20%); }
+    }
+    &.inter { border: 0; &:hover { background-color: transparent; text-shadow: none; }}
+  }
+}

@@ -2,7 +2,7 @@ package app
 
 import (
     "fmt"
-    "time"
+    "strconv"
     "github.com/hoisie/web.go"
     "monet/template"
     "monet/db"
@@ -13,6 +13,7 @@ type dict map[string]interface{}
 var base = template.Base {Path: "base.mustache"}
 
 func Attach(url string) {
+    web.Get(url + "blog/page/(\\d+)", blogPage)
     web.Get(url + "blog/([^/]+)/", blogDetail)
     web.Get(url + "blog/", blogIndex)
     web.Get(url + "([^/]*)", index)
@@ -21,17 +22,11 @@ func Attach(url string) {
 
 // helpers
 
-func FmtTimestamp(ts uint64) string {
-    ut := time.Unix(int64(ts), 0)
-    return ut.Format("Jan _2")
-}
-
 func RenderPost(post *db.Post) string {
     if len(post.ContentRendered) == 0 {
         post.Update()
     }
-    return template.Render("post.mustache", post, dict{
-        "NaturalTime": FmtTimestamp(post.Timestamp)})
+    return template.Render("post.mustache", post)
 }
 
 // views
@@ -51,16 +46,27 @@ func index(s string) string {
 }
 
 func blogIndex() string {
+    return blogPage("1")
+}
+
+func blogPage(page string) string {
+    pn,_ := strconv.Atoi(page)
+    perPage := 10
+    paginator := NewPaginator(pn, perPage)
+    paginator.Link = "/blog/page/"
+
     var posts []db.Post
-    err := db.Posts().Latest(dict{"published":1}).Limit(10).Iter().All(&posts)
+    err := db.Posts().Latest(dict{"published":1}).Skip(paginator.Skip).Limit(10).Iter().All(&posts)
     if err != nil {
         fmt.Println(err)
     }
+    numObjects,_ := db.Posts().C.Count()
     rendered := []dict{}
     for _,p := range posts {
         rendered = append(rendered, dict{"Body": RenderPost(&p)})
     }
-    return base.Render("post-list.mustache", dict{"Posts": rendered})
+    return base.Render("post-list.mustache", dict{
+        "Posts": rendered, "Pagination": paginator.Render(numObjects)})
 }
 
 func blogDetail(ctx *web.Context, slug string) string {

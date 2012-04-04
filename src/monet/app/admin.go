@@ -11,7 +11,7 @@ import (
     "code.google.com/p/gorilla/sessions"
 )
 
-var listPageSize = 20
+var listPageSize = 15
 var indexListSize = 6
 
 var adminBase = template.Base {Path: "admin/base.mustache"}
@@ -115,12 +115,35 @@ func postList(ctx *web.Context, page string) string {
     if requireAuthentication(ctx) { return "" }
 
     pageNum := 1
-    if len(page) != 0 {
-        pageNum,_ = strconv.Atoi(page)
-    }
-    fmt.Println("Listing page ", pageNum)
+    if len(page) != 0 { pageNum,_ = strconv.Atoi(page) }
 
-    return ""
+    n := listPageSize
+    paginator := NewPaginator(pageNum, n)
+    paginator.Link = "/admin/posts/"
+    cursor := db.Posts()
+
+    var posts []db.Post
+    // do a search, if required, of title and content
+    var err error
+    var numObjects int
+
+    if len(ctx.Params["Search"]) > 0 {
+        term := dict{"$regex": ctx.Params["Search"]}
+        search := dict{"$or": []dict{dict{"title":term}, dict{"content":term}}}
+        err = cursor.Latest(search).Skip(paginator.Skip).Limit(n).All(&posts)
+        numObjects,_ = cursor.Latest(search).Count()
+    } else {
+        err = cursor.Latest(dict{"published":1}).Skip(paginator.Skip).
+            Limit(n).Iter().All(&posts)
+        numObjects,_ = cursor.C.Count()
+    }
+
+    if err != nil {
+        fmt.Println(err)
+    }
+
+    return adminBase.Render("admin/post-list.mustache", dict{
+        "Posts": posts, "Pagination": paginator.Render(numObjects)})
 }
 
 func postAdd(ctx *web.Context) string {

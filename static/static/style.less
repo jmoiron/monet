@@ -73,8 +73,8 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
       a { padding: 5px 10px; margin-left: 5px; }
       a.del { padding: 0; margin-top: -1px; display:none; float: right; font-size: 22px}
       &:hover {
-        a.del { display: inline-block; color: #fa2a00; 
-          &:hover { color: darken(#fa2a00, 15%); }
+        a.del { display: inline-block; color: #999; 
+          &:hover { color: #fa2a00; }
         }
       }
     }
@@ -136,6 +136,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 .posts-form {
   .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
   .post-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
+  .post-slug-input { width: @site-width - 100px; }
   .published {
     float: left;
     a.published-toggle-button {

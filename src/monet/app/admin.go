@@ -24,6 +24,7 @@ func AttachAdmin(url string) {
     web.Get(url + "logout/", logout)
     // posts
     web.Get(url + "posts/(\\d+)?", postList)
+    web.Get(url + "unpublished/(\\d+)?", unpublishedList)
     web.Get(url + "posts/edit/(.*)", postEdit)
     web.Post(url + "posts/edit/(.*)", postEdit)
     web.Get(url + "posts/delete/(.*)", postDelete)
@@ -113,7 +114,6 @@ func postEdit(ctx *web.Context, slug string) string {
 
 func postList(ctx *web.Context, page string) string {
     if requireAuthentication(ctx) { return "" }
-
     pageNum := 1
     if len(page) != 0 { pageNum,_ = strconv.Atoi(page) }
 
@@ -129,7 +129,7 @@ func postList(ctx *web.Context, page string) string {
 
     if len(ctx.Params["Search"]) > 0 {
         term := dict{"$regex": ctx.Params["Search"]}
-        search := dict{"$or": []dict{dict{"title":term}, dict{"content":term}}}
+        search := dict{"published":1, "$or": []dict{dict{"title":term}, dict{"content":term}}}
         err = cursor.Latest(search).Skip(paginator.Skip).Limit(n).All(&posts)
         numObjects,_ = cursor.Latest(search).Count()
     } else {
@@ -144,6 +144,24 @@ func postList(ctx *web.Context, page string) string {
 
     return adminBase.Render("admin/post-list.mustache", dict{
         "Posts": posts, "Pagination": paginator.Render(numObjects)})
+}
+
+func unpublishedList(ctx *web.Context, page string) string {
+    if requireAuthentication(ctx) { return "" }
+    pageNum := 1
+    if len(page) != 0 { pageNum,_ = strconv.Atoi(page) }
+
+    paginator := NewPaginator(pageNum, listPageSize)
+    paginator.Link = "/admin/unpublished/"
+    cursor := db.Posts()
+    var posts []db.Post
+    latest := cursor.Latest(dict{"published":0})
+    latest.Limit(listPageSize).Iter().All(&posts)
+    numObjects,_ := latest.Count()
+    return adminBase.Render("admin/post-list.mustache", dict{
+        "Posts": posts, "Pagination": paginator.Render(numObjects),
+        "Unpublished": true})
+
 }
 
 func postAdd(ctx *web.Context) string {

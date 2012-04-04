@@ -2,12 +2,17 @@ package app
 
 import (
     "fmt"
+    "strings"
+    "strconv"
     "monet/db"
     "github.com/hoisie/web.go"
     "monet/template"
     "monet/conf"
     "code.google.com/p/gorilla/sessions"
 )
+
+var listPageSize = 20
+var indexListSize = 6
 
 var adminBase = template.Base {Path: "admin/base.mustache"}
 var store = sessions.NewCookieStore([]byte(conf.Config.SessionSecret))
@@ -18,6 +23,7 @@ func AttachAdmin(url string) {
     web.Post(url + "login/", login)
     web.Get(url + "logout/", logout)
     // posts
+    web.Get(url + "posts/(\\d+)?", postList)
     web.Get(url + "posts/edit/(.*)", postEdit)
     web.Post(url + "posts/edit/(.*)", postEdit)
     web.Get(url + "posts/delete/(.*)", postDelete)
@@ -30,6 +36,7 @@ func AttachAdmin(url string) {
     web.Get(url + "pages/edit/(.*)", pageEdit)
     web.Post(url + "pages/edit/(.*)", pageEdit)
     web.Post(url + "pages/preview/", pagePreview)
+    web.Get(url + "pages/delete/(.*)", pageDelete)
     // notes
     web.Get(url + "notes/edit/", noteEdit)
     // web.Get(url + "/users/", usersList)
@@ -73,15 +80,13 @@ func logout(ctx *web.Context) string {
 }
 
 func adminIndex(ctx *web.Context) string {
-    if requireAuthentication(ctx) {
-        return ""
-    }
+    if requireAuthentication(ctx) { return "" }
     var posts []db.Post
     var unpublished []db.Post
     var pages []db.Page
-    db.Posts().Latest(dict{"published":1}).Limit(10).Iter().All(&posts)
-    db.Posts().Latest(dict{"published":0}).Limit(10).Iter().All(&unpublished)
-    db.Pages().C.Find(nil).Limit(10).Iter().All(&pages)
+    db.Posts().Latest(dict{"published":1}).Limit(indexListSize).Iter().All(&posts)
+    db.Posts().Latest(dict{"published":0}).Limit(indexListSize).Iter().All(&unpublished)
+    db.Pages().C.Find(nil).Limit(indexListSize).Iter().All(&pages)
 
     return adminBase.Render("admin/index.mustache", dict{
         "posts": posts, "unpublished": unpublished, "pages": pages})
@@ -106,15 +111,26 @@ func postEdit(ctx *web.Context, slug string) string {
         "IdHex": post.Id.Hex()})
 }
 
-func postAdd(ctx *web.Context) string {
-    if requireAuthentication(ctx) {
-        return ""
+func postList(ctx *web.Context, page string) string {
+    if requireAuthentication(ctx) { return "" }
+
+    pageNum := 1
+    if len(page) != 0 {
+        pageNum,_ = strconv.Atoi(page)
     }
+    fmt.Println("Listing page ", pageNum)
+
+    return ""
+}
+
+func postAdd(ctx *web.Context) string {
+    if requireAuthentication(ctx) { return "" }
     return adminBase.Render("admin/posts-edit.mustache", ctx.Params,
         dict{"Published": 0, "IsPublished": false})
 }
 
 func postAddPost(ctx *web.Context) string {
+    if requireAuthentication(ctx) { return "" }
     post := new(db.Post)
     post.FromParams(ctx.Params)
     post.Update()
@@ -124,22 +140,28 @@ func postAddPost(ctx *web.Context) string {
 }
 
 func postPreview(ctx *web.Context) string {
+    if requireAuthentication(ctx) { return "" }
     var post = new(db.Post)
     post.FromParams(ctx.Params)
     /* not sure the ettiquite here, RenderPost is defined in app.go */
     return RenderPost(post)
 }
 
-func postDelete(ctx *web.Context) string {
+func postDelete(ctx *web.Context, slug string) string {
+    if requireAuthentication(ctx) { return "" }
+    db.Posts().C.Remove(dict{"slug": slug})
+    ctx.Redirect(302, "/admin/")
     return ""
 }
 
 func pageAdd(ctx *web.Context) string {
     if requireAuthentication(ctx) { return "" }
+    ctx.Params["Url"] = strings.TrimLeft(ctx.Params["Url"], "/")
     return adminBase.Render("admin/pages-edit.mustache", ctx.Params)
 }
 
 func pageAddPost(ctx *web.Context) string {
+    if requireAuthentication(ctx) { return "" }
     var page = new(db.Page)
     page.FromParams(ctx.Params)
     page.Update()
@@ -165,16 +187,28 @@ func pageEdit(ctx *web.Context, url string) string {
 }
 
 func pagePreview(ctx *web.Context) string {
+    if requireAuthentication(ctx) { return "" }
     var page = new(db.Page)
     page.FromParams(ctx.Params)
     return template.RenderMarkdown(page.Content)
+}
+
+func pageDelete(ctx *web.Context, url string) string {
+    if requireAuthentication(ctx) { return "" }
+    db.Pages().C.Remove(dict{"url": url})
+    ctx.Redirect(302, "/admin/")
+    return ""
 }
 
 func noteEdit(ctx *web.Context) string {
     return ""
 }
 
-func noteAdd(ctx *web.Context) string {
+func noteAdd(ctx *web.Context, slug string) string {
+    return ""
+}
+
+func noteDelete(ctx *web.Context, slug string) string {
     return ""
 }
 

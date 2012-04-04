@@ -86,9 +86,14 @@ func Pages() *PageCursor {
 func (p *Post) Update() error {
     p.ContentRendered = template.RenderMarkdown(p.Content)
     if len(p.Id) > 0 {
+        fmt.Println("Updating using _id", p.Id)
         Posts().C.Update(bson.M{"_id": p.Id}, p)
     } else {
-        Posts().C.Upsert(bson.M{"slug": p.Slug}, p)
+        p.Id = bson.NewObjectId()
+        _,err := Posts().C.Upsert(bson.M{"slug": p.Slug}, p)
+        if err != nil {
+            fmt.Println(err)
+        }
     }
     return nil
 }
@@ -184,6 +189,7 @@ func (p *Page) Update() error {
     if len(p.Id) > 0 {
         Pages().C.Update(bson.M{"_id": p.Id}, p)
     } else {
+        p.Id = bson.NewObjectId()
         Pages().C.Upsert(bson.M{"url": p.Url}, p)
     }
     return nil

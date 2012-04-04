@@ -35,8 +35,15 @@ $(function() {
     });
     $(".post-title-input").blur(function() {
         var value = $(this).attr("value");
+        value = value.replace(/[^\w\s]/g, "");
         value = value.replace(/[^\w]+/g, "-").toLowerCase()
         $("#slug").attr("value", value);
+    });
+    /* ensure the slug is populated on load if it's empty */
+    $("#slug").each(function() {
+        if (!$(this).attr("value").length) {
+            $(".post-title-input").blur();
+        }
     });
     $(".published-toggle-button").click(function() {
         var $this = $(this);

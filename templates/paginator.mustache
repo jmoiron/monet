@@ -1,0 +1,8 @@
+<ul class="paginator">
+    {{#HasPrev}}<li class="prev"><a href="{{PrevPageUrl}}">Prev</a></li>{{/HasPrev}}
+{{#Pages}}
+    {{#HasUrl}}<li class="link"><a href="{{Url}}">{{Num}}</a></li>{{/HasUrl}}
+    {{^HasUrl}}<li class="num {{#Inter}}inter{{/Inter}}">{{Num}}</li>{{/HasUrl}}
+{{/Pages}}
+    {{#HasNext}}<li class="next"><a href="{{NextPageUrl}}">Next</a></li>{{/HasNext}}
+</ul>

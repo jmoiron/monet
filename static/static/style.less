@@ -11,11 +11,12 @@
 
 body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
 code,pre,b,strong { color: #111; }
+/*
 pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee; 
   &:hover { border-left: 10px solid @limey; background-color: #fbfbfb; }
-}
+}*/
 abbr { border-bottom: 1px dotted #aaa; }
-blockquote {  padding: 5px 10px; color: #888; text-decoration: oblique;
+pre, blockquote {  padding: 5px 10px; color: #888; text-decoration: oblique;
   border-left: 10px solid @limey;
   box-shadow: 2px 2px 3px #eee;
   p { margin: 0; }
@@ -127,7 +128,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .posts-form {
-  .post-title-input { font-weight: bold; font-size: 22px; }
+  .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
   .post-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
   .published {
     float: left;
@@ -143,7 +144,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .pages-form {
-  .page-url-input { font-weight: bold; font-size: 22px; }
+  .page-url-input { font-weight: bold; size: 22px; width: @site-width - 20px; }
   .page-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
 }
 

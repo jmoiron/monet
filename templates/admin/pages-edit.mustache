@@ -1,7 +1,7 @@
 
 <form method="POST" action="" class="pages-form">
     {{#Id}}<input type="hidden" name="id" id="id" value="{{IdHex}}" />{{/Id}}
-    <div><input type="text" name="url" id="url" class="page-url-input js-clear-default" value="{{#Url}}{{Url}}{{/Url}}{{^Url}}Type a new URL...{{/Url}}" data-default="Type a new URL..."></div>
+    <div><input type="text" name="url" id="url" class="page-url-input js-clear-default" value="{{#Url}}/{{Url}}{{/Url}}{{^Url}}Type a new URL...{{/Url}}" data-default="Type a new URL..."></div>
     <div><textarea class="page-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{#Content}}{{Content}}{{/Content}}{{^Content}}Type some new content...{{/Content}}</textarea></div>
     <div class="buttons">
         {{! <input class="more-button" type="button" value="More"> }}

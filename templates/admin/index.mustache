@@ -33,7 +33,7 @@
     <ul class="note-list list">
         <li><form method="GET" action="/admin/pages/add/"><input type="text" data-default="Type a new URL..." value="Type a new URL..." class="list-new js-clear-default" id="page-url" name="Url"></form></li>
     {{#pages}}
-        <li><a href="/admin/pages/edit/{{Url}}">{{Url}}</a></li>
+    <li><a href="/admin/pages/edit/{{Url}}">/{{Url}}</a> <a class="del" href="/admin/pages/delete/{{Url}}"><i class="icon icon-remove-sign"></i></a></li>
     {{/pages}}
     </ul>
 </div>

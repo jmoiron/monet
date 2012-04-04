@@ -51,7 +51,7 @@ func init() {
     }
     // defaults
     Config.WebHost = "0.0.0.0"
-    Config.WebPort = 4000
+    Config.WebPort = 7000
     Config.DbHost = "127.0.0.1"
     Config.DbPort = 0
     Config.DbName = "monet"

@@ -22,9 +22,17 @@ func AttachAdmin(url string) {
     web.Get(url + "login/", login)
     web.Post(url + "login/", login)
     web.Get(url + "logout/", logout)
+    // users
+    /*  too much unnecessary work? 
+    web.Get(url + "users/", userList)
+    web.Get(url + "users/edit/(.*)", userEdit)
+    web.Get(url + "users/delete/(.*)", userDelete)
+    web.Get(url + "users/add/", userAdd)
+    web.Post(url + "users/add/", userAddPost)
+    */
     // posts
-    web.Get(url + "posts/(\\d+)?", postList)
     web.Get(url + "unpublished/(\\d+)?", unpublishedList)
+    web.Get(url + "posts/(\\d+)?", postList)
     web.Get(url + "posts/edit/(.*)", postEdit)
     web.Post(url + "posts/edit/(.*)", postEdit)
     web.Get(url + "posts/delete/(.*)", postDelete)
@@ -38,11 +46,7 @@ func AttachAdmin(url string) {
     web.Post(url + "pages/edit/(.*)", pageEdit)
     web.Post(url + "pages/preview/", pagePreview)
     web.Get(url + "pages/delete/(.*)", pageDelete)
-    // notes
-    web.Get(url + "notes/edit/", noteEdit)
-    // web.Get(url + "/users/", usersList)
-    // web.Get(url + "/users/add/", usersAdd)
-    // web.Get(url + "/users/edit/", usersEdit)
+    web.Get(url + "pages/(\\d+)?", pageList)
 
     web.Get(url, adminIndex)
 }
@@ -241,16 +245,37 @@ func pageDelete(ctx *web.Context, url string) string {
     return ""
 }
 
-func noteEdit(ctx *web.Context) string {
-    return ""
-}
+func pageList(ctx *web.Context, page string) string {
+    if requireAuthentication(ctx) { return "" }
+    pageNum := 1
+    if len(page) != 0 { pageNum,_ = strconv.Atoi(page) }
 
-func noteAdd(ctx *web.Context, slug string) string {
-    return ""
-}
+    n := listPageSize
+    paginator := NewPaginator(pageNum, n)
+    paginator.Link = "/admin/pages/"
+    cursor := db.Pages().C
+    sort := dict{"url":1}
 
-func noteDelete(ctx *web.Context, slug string) string {
-    return ""
-}
+    var pages []db.Page
+    // do a search, if required, of title and content
+    var err error
+    var numObjects int
 
+    if len(ctx.Params["Search"]) > 0 {
+        term := dict{"$regex": ctx.Params["Search"]}
+        search := dict{"$or": []dict{dict{"url":term}, dict{"content":term}}}
+        err = cursor.Find(search).Sort(sort).Skip(paginator.Skip).Limit(n).All(&pages)
+        numObjects,_ = cursor.Find(search).Count()
+    } else {
+        err = cursor.Find(nil).Sort(sort).Skip(paginator.Skip).Limit(n).Iter().All(&pages)
+        numObjects,_ = cursor.Count()
+    }
+
+    if err != nil {
+        fmt.Println(err)
+    }
+
+    return adminBase.Render("admin/page-list.mustache", dict{
+        "Pages": pages, "Pagination": paginator.Render(numObjects)})
+}
 

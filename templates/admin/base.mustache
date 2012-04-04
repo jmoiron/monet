@@ -17,8 +17,12 @@
         <div class="footer">
           <div class="container">
             {{^login}}
+            <div class="user-controls">
+              <a href="/admin/users/">users <i class="icon icon-user"></i></a>
+            </div>
             <div class="admin-controls">
-              <a href="/admin/">back home</a> or <a href="/admin/logout/">logout</a>
+              <a href="/admin/">home <i class="icon icon-home"></i></a> or
+              <a href="/admin/logout/">logout <i class="icon icon-signout"></i></a>
             </div>
             {{/login}}
           </div>

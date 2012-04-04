@@ -16,7 +16,10 @@ import (
 var Session *mgo.Session
 var Db *mgo.Database
 
-type Model interface{}
+type Model interface {
+    Update() error
+    FromParams(map[string]string) error
+}
 
 // -- models --
 type Post struct {
@@ -52,10 +55,11 @@ type Page struct {
 }
 
 // -- cursors --
-type PostCursor struct { C *mgo.Collection }
-type UserCursor struct { C *mgo.Collection }
-type NoteCursor struct { C *mgo.Collection }
-type PageCursor struct { C *mgo.Collection }
+type Cursor struct { C *mgo.Collection }
+type PostCursor struct { Cursor }
+type UserCursor struct { Cursor }
+type NoteCursor struct { Cursor }
+type PageCursor struct { Cursor }
 
 func Posts() *PostCursor {
     p := new(PostCursor)

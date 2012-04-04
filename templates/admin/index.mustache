@@ -10,16 +10,6 @@
 </div>
 
 <div class="right-panel panel">
-    <h3><a href="/admin/notes/">Notes</a></h3>
-    <ul class="note-list shortlist">
-        <li><form method="GET" action="/admin/notes/add/"><input type="text" data-default="Type a new note..." value="Type a new note..." class="list-new js-clear-default" id="note-title" name="Title"></form></li>
-    {{#notes}}
-        <li><a href="/admin/notes/edit/{{Slug}}">{{Name}}</a></li>
-    {{/notes}}
-    </ul>
-</div>
-<div class="clear panel-sep"></div>
-<div class="left-panel panel">
     <h3><a href="/admin/unpublished/">Unpublished</a></h3>
     <ul class="post-list shortlist">
     {{#unpublished}}
@@ -27,9 +17,10 @@
     {{/unpublished}}
     </ul>
 </div>
+<div class="clear panel-sep"></div>
 
-<div class="right-panel panel">
-    <h3><a href="/admin/notes/">Pages</a></h3>
+<div class="left-panel panel">
+    <h3><a href="/admin/pages/">Pages</a></h3>
     <ul class="note-list shortlist">
         <li><form method="GET" action="/admin/pages/add/"><input type="text" data-default="Type a new URL..." value="Type a new URL..." class="list-new js-clear-default" id="page-url" name="Url"></form></li>
     {{#pages}}

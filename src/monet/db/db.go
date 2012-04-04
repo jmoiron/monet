@@ -169,10 +169,23 @@ func (p *PageCursor) Get(url string) *Page {
     return page
 }
 
+func (p *Page) FromParams(params map[string]string) error {
+    if len(params["id"]) > 0 {
+        p.Id = bson.ObjectIdHex(params["id"])
+    }
+    p.Content = params["content"]
+    p.Url = params["url"]
+    return nil
+}
+
 func (p *Page) Update() error {
     p.ContentRendered = template.RenderMarkdown(p.Content)
     p.Url = strings.TrimLeft(p.Url, "/")
-    Pages().C.Upsert(bson.M{"url": p.Url}, p)
+    if len(p.Id) > 0 {
+        Pages().C.Update(bson.M{"_id": p.Id}, p)
+    } else {
+        Pages().C.Upsert(bson.M{"url": p.Url}, p)
+    }
     return nil
 }
 

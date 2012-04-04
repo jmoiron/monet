@@ -1,3 +1,10 @@
+$.fn.center = function() {
+    var $window = $(window);
+    this.css("top", (($window.height() - this.outerHeight())/2) + "px");
+    this.css("left", (($window.width() - this.outerWidth())/2) + "px");
+    return this;
+}
+
 /* handle clearing default fields ... */
 $(function() {
     $(".js-clear-default").focus(function() {
@@ -44,5 +51,31 @@ $(function() {
             $this.removeClass("published-0").addClass("published-1");
         }
     });
+    $(".preview-button").click(function() {
+        var overlay = $("#overlay");
+        var form = $(this).parents("form")
+        if (overlay.length == 0) {
+            overlay = $("<div id=\"overlay\"></div>");
+            overlay.appendTo(document.body)
+        }
+        $.ajax({
+            type: "POST",
+            url: $(this).attr("data-url"),
+            data: form.serialize(),
+            success: function(data, status, xhr) {
+                var preview = $("<div id=\"preview-box\"></div>");
+                preview.appendTo(document.body);
+                preview.html(data);
+                overlay.fadeIn();
+                preview.center().fadeIn();
+                overlay.click(function() { overlay.fadeOut(); preview.fadeOut(); });
+            },
+            error: function(xhr, status, err) {
+
+            }
+        });
+    });
 });
+
+
 

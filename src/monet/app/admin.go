@@ -141,9 +141,7 @@ func pageAdd(ctx *web.Context) string {
 
 func pageAddPost(ctx *web.Context) string {
     var page = new(db.Page)
-    p := ctx.Params
-    page.Content = p["content"]
-    page.Url = p["url"]
+    page.FromParams(ctx.Params)
     page.Update()
     ctx.Redirect(302, "/admin/")
     return ""
@@ -160,16 +158,16 @@ func pageEdit(ctx *web.Context, url string) string {
         return ""
     }
     if len(ctx.Params) > 1 {
-        p := ctx.Params
-        page.Url = p["url"]
-        page.Content = p["content"]
+        page.FromParams(ctx.Params)
         page.Update()
     }
     return adminBase.Render("admin/pages-edit.mustache", page)
 }
 
 func pagePreview(ctx *web.Context) string {
-    return ""
+    var page = new(db.Page)
+    page.FromParams(ctx.Params)
+    return template.RenderMarkdown(page.Content)
 }
 
 func noteEdit(ctx *web.Context) string {

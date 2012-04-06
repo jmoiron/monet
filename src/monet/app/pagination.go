@@ -58,6 +58,9 @@ func (p *Paginator) Render(objCount int) string {
         p.HasNext = true
     }
     p.NumPages = int(math.Ceil(float64(objCount) / float64(p.PerPage)))
+    if p.Page > p.NumPages {
+        return ""
+    }
     context := p.Context(p.NumPages)
     links := []Link{}
     for _,c := range context {

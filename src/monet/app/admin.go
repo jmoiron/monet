@@ -139,7 +139,7 @@ func postList(ctx *web.Context, page string) string {
     } else {
         err = cursor.Latest(dict{"published":1}).Skip(paginator.Skip).
             Limit(n).Iter().All(&posts)
-        numObjects,_ = cursor.C.Count()
+        numObjects,_ = cursor.C.Find(dict{"published":1}).Count()
     }
 
     if err != nil {

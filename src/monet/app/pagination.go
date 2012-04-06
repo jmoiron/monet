@@ -57,7 +57,7 @@ func (p *Paginator) Render(objCount int) string {
     if p.End < objCount {
         p.HasNext = true
     }
-    p.NumPages = objCount / p.PerPage
+    p.NumPages = int(math.Ceil(float64(objCount) / float64(p.PerPage)))
     context := p.Context(p.NumPages)
     links := []Link{}
     for _,c := range context {
@@ -115,7 +115,7 @@ func (p *Paginator) Context(pageCount int) []string {
     if pageCount - padArea <= p.Page && p.Page <= pageCount {
         r := strRange(1, 3)
         r = append(r, p.Inter)
-        for _,s := range strRange(pageCount-middle-1, pageCount) {
+        for _,s := range strRange(pageCount-middle-1, pageCount+1) {
             r = append(r, s)
         }
         return r

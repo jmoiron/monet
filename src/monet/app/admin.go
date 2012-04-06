@@ -195,7 +195,11 @@ func postPreview(ctx *web.Context) string {
 func postDelete(ctx *web.Context, slug string) string {
     if requireAuthentication(ctx) { return "" }
     db.Posts().C.Remove(dict{"slug": slug})
-    ctx.Redirect(302, "/admin/")
+    referer := ctx.Request.Header.Get("referer")
+    if len(referer) == 0 {
+        referer = "/admin/"
+    }
+    ctx.Redirect(302, referer)
     return ""
 }
 
@@ -241,7 +245,11 @@ func pagePreview(ctx *web.Context) string {
 func pageDelete(ctx *web.Context, url string) string {
     if requireAuthentication(ctx) { return "" }
     db.Pages().C.Remove(dict{"url": url})
-    ctx.Redirect(302, "/admin/")
+    referer := ctx.Request.Header.Get("referer")
+    if len(referer) == 0 {
+        referer = "/admin/"
+    }
+    ctx.Redirect(302, referer)
     return ""
 }
 

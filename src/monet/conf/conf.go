@@ -1,9 +1,15 @@
 package conf
 
-import ("os"; "fmt")
+import (
+    "os"
+    "fmt"
+    "encoding/json"
+)
 
 type config struct {
     // serving options
+    Debug bool
+
     WebHost string "web address"
     WebPort int "web port"
 
@@ -35,7 +41,11 @@ func (c *config) DbHostString() string {
 func (c *config) String() string {
     s := "{\n"
     s += fmt.Sprintf("   Host: %s,\n", c.HostString())
+    s += fmt.Sprintf("   DB: %s,\n", c.DbHostString())
     s += fmt.Sprintf("   TemplatePaths: %s,\n", c.TemplatePaths)
+    s += fmt.Sprintf("   StaticPath: %s,\n", c.StaticPath)
+    s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
+    s += fmt.Sprintf("   Debug: %v\n", c.Debug)
     s += "}\n"
     return s
 }
@@ -45,10 +55,6 @@ func (c *config) AddTemplatePath(path string) {
 }
 
 func init() {
-    env_path := os.Getenv("MONET_CONFIG_PATH")
-    if env_path != "" {
-        Path = env_path
-    }
     // defaults
     Config.WebHost = "0.0.0.0"
     Config.WebPort = 7000
@@ -58,11 +64,28 @@ func init() {
     Config.StaticPath = "./static"
     Config.AddTemplatePath("./templates")
     Config.SessionSecret = "SECRET-KEY-SET-IN-CONFIG"
+    Config.Debug = false
     Config.TemplatePreCompile = true
+
+    Init(Path)
 }
 
 // post-flag initialize
-func Init() {
-    // FIXME: ghost defaults with the json file @ path
-
+func Init(path string) {
+    env_path := os.Getenv("MONET_CONFIG_PATH")
+    if env_path != "" {
+        Path = env_path
+    }
+    file, err := os.Open(Path)
+    if err != nil {
+        if len(env_path) > 1 {
+            fmt.Printf("Error: could not read config file %s.\n", Path)
+        }
+        return
+    }
+    decoder := json.NewDecoder(file)
+    err = decoder.Decode(Config)
+    if err != nil {
+        fmt.Printf("Error decoding file %s\n%s\n", Path, err)
+    }
 }

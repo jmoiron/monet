@@ -10,7 +10,7 @@ import (
     "github.com/russross/blackfriday"
 )
 
-type dict map[string]string
+type dict map[string]interface{}
 
 type Base struct {
     Path string
@@ -26,6 +26,9 @@ func (b *Base) Render(t string, c ...interface{}) string {
 }
 
 func Render(t string, c ...interface{}) string {
+    // add the Config to all of our template rendering
+    c = append(c, dict{"Debug": conf.Config.Debug})
+
     if conf.Config.TemplatePreCompile {
         template := templates[t]
         if template == nil {

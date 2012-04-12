@@ -296,4 +296,6 @@ func initCollection() {
     Db.C("posts").EnsureIndexKey([]string{"timestamp"})
     Db.C("users").EnsureIndexKey([]string{"username"})
     Db.C("pages").EnsureIndexKey([]string{"url"})
+    Db.C("stream").EnsureIndexKey([]string{"checksum"})
+    Db.C("stream").EnsureIndexKey([]string{"timestamp"})
 }

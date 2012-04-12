@@ -41,8 +41,24 @@ func page(ctx *web.Context, url string) string {
 }
 
 func index(s string) string {
-    post := db.Posts().LatestPost()
-    return template.Render("base.mustache", dict{"body": RenderPost(post)})
+    var post *db.Post
+    var posts []db.Post
+    var entries []db.StreamEntry
+
+    err := db.Posts().Latest(dict{"published":1}).Limit(7).All(&posts)
+    if err != nil {
+        fmt.Println(err)
+    }
+    err = db.Entries().Latest(nil).Limit(4).All(&entries)
+    if err != nil {
+        fmt.Println(err)
+    }
+
+    post = &posts[0]
+    return base.Render("index.mustache", dict{
+        "Post": RenderPost(post),
+        "Posts": posts[1:],
+        "Entries": entries})
 }
 
 func blogIndex() string {
@@ -71,7 +87,6 @@ func blogPage(page string) string {
 
 func blogDetail(ctx *web.Context, slug string) string {
     var post = new(db.Post)
-    fmt.Println(slug)
     err := db.Posts().C.Find(dict{"slug": slug}).One(&post)
     if err != nil {
         fmt.Println(err)
@@ -80,3 +95,4 @@ func blogDetail(ctx *web.Context, slug string) string {
     }
     return template.Render("base.mustache", dict{"body": RenderPost(post)})
 }
+

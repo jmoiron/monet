@@ -6,6 +6,7 @@ import (
     "strings"
     "strconv"
     "time"
+    "encoding/json"
     "monet/conf"
     "monet/template"
     "crypto/sha1"
@@ -15,6 +16,7 @@ import (
 
 var Session *mgo.Session
 var Db *mgo.Database
+type dict map[string]interface{}
 
 type Model interface {
     Update() error
@@ -54,12 +56,25 @@ type Page struct {
     ContentRendered string
 }
 
+type StreamEntry struct {
+    Id bson.ObjectId "_id"
+    SourceId string
+    Url string
+    Type string
+    Title string
+    Data string
+    SummaryRendered string
+    ContentRendered string
+    Timestamp uint64
+}
+
 // -- cursors --
 type Cursor struct { C *mgo.Collection }
 type PostCursor struct { Cursor }
 type UserCursor struct { Cursor }
 type NoteCursor struct { Cursor }
 type PageCursor struct { Cursor }
+type StreamCursor struct { Cursor }
 
 func Posts() *PostCursor {
     p := new(PostCursor)
@@ -82,6 +97,12 @@ func Notes() *NoteCursor {
 func Pages() *PageCursor {
     p := new(PageCursor)
     p.C = Db.C("pages")
+    return p
+}
+
+func Entries() *StreamCursor {
+    p := new(StreamCursor)
+    p.C = Db.C("stream")
     return p
 }
 
@@ -134,7 +155,7 @@ func (p *Post) FromParams(params map[string]string) error {
 }
 
 func (p *PostCursor) Latest(query interface{}) *mgo.Query {
-    return p.C.Find(query).Sort(bson.M{"timestamp":0})
+    return p.C.Find(query).Sort(bson.M{"timestamp":-1})
 }
 
 func (p *PostCursor) LatestPost() *Post {
@@ -210,6 +231,50 @@ func (p *Page) Update() error {
         Pages().C.Upsert(bson.M{"url": p.Url}, p)
     }
     return nil
+}
+
+// entries
+
+func (s *StreamCursor) Latest(query interface{}) *mgo.Query {
+    return s.C.Find(query).Sort(bson.M{"timestamp":-1})
+}
+
+func (e *StreamEntry) Update() error {
+    if len(e.Id) > 0 {
+        fmt.Println("Updating using _id", e.Id)
+        Entries().C.Update(bson.M{"_id": e.Id}, e)
+    } else {
+        e.Id = bson.NewObjectId()
+        _,err := Entries().C.Upsert(bson.M{"slug": e.SourceId, "type": e.Type}, e)
+        if err != nil {
+            fmt.Println(err)
+        }
+    }
+    return nil
+}
+
+func (e StreamEntry) SummaryRender() string {
+    if len(e.SummaryRendered) > 0 {
+        return e.SummaryRendered
+    }
+    var ret string
+    var data dict
+    b := []byte(e.Data)
+    json.Unmarshal(b, &data)
+    template_name := fmt.Sprintf("%s-summary.mustache", e.Type)
+    if e.Type == "twitter" {
+        ret = template.Render(template_name, dict{"Entry": e, "Tweet": data["tweet"]})
+    } else if e.Type == "github" {
+        event := data["event"].(map[string]interface{})
+        hash := event["id"].(string)[:8]
+        ret = template.Render(template_name, dict{"Entry": e,
+            "Event": event, "Hash": hash})
+    } else if e.Type == "bitbucket" {
+        ret = template.Render(template_name, dict{"Entry": e, "Data": data})
+    }
+    e.SummaryRendered = ret
+    e.Update()
+    return ret
 }
 
 func Connect() {

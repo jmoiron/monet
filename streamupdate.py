@@ -23,7 +23,8 @@ md5sum = lambda x: md5(x).hexdigest()
 cachemax = 2591999
 
 tmp = "/dev/shm/"
-config = json.load(open("config.json"))
+moddir = os.path.dirname(__file__)
+config = json.load(open(os.path.join(moddir, "config.json")))
 
 host = config.get("DbHost", "localhost")
 port = config.get("DbPort", 27017)

@@ -172,6 +172,8 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .footer .link-icons .yc{font-family:"Open Sans";border:1px solid;padding:0px 5px;font-size:16px;line-height:18px;}.footer .link-icons .yc:hover{color:#278cfe;}
 .footer .admin-controls{float:right;text-align:right;color:#aaa;font-size:14px;}
 .footer .user-controls{float:left;text-align:right;color:#aaa;font-size:14px;}
+.left-panel{float:left;width:310px;}
+.right-panel{float:right;width:310px;}
 .admin ul.shortlist{list-style:none;margin:0;padding:5px 0;}.admin ul.shortlist li{padding:5px;}.admin ul.shortlist li a{padding:5px 10px;margin-left:5px;}
 .admin ul.shortlist li a.del{padding:0;margin-top:-1px;display:none;float:right;font-size:22px;}
 .admin ul.shortlist li:hover a.del{display:inline-block;color:#999;}.admin ul.shortlist li:hover a.del:hover{color:#fa2a00;}
@@ -181,8 +183,6 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .admin .panel-sep{height:1em;border-bottom:1px solid #fbfbfb;margin-bottom:1em;}
 .admin .panel{color:#999;}.admin .panel a{color:#999;}.admin .panel a:visited{color:#999999;}
 .admin .panel:hover a{color:#000;}.admin .panel:hover a:hover{color:#0166d7;}
-.admin .left-panel{float:left;width:310px;}
-.admin .right-panel{float:right;width:310px;}
 .admin .list-new{font-size:18px;color:#999;}
 .admin input,.admin textarea{font-family:"Open Sans";padding:10px;border:0;font-size:16px;line-height:24px;}
 .login-form{width:310px;margin:0 auto;}.login-form label{width:80px;display:inline-block;}
@@ -213,3 +213,14 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .paginator{text-align:center;margin:1em 0;padding:0;list-style:none;}.paginator li{display:inline-block;}.paginator li a{padding:3px 8px;border:1px solid #0166d7;}.paginator li a:hover{background-color:#278cfe;color:white;text-shadow:2px 2px #015abd;}
 .paginator li.num{padding:1px 9px;border:1px solid #ccc;}.paginator li.num:hover{background-color:#eee;text-shadow:1px 1px 2px #bbbbbb;}
 .paginator li.inter{border:0;}.paginator li.inter:hover{background-color:transparent;text-shadow:none;}
+.bottom-panel{margin-top:2em;padding-top:2em;}
+.summary{border-top:1px solid #eee;}.summary h3{color:#111;display:none;}
+.summary .date{float:none;color:#ccc;font-size:12px;}
+.summary ul{margin:0;padding-left:10px;list-style:none;}
+.summary li{margin-left:0;padding:5px 0;}.summary li a{color:#000;font-weight:normal;}.summary li a:hover{color:#278cfe;}
+.summary li:hover .date{color:#777;}
+.summary .right-panel h3{text-align:right;}
+.entry .icon{color:#999;}.entry .icon:hover{color:#278cfe;}
+.entry:hover .icon{color:#222;}.entry:hover .icon:hover{color:#278cfe;}
+.entry.twitter{font-size:16px;}
+.entry.github .message{font-size:12px;color:#555;line-height:18px;}

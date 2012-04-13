@@ -177,7 +177,9 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 
 .bottom-panel {
   margin-top: 2em;
-  padding-top: 2em;
+  padding: 1em 0;
+  margin-bottom: -2em;
+  background-color: #fbfbfb;
   //border-top: 1px solid #eee;
 }
 
@@ -185,7 +187,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   border-top: 1px solid #eee;
   h3 { color: #111; display: none; }
   .date { float: none; color: #ccc; font-size: 12px; }
-  ul { margin: 0; padding-left: 10px; list-style: none; }
+  ul { margin: 0; padding: 0; list-style: none; }
   li { margin-left: 0; padding: 5px 0; 
     a { color: #000; font-weight: normal;
         &:hover { color: @bluehover; }
@@ -197,6 +199,8 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   .right-panel h3 {
     text-align: right;
   }
+  .left-panel ul { padding-left: 10px; }
+  .right-panel ul { padding-right: 5px; }
 }
 
 .entry {

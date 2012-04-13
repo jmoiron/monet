@@ -225,13 +225,15 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .paginator{text-align:center;margin:1em 0;padding:0;list-style:none;}.paginator li{display:inline-block;}.paginator li a{padding:3px 8px;border:1px solid #0166d7;}.paginator li a:hover{background-color:#278cfe;color:white;text-shadow:2px 2px #015abd;}
 .paginator li.num{padding:1px 9px;border:1px solid #ccc;}.paginator li.num:hover{background-color:#eee;text-shadow:1px 1px 2px #bbbbbb;}
 .paginator li.inter{border:0;}.paginator li.inter:hover{background-color:transparent;text-shadow:none;}
-.bottom-panel{margin-top:2em;padding-top:2em;}
+.bottom-panel{margin-top:2em;padding:1em 0;margin-bottom:-2em;background-color:#fbfbfb;}
 .summary{border-top:1px solid #eee;}.summary h3{color:#111;display:none;}
 .summary .date{float:none;color:#ccc;font-size:12px;}
-.summary ul{margin:0;padding-left:10px;list-style:none;}
+.summary ul{margin:0;padding:0;list-style:none;}
 .summary li{margin-left:0;padding:5px 0;}.summary li a{color:#000;font-weight:normal;}.summary li a:hover{color:#278cfe;}
 .summary li:hover .date{color:#777;}
 .summary .right-panel h3{text-align:right;}
+.summary .left-panel ul{padding-left:10px;}
+.summary .right-panel ul{padding-right:5px;}
 .entry .icon{color:#999;}.entry .icon:hover{color:#278cfe;}
 .entry:hover .icon{color:#222;}.entry:hover .icon:hover{color:#278cfe;}
 .entry.twitter{font-size:16px;}

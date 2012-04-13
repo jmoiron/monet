@@ -2,8 +2,12 @@
 <html>
     <head>
         <link rel="stylesheet" href="/static/open-sans.css">
+        {{#Debug}}
         <link rel="stylesheet/less" href="/static/style.less">
         <script src="/static/js/less.js"></script>
+        {{/Debug}}{{^Debug}}
+        <link rel="stylesheet" href="/static/style.css">
+        {{/Debug}}
         <script src="/static/js/jquery.js"></script>
         <script src="/static/js/admin.js"></script>
         <title>{{title}}</title>

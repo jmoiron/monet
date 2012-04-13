@@ -61,28 +61,39 @@ func index(s string) string {
         "Entries": entries})
 }
 
-func blogIndex() string {
-    return blogPage("1")
+func blogIndex(ctx *web.Context) string {
+    return blogPage(ctx, "1")
 }
 
-func blogPage(page string) string {
+func blogPage(ctx *web.Context, page string) string {
     pn,_ := strconv.Atoi(page)
-    perPage := 10
+    perPage := 15
     paginator := NewPaginator(pn, perPage)
     paginator.Link = "/blog/page/"
+    cursor := db.Posts()
 
     var posts []db.Post
-    err := db.Posts().Latest(dict{"published":1}).Skip(paginator.Skip).Limit(10).Iter().All(&posts)
+    // do a search, if required, of title and content
+    var err error
+    var numObjects int
+
+    if len(ctx.Params["Search"]) > 0 {
+        term := dict{"$regex": ctx.Params["Search"]}
+        search := dict{"published":1, "$or": []dict{dict{"title":term}, dict{"content":term}}}
+        err = cursor.Latest(search).Skip(paginator.Skip).Limit(perPage).All(&posts)
+        numObjects,_ = cursor.Latest(search).Count()
+    } else {
+        err = cursor.Latest(dict{"published":1}).Skip(paginator.Skip).
+            Limit(perPage).Iter().All(&posts)
+        numObjects,_ = cursor.C.Find(dict{"published":1}).Count()
+    }
+
     if err != nil {
         fmt.Println(err)
     }
-    numObjects,_ := db.Posts().C.Count()
-    rendered := []dict{}
-    for _,p := range posts {
-        rendered = append(rendered, dict{"Body": RenderPost(&p)})
-    }
-    return base.Render("post-list.mustache", dict{
-        "Posts": rendered, "Pagination": paginator.Render(numObjects)})
+
+    return base.Render("blog-index.mustache", dict{
+        "Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
 func blogDetail(ctx *web.Context, slug string) string {

@@ -23,6 +23,14 @@ pre, blockquote {  padding: 5px 10px; color: #888; text-decoration: oblique;
   box-shadow: 2px 2px 3px #eee;
   p { margin: 0; }
 }
+
+.content form {
+  input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+  input.search { width: @site-width - 20px; color: #aaa;
+    &:hover, &:active { color: #333; }
+  }
+}
+
 h1 { text-align: center; font-size: 48px; 
   margin-bottom: 0.75em;
   span { display: block; margin-top: 1em; color: #ccc; font-size: 14px; font-weight: normal; }
@@ -73,25 +81,36 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 .left-panel { float: left; width: (@site-width/2); }
 .right-panel { float: right; width: (@site-width/2); }
 
-.admin {
+.content {
   ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
     li { padding: 5px;
-      a { padding: 5px 10px; margin-left: 5px; }
-      a.del { padding: 0; margin-top: -1px; display:none; float: right; font-size: 22px}
-      &:hover {
-        a.del { display: inline-block; color: #999; 
-          &:hover { color: #fa2a00; }
-        }
+      a { color: #000; padding: 5px 10px; margin-left: 5px;
+        &:hover { color: @bluehover; }
+      }
+      &:hover .date { color: #555; }
+    }
+  }
+}
+
+.admin {
+ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
+  li { padding: 5px;
+    a { padding: 5px 10px; margin-left: 5px; }
+    a.del { padding: 0; margin-top: -1px; display:none; float: right; font-size: 22px}
+    &:hover {
+      a.del { display: inline-block; color: #999; 
+        &:hover { color: #fa2a00; }
       }
     }
   }
-  ul.listpage {
-    a { color: #000; &:hover { color: @bluelink; }}
-    li {
-      span.date { margin-right: 32px; }
-      &:hover { span.date { margin-right: 0; }}
-    }
+}
+ul.listpage {
+  a { color: #000; &:hover { color: @bluelink; }}
+  li {
+    span.date { margin-right: 32px; }
+    &:hover { span.date { margin-right: 0; }}
   }
+}
   .panel-sep { height: 1em; border-bottom: 1px solid #fbfbfb; margin-bottom: 1em; }
   .panel { color: #999;
     a { color: #999; &:visited { color: #999 }}

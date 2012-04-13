@@ -148,6 +148,18 @@ li[class^="icon-"].icon-large:before,li[class*=" icon-"].icon-large:before{text-
 .icon-github-sign:before{content:"\f092";}
 .icon-upload-alt:before{content:"\f093";}
 .icon-lemon:before{content:"\f094";}
+.com{color:#93a1a1;}
+.lit{color:#195f91;}
+.pun,.opn,.clo{color:#93a1a1;}
+.fun{color:#dc322f;}
+.str,.atv{color:#D14;}
+.kwd,.linenums .tag{color:#1e347b;}
+.typ,.atn,.dec,.var{color:teal;}
+.pln{color:#48484c;}
+.prettyprint{overflow-x:auto;padding:8px;font-size:14px;line-height:22px;background-color:#f7f7f9;border:1px solid #e1e1e8;border-radius:4px;}
+.prettyprint.linenums{-webkit-box-shadow:inset 40px 0 0 #fbfbfc, inset 41px 0 0 #ececf0;-moz-box-shadow:inset 40px 0 0 #fbfbfc, inset 41px 0 0 #ececf0;box-shadow:inset 40px 0 0 #fbfbfc, inset 41px 0 0 #ececf0;}
+ol.linenums{margin:0;padding:0;margin:0 0 0 33px;list-style:decimal;}
+ol.linenums li{padding:1px 0;padding-left:12px;color:#bebec5;line-height:18px;text-shadow:0 1px 0 #fff;}
 #overlay{position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;opacity:0.75;z-index:100;display:none;}
 #preview-box{position:fixed;width:640px;height:640px;display:none;z-index:110;background-color:#fff;padding:30px;border-radius:5px;box-shadow:3px 3px 5px #000;overflow-y:scroll;}
 body{font-family:"Open Sans",helvetica,sans-serif;padding:0;margin:0;color:#444;}

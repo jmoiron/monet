@@ -5,8 +5,8 @@ $.fn.center = function() {
     return this;
 }
 
-/* handle clearing default fields ... */
 $(function() {
+    /* handle clearing default fields ... */
     $(".js-clear-default").focus(function() {
         var $this = $(this);
         if ($this.is("textarea")) {

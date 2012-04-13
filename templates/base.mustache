@@ -8,9 +8,12 @@
         {{/Debug}}{{^Debug}}
         <link rel="stylesheet" href="/static/style.css">
         {{/Debug}}
+        <script src="/static/js/jquery.js"></script>
+        <script src="/static/js/frontend.js"></script>
+        <script src="/static/js/prettify.js"></script>
         <title>{{title}}</title>
     </head>
-    <body>
+    <body onload="prettyPrint();">
         <div class="content">
             <div class="container">
                 <h1><a href="/">jmoiron</a> <span class="sub">plays the blues</span></h1>

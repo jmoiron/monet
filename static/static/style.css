@@ -166,8 +166,8 @@ body{font-family:"Open Sans",helvetica,sans-serif;padding:0;margin:0;color:#444;
 code,pre,b,strong{color:#111;}
 abbr{border-bottom:1px dotted #aaa;}
 pre,blockquote{padding:5px 10px;color:#888;text-decoration:oblique;border-left:10px solid #c5e124;box-shadow:2px 2px 3px #eee;}pre p,blockquote p{margin:0;}
-.content form input,.content form textarea{font-family:"Open Sans";padding:10px;border:0;font-size:16px;line-height:24px;}
-.content form input.search{width:600px;color:#aaa;}.content form input.search:hover,.content form input.search:active{color:#333;}
+.frontend form input,.frontend form textarea{font-family:"Open Sans";padding:10px;border:0;font-size:16px;line-height:24px;}
+.frontend form input.search{width:600px;color:#aaa;}.frontend form input.search:hover,.frontend form input.search:active{color:#333;}
 h1{text-align:center;font-size:48px;margin-bottom:0.75em;}h1 span{display:block;margin-top:1em;color:#ccc;font-size:14px;font-weight:normal;}
 .content{background-color:#fff;border-top:10px solid #eee;}
 .container{width:620px;margin:0 auto;padding:2em 0;font-size:16px;line-height:26px;}
@@ -188,8 +188,8 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .footer .user-controls{float:left;text-align:right;color:#aaa;font-size:14px;}
 .left-panel{float:left;width:310px;}
 .right-panel{float:right;width:310px;}
-.content ul.shortlist{list-style:none;margin:0;padding:5px 0;}.content ul.shortlist li{padding:5px;}.content ul.shortlist li a{color:#000;padding:5px 10px;margin-left:5px;}.content ul.shortlist li a:hover{color:#278cfe;}
-.content ul.shortlist li:hover .date{color:#555;}
+.frontend ul.shortlist{list-style:none;margin:0;padding:5px 0;}.frontend ul.shortlist li{padding:5px;}.frontend ul.shortlist li a{color:#000;padding:5px 10px;margin-left:5px;}.frontend ul.shortlist li a:hover{color:#278cfe;}
+.frontend ul.shortlist li:hover .date{color:#555;}
 .admin ul.shortlist{list-style:none;margin:0;padding:5px 0;}.admin ul.shortlist li{padding:5px;}.admin ul.shortlist li a{padding:5px 10px;margin-left:5px;}
 .admin ul.shortlist li a.del{padding:0;margin-top:-1px;display:none;float:right;font-size:22px;}
 .admin ul.shortlist li:hover a.del{display:inline-block;color:#999;}.admin ul.shortlist li:hover a.del:hover{color:#fa2a00;}

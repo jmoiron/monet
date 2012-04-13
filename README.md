@@ -1,4 +1,6 @@
-Learning Go by writing a blog.  This blog is written in Go1.  Since I am a beginner, the code might not be idiomatic, but I try.
+The code in this repository powers [jmoiron.net](http://jmoiron.net).
+
+I learned Go as I wrote this blog.  Since I am a beginner, the code might not be idiomatic, but I try.
 
 Uses markdown blog posts stored in mongodb, rendered by mustache templates.
 

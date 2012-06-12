@@ -156,7 +156,7 @@ class GithubStream(object):
             if db.stream.find({"type":"github", "sourceid":sourceid}).count():
                 continue
 
-            timestamp = int(time.mktine(to_datetime(repo["created_at"]).timetuple()))
+            timestamp = int(time.mktime(to_datetime(repo["created_at"]).timetuple()))
             entry = {
                 "sourceid": sourceid,
                 "type": "github",

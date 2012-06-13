@@ -146,7 +146,7 @@ class GithubStream(object):
         from github import Github, to_datetime
         from argot import utils
         username = args["username"]
-        self.handle = Github(username=username, token=args["token"])
+        self.handle = Github(username=username)
 
         repos = self.get_repos(username, all=all)
         commits = self.get_commits(username, repos, all=all)

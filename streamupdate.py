@@ -138,7 +138,7 @@ class GithubStream(object):
             for commit in commits:
                 commit['repository'] = repo
                 commit['event'] = 'commit'
-            commits = [c for c in commits if c['committer']['login'] == user.username]
+            commits = [c for c in commits if c['committer'] and c['committer']['login'] == user.username]
             all_commits += commits
         return all_commits
 

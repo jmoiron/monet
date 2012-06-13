@@ -168,20 +168,20 @@ class GithubStream(object):
             db.stream.save(entry)
 
         for commit in commits:
-            sourceid = str(commit["id"])
+            sourceid = str(commit["sha"])
             if db.stream.find({"sourceid": sourceid}).count():
                 continue
 
             entry = {"type":"github", "sourceid":sourceid}
-            timestamp = int(time.mktime(to_datetime(commit["committed_date"]).timetuple()))
+            timestamp = int(time.mktime(to_datetime(commit["commit"]["author"]["date"]).timetuple()))
             # This might block for some time:
-            details = self.handle.repository(username, commit['repository']['name']).commit(commit['id'])
+            details = self.handle.repository(username, commit['repository']['name']).commit(commit["sha"])
             commit.update(details)
             for mod in commit.get('modified', []):
                 mod['htmldiff'] = utils.pygmentize(mod['diff'], 'diff', cssclass="diff")
 
             entry["timestamp"] = timestamp
-            entry["title"] = "committed %s to %s" % (commit['id'], commit['repository']['name'])
+            entry["title"] = "committed %s to %s" % (commit["sha"], commit['repository']['name'])
             entry["url"] = 'https://github.com%s' % commit['url']
             entry["data"] = json.dumps({'event' : commit})
             db.stream.save(entry)

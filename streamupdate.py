@@ -221,7 +221,7 @@ def get_detailed_updates(user, limit=50):
     ret.sort(key=lambda item: item['created_on'], reverse=True)
     return ret[:limit] if limit > 0 else ret
 
-class BitbucketPlugin(BasePlugin):
+class BitbucketPlugin(object):
     settings = stream_settings.get('bitbucket', {})
     tag = 'bitbucket'
 

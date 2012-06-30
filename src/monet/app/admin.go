@@ -5,7 +5,7 @@ import (
     "strings"
     "strconv"
     "monet/db"
-    "github.com/hoisie/web.go"
+    "github.com/hoisie/web"
     "monet/template"
     "monet/conf"
     "code.google.com/p/gorilla/sessions"

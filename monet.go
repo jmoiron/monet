@@ -1,7 +1,7 @@
 package main
 
 import (
-    "github.com/hoisie/web.go"
+    "github.com/hoisie/web"
     "monet/template"
     "monet/conf"
     "monet/app"

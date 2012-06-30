@@ -3,7 +3,7 @@ package app
 import (
     "fmt"
     "strconv"
-    "github.com/hoisie/web.go"
+    "github.com/hoisie/web"
     "monet/template"
     "monet/db"
 )

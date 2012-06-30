@@ -10,8 +10,8 @@ import (
     "monet/conf"
     "monet/template"
     "crypto/sha1"
-    "launchpad.net/mgo"
-    "launchpad.net/mgo/bson"
+    "labix.org/v1/mgo"
+    "labix.org/v1/mgo/bson"
 )
 
 var Session *mgo.Session

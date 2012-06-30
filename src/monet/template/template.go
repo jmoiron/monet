@@ -6,7 +6,7 @@ import (
     "strings"
     "monet/conf"
     "path/filepath"
-    "github.com/hoisie/mustache.go"
+    "github.com/hoisie/mustache"
     "github.com/russross/blackfriday"
 )
 

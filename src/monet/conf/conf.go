@@ -1,91 +1,91 @@
 package conf
 
 import (
-    "os"
-    "fmt"
-    "encoding/json"
+	"encoding/json"
+	"fmt"
+	"os"
 )
 
 type config struct {
-    // serving options
-    Debug bool
+	// serving options
+	Debug bool
 
-    WebHost string "web address"
-    WebPort int "web port"
+	WebHost string "web address"
+	WebPort int    "web port"
 
-    SessionSecret string
+	SessionSecret string
 
-    StaticPath string
-    TemplatePaths []string
-    TemplatePreCompile bool
+	StaticPath         string
+	TemplatePaths      []string
+	TemplatePreCompile bool
 
-    DbHost string
-    DbPort int
-    DbName string
+	DbHost string
+	DbPort int
+	DbName string
 }
 
 var Path = "./config.json"
 var Config = new(config)
 
 func (c *config) HostString() string {
-    return fmt.Sprintf("%s:%d", c.WebHost, c.WebPort)
+	return fmt.Sprintf("%s:%d", c.WebHost, c.WebPort)
 }
 
 func (c *config) DbHostString() string {
-    if c.DbPort > 0 {
-        return fmt.Sprintf("mongodb://%s:%d", c.DbHost, c.DbPort)
-    }
-    return fmt.Sprintf("mongodb://%s", c.DbHost)
+	if c.DbPort > 0 {
+		return fmt.Sprintf("mongodb://%s:%d", c.DbHost, c.DbPort)
+	}
+	return fmt.Sprintf("mongodb://%s", c.DbHost)
 }
 
 func (c *config) String() string {
-    s := "{\n"
-    s += fmt.Sprintf("   Host: %s,\n", c.HostString())
-    s += fmt.Sprintf("   DB: %s,\n", c.DbHostString())
-    s += fmt.Sprintf("   TemplatePaths: %s,\n", c.TemplatePaths)
-    s += fmt.Sprintf("   StaticPath: %s,\n", c.StaticPath)
-    s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
-    s += fmt.Sprintf("   Debug: %v\n", c.Debug)
-    s += "}\n"
-    return s
+	s := "{\n"
+	s += fmt.Sprintf("   Host: %s,\n", c.HostString())
+	s += fmt.Sprintf("   DB: %s,\n", c.DbHostString())
+	s += fmt.Sprintf("   TemplatePaths: %s,\n", c.TemplatePaths)
+	s += fmt.Sprintf("   StaticPath: %s,\n", c.StaticPath)
+	s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
+	s += fmt.Sprintf("   Debug: %v\n", c.Debug)
+	s += "}\n"
+	return s
 }
 
 func (c *config) AddTemplatePath(path string) {
-    c.TemplatePaths = append(c.TemplatePaths, path)
+	c.TemplatePaths = append(c.TemplatePaths, path)
 }
 
 func init() {
-    // defaults
-    Config.WebHost = "0.0.0.0"
-    Config.WebPort = 7000
-    Config.DbHost = "127.0.0.1"
-    Config.DbPort = 0
-    Config.DbName = "monet"
-    Config.StaticPath = "./static"
-    Config.AddTemplatePath("./templates")
-    Config.SessionSecret = "SECRET-KEY-SET-IN-CONFIG"
-    Config.Debug = false
-    Config.TemplatePreCompile = true
+	// defaults
+	Config.WebHost = "0.0.0.0"
+	Config.WebPort = 7000
+	Config.DbHost = "127.0.0.1"
+	Config.DbPort = 0
+	Config.DbName = "monet"
+	Config.StaticPath = "./static"
+	Config.AddTemplatePath("./templates")
+	Config.SessionSecret = "SECRET-KEY-SET-IN-CONFIG"
+	Config.Debug = false
+	Config.TemplatePreCompile = true
 
-    Init(Path)
+	Init(Path)
 }
 
 // post-flag initialize
 func Init(path string) {
-    env_path := os.Getenv("MONET_CONFIG_PATH")
-    if env_path != "" {
-        Path = env_path
-    }
-    file, err := os.Open(Path)
-    if err != nil {
-        if len(env_path) > 1 {
-            fmt.Printf("Error: could not read config file %s.\n", Path)
-        }
-        return
-    }
-    decoder := json.NewDecoder(file)
-    err = decoder.Decode(Config)
-    if err != nil {
-        fmt.Printf("Error decoding file %s\n%s\n", Path, err)
-    }
+	env_path := os.Getenv("MONET_CONFIG_PATH")
+	if env_path != "" {
+		Path = env_path
+	}
+	file, err := os.Open(Path)
+	if err != nil {
+		if len(env_path) > 1 {
+			fmt.Printf("Error: could not read config file %s.\n", Path)
+		}
+		return
+	}
+	decoder := json.NewDecoder(file)
+	err = decoder.Decode(Config)
+	if err != nil {
+		fmt.Printf("Error decoding file %s\n%s\n", Path, err)
+	}
 }

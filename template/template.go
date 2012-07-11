@@ -3,8 +3,8 @@ package template
 import (
 	"fmt"
 	"github.com/hoisie/mustache"
+	"github.com/jmoiron/monet/conf"
 	"github.com/russross/blackfriday"
-	"monet/conf"
 	"os"
 	"path/filepath"
 	"strings"

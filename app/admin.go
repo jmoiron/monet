@@ -4,9 +4,9 @@ import (
 	"code.google.com/p/gorilla/sessions"
 	"fmt"
 	"github.com/hoisie/web"
-	"monet/conf"
-	"monet/db"
-	"monet/template"
+	"github.com/jmoiron/monet/conf"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/template"
 	"strconv"
 	"strings"
 )

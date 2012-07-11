@@ -3,8 +3,8 @@ package app
 /* pagination helpers; ported from python code in github.com/jmoiron/jmoiron.net */
 
 import (
+	"github.com/jmoiron/monet/template"
 	"math"
-	"monet/template"
 	"strconv"
 )
 

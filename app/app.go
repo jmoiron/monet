@@ -3,8 +3,8 @@ package app
 import (
 	"fmt"
 	"github.com/hoisie/web"
-	"monet/db"
-	"monet/template"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/template"
 	"strconv"
 )
 

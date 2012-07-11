@@ -3,10 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/hoisie/web"
-	"monet/app"
-	"monet/conf"
-	"monet/db"
-	"monet/template"
+	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/conf"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/template"
 )
 
 func main() {

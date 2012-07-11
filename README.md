@@ -1,4 +1,4 @@
-## Preface
+### Preface
 
 The code in this repository powers [jmoiron.net](http://jmoiron.net).
 
@@ -9,7 +9,7 @@ things properly.  This includes:
 * the package is `go get` able
 * all code follows `go fmt` default conventions
 
-## Features
+### Features
 
 `monet` provides a website with:
 
@@ -21,11 +21,11 @@ The blog and flatpages are written in markdown and stored in mongodb.  The site
 itself is rendered via mustache templates, which when the `Debug` configuration
 option is `False` get cached.
 
-## Building
+### Building
 
 To build:
 
-`go get github.com/jmoiron/monet/`
+    go get github.com/jmoiron/monet/
 
 This will install the `monet` command, which is a webserver that takes a config
 file as an argument (defaults to `./config.json`) and runs a webserver on the

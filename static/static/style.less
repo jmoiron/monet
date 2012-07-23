@@ -4,6 +4,7 @@
 @site-width: 620px;
 @limey: darken(#D1E751, 10%);
 @rawrind: #C4E661;
+@twitter: #00aced;
 
 @import "font-awesome.less";
 @import "prettify.less";
@@ -232,3 +233,27 @@ ul.listpage {
     .message { font-size: 12px; color: #555; line-height: 18px; }
   }
 }
+.entries .entry {
+  padding: .75em 1em;
+  border-bottom: 1px solid #eee;
+  &:hover { color: #000; }
+  
+  i.icon { font-size: 32px; display: inline-block; float: left; padding: 0 0.25em;  }
+
+  &.github {
+    i.icon { color: black; &:hover { color: #444; }}
+  }
+  &.twitter {
+    i.icon { color: @twitter;  &:hover { color: @twitter + #222; }}
+  }
+
+  &.github {
+      font-size: 16px;
+      .message { font-size: 16px; color: inherit; }
+  }
+}
+.entry-container { clear: both; }
+
+.entry-container:last-child .entry { border-bottom: 0px; }
+.entry-container:nth-child(even) .entry { background-color: #fbfbfb; }
+

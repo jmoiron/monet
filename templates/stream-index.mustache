@@ -2,10 +2,12 @@
 
 <form action="/stream/" method="GET"><input type="text" name="Search" class="search js-clear-default" data-default="Search the stream..." value="{{#Search}}{{Search}}{{/Search}}{{^Search}}Search the stream...{{/Search}}"></form>
 
-{{#Entries}}
-<div class="entry" id="entry_{{Id}}">
-    {{{SummaryRender}}}
+<div class="entries">
+    {{#Entries}}
+    <div class="entry-container">
+        {{{SummaryRender}}}
+    </div>
+    {{/Entries}}
 </div>
-{{/Entries}}
 
 {{{Pagination}}}

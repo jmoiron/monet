@@ -242,3 +242,11 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .entry:hover .icon{color:#222;}.entry:hover .icon:hover{color:#278cfe;}
 .entry.twitter{font-size:16px;}
 .entry.github .message{font-size:12px;color:#555;line-height:18px;}
+.entries .entry{padding:.75em 1em;border-bottom:1px solid #eee;}.entries .entry:hover{color:#000;}
+.entries .entry i.icon{font-size:32px;display:inline-block;float:left;padding:0 0.25em;}
+.entries .entry.github i.icon{color:black;}.entries .entry.github i.icon:hover{color:#444;}
+.entries .entry.twitter i.icon{color:#00aced;}.entries .entry.twitter i.icon:hover{color:#22ceff;}
+.entries .entry.github{font-size:16px;}.entries .entry.github .message{font-size:16px;color:inherit;}
+.entry-container{clear:both;}
+.entry-container:last-child .entry{border-bottom:0px;}
+.entry-container:nth-child(even) .entry{background-color:#fbfbfb;}

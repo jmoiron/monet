@@ -267,7 +267,6 @@ func (e StreamEntry) SummaryRender() string {
 		ret = template.Render(template_name, dict{"Entry": e, "Tweet": data["tweet"]})
 	} else if e.Type == "github" {
 		event := data["event"].(map[string]interface{})
-		fmt.Println(event["message"])
 		var hash string
 		if event["id"] != nil {
 			hash = event["id"].(string)[:8]

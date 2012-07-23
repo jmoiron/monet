@@ -74,10 +74,17 @@ def parse_args():
     parser = optparse.OptionParser(usage="./prog [options]")
     parser.add_option("-r", "--rerender", action="store_true")
     parser.add_option("-f", "--force", action="store_true")
+    # fix an old github bug
+    parser.add_option("", "--github-fix-1", action="store_true", help="fix an issue with github urls")
     return parser.parse_args()
 
 def main():
     opts, args = parse_args()
+
+    if opts.github_fix_1:
+        github_fix_1()
+        return
+
     streams = map(Stream, config["Streams"])
     if opts.rerender:
         rerender(streams)
@@ -182,9 +189,18 @@ class GithubStream(object):
 
             entry["timestamp"] = timestamp
             entry["title"] = "committed %s to %s" % (commit["sha"], commit['repository']['name'])
-            entry["url"] = 'https://github.com%s' % commit['url']
+            if commit['url'].startswith("http"):
+                entry["url"] = commit["url"]
+            else:
+                entry["url"] = "https://github.com%s" % commit["url"]
             entry["data"] = json.dumps({'event' : commit})
             db.stream.save(entry)
+
+def github_fix_1():
+    github_entries = db.stream.find({"type": "github", "url": {"$regex": "https://github.comhttp.*", "$options": "i"}})
+    for entry in github_entries:
+        entry["url"] = entry["url"].replace("github.comhttps", "")
+        db.stream.save(entry)
 
 if __name__ == "__main__":
     try:

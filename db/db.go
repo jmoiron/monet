@@ -267,9 +267,16 @@ func (e StreamEntry) SummaryRender() string {
 		ret = template.Render(template_name, dict{"Entry": e, "Tweet": data["tweet"]})
 	} else if e.Type == "github" {
 		event := data["event"].(map[string]interface{})
-		hash := event["id"].(string)[:8]
-		ret = template.Render(template_name, dict{"Entry": e,
-			"Event": event, "Hash": hash})
+		fmt.Println(event["message"])
+		var hash string
+		if event["id"] != nil {
+			hash = event["id"].(string)[:8]
+		} else if event["sha"] != nil {
+			hash = event["sha"].(string)[:8]
+		} else {
+			hash = "unknown"
+		}
+		ret = template.Render(template_name, dict{"Entry": e, "Event": event, "Hash": hash})
 	} else if e.Type == "bitbucket" {
 		ret = template.Render(template_name, dict{"Entry": e, "Data": data})
 	}

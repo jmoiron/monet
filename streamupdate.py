@@ -189,6 +189,8 @@ class GithubStream(object):
 
             entry["timestamp"] = timestamp
             entry["title"] = "committed %s to %s" % (commit["sha"], commit['repository']['name'])
+            if "message" not in commit:
+                commit["message"] = commit["commit"]["message"]
             if commit['url'].startswith("http"):
                 entry["url"] = commit["url"]
             else:
@@ -197,10 +199,25 @@ class GithubStream(object):
             db.stream.save(entry)
 
 def github_fix_1():
+    # fix urls
+    fixed = 0
     github_entries = db.stream.find({"type": "github", "url": {"$regex": "https://github.comhttp.*", "$options": "i"}})
     for entry in github_entries:
         entry["url"] = entry["url"].replace("github.comhttps", "")
         db.stream.save(entry)
+        fixed += 1
+    # fix messages that are commits but do not have a message in the commit data
+    entries = db.stream.find({"type": "github"})
+    for entry in entries:
+        data = json.loads(entry["data"])
+        commit = data["event"]
+        if "message" not in commit and "commit" in commit:
+            commit["message"] = commit["commit"]["message"]
+            entry["data"] = json.dumps({"event": commit})
+            db.stream.save(entry)
+            fixed += 1
+    print "Fixed %d entrie(s)." % fixed
+
 
 if __name__ == "__main__":
     try:
@@ -209,6 +226,7 @@ if __name__ == "__main__":
         ret = 0
     sys.exit(ret)
 
+'''
 def get_detailed_updates(user, limit=50):
     """Gets the most recent `limit` updates for a bitbucket user object.
     This object is created by BitBucket().user(username)."""
@@ -302,7 +320,4 @@ class BitbucketPlugin(object):
             entry.save()
         self.stream_plugin.last_run = datetime.datetime.now()
         self.stream_plugin.save()
-
-
-
-
+'''

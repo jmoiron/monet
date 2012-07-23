@@ -13,6 +13,7 @@ func main() {
 	fmt.Printf("Using config %s\n", conf.Path)
 	template.Init(conf.Config.TemplatePaths)
 	fmt.Printf(conf.Config.String())
+	web.Config.StaticDir = conf.Config.StaticPath
 	// finished config
 	db.Connect()
 

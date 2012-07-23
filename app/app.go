@@ -16,6 +16,8 @@ func Attach(url string) {
 	web.Get(url+"blog/page/(\\d+)", blogPage)
 	web.Get(url+"blog/([^/]+)/", blogDetail)
 	web.Get(url+"blog/", blogIndex)
+	web.Get(url+"stream/page/(\\d+)", streamPage)
+	web.Get(url+"stream/", streamIndex)
 	web.Get(url+"([^/]*)", index)
 	web.Get(url+"(.*)", page)
 }
@@ -67,6 +69,8 @@ func index(s string) string {
 		"description": post.Summary})
 }
 
+// *** Blog Views ***
+
 func blogIndex(ctx *web.Context) string {
 	return blogPage(ctx, "1")
 }
@@ -110,5 +114,46 @@ func blogDetail(ctx *web.Context, slug string) string {
 		ctx.Abort(404, "Page not found")
 		return ""
 	}
-	return template.Render("base.mustache", dict{"body": RenderPost(post)})
+
+	return template.Render("base.mustache", dict{
+		"body":        RenderPost(post),
+		"title":       post.Title,
+		"description": post.Summary})
+}
+
+// *** Stream Views ***
+
+func streamIndex(ctx *web.Context) string {
+	return streamPage(ctx, "1")
+}
+
+func streamPage(ctx *web.Context, page string) string {
+	pn, _ := strconv.Atoi(page)
+	perPage := 25
+	paginator := NewPaginator(pn, perPage)
+	paginator.Link = "/stream/page/"
+	cursor := db.Entries()
+	var entries []db.StreamEntry
+
+	// do a search, if required, of title and content
+	var err error
+	var numObjects int
+
+	if len(ctx.Params["Search"]) > 0 {
+		term := dict{"$regex": ctx.Params["Search"]}
+		search := dict{"$or": []dict{dict{"title": term}, dict{"content_rendered": term}}}
+		err = cursor.Latest(search).Skip(paginator.Skip).Limit(perPage).All(&entries)
+		numObjects, _ = cursor.Latest(search).Count()
+	} else {
+		err = cursor.Latest(nil).Skip(paginator.Skip).Limit(perPage).Iter().All(&entries)
+		numObjects, _ = cursor.C.Find(nil).Count()
+	}
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return base.Render("stream-index.mustache", dict{
+		"Entries":    entries,
+		"Pagination": paginator.Render(numObjects)}, ctx.Params)
 }

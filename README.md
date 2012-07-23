@@ -19,7 +19,7 @@ things properly.  This includes:
 
 The blog and flatpages are written in markdown and stored in mongodb.  The site
 itself is rendered via mustache templates, which when the `Debug` configuration
-option is `False` get cached.
+option is `false` get cached.
 
 ### Building
 

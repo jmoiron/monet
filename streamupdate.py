@@ -191,21 +191,34 @@ class GithubStream(object):
             entry["title"] = "committed %s to %s" % (commit["sha"], commit['repository']['name'])
             if "message" not in commit:
                 commit["message"] = commit["commit"]["message"]
-            if commit['url'].startswith("http"):
-                entry["url"] = commit["url"]
-            else:
-                entry["url"] = "https://github.com%s" % commit["url"]
+            if commit['url'].startswith("https://api.github.com/repos"):
+                commit["url"] = commit["url"].replace("https://api.github.com/repos", "")
+
+            entry["url"] = "https://github.com%s" % commit["url"]
             entry["data"] = json.dumps({'event' : commit})
             db.stream.save(entry)
 
 def github_fix_1():
     # fix urls
     fixed = 0
-    github_entries = db.stream.find({"type": "github", "url": {"$regex": "https://github.comhttp.*", "$options": "i"}})
-    for entry in github_entries:
+    double_urls = db.stream.find({"type": "github", "url": {"$regex": "https://github.comhttp.*", "$options": "i"}})
+    for entry in double_urls:
         entry["url"] = entry["url"].replace("github.comhttps", "")
         db.stream.save(entry)
         fixed += 1
+
+    double_semi_urls = db.stream.find({"type": "github", "url": {"$regex": "https://://.*"}})
+    for entry in double_semi_urls:
+        entry["url"] = entry["url"].replace("://://", "://")
+        db.stream.save(entry)
+        fixed += 1
+
+    api_urls = db.stream.find({"type": "github", "url": {"$regex": "https://api.github.*", "$options": "i"}})
+    for entry in api_urls:
+        entry["url"] = "http://github.com%s" % (entry["url"].replace("https://api.github.com/repos", ""))
+        db.stream.save(entry)
+        fixed += 1
+
     # fix messages that are commits but do not have a message in the commit data
     entries = db.stream.find({"type": "github"})
     for entry in entries:
@@ -216,7 +229,11 @@ def github_fix_1():
             entry["data"] = json.dumps({"event": commit})
             db.stream.save(entry)
             fixed += 1
-    print "Fixed %d entrie(s)." % fixed
+
+    if fixed == 1:
+        print "Fixed 1 entry"
+    else:
+        print "Fixed %d entries." % fixed
 
 
 if __name__ == "__main__":

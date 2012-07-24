@@ -255,7 +255,7 @@ func (e *StreamEntry) Update() error {
 }
 
 func (e StreamEntry) SummaryRender() string {
-	if len(e.SummaryRendered) > 0 {
+	if len(e.SummaryRendered) > 0 && !conf.Config.Debug {
 		return e.SummaryRendered
 	}
 	var ret string
@@ -280,7 +280,9 @@ func (e StreamEntry) SummaryRender() string {
 		ret = template.Render(template_name, dict{"Entry": e, "Data": data})
 	}
 	e.SummaryRendered = ret
-	e.Update()
+	if !conf.Config.Debug {
+		e.Update()
+	}
 	return ret
 }
 

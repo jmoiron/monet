@@ -315,6 +315,7 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .entries .entry i.icon{font-size:32px;display:inline-block;float:left;padding:0 0.25em;}
 .entries .entry.github i.icon{color:black;}.entries .entry.github i.icon:hover{color:#444;}
 .entries .entry.twitter i.icon{color:#00aced;}.entries .entry.twitter i.icon:hover{color:#22ceff;}
+.entries .entry.bitbucket i.icon{color:#689ce4;}.entries .entry.bitbucket i.icon:hover{color:#8abeff;}
 .entries .entry.github{font-size:16px;}.entries .entry.github .message{font-size:16px;color:inherit;}
 .entry-container{clear:both;}
 .entry-container:last-child .entry{border-bottom:0px;}

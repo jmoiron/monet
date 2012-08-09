@@ -288,7 +288,19 @@ func (e StreamEntry) SummaryRender() string {
 			"IsFork":   isFork,
 		})
 	} else if e.Type == "bitbucket" {
-		ret = template.Render(template_name, dict{"Entry": e, "Data": data})
+		// TODO: check username (author) against configured bitbucket username
+		update := data["update"].(map[string]interface{})
+		revision := fmt.Sprintf("#%d", update["revision"].(float64))
+		var repository dict
+		if data["repository"] != nil {
+			repository = data["repository"].(dict)
+		}
+		ret = template.Render(template_name, dict{
+			"Entry":      e,
+			"Data":       data,
+			"Update":     update,
+			"Repository": repository,
+			"Revision":   revision})
 	}
 	e.SummaryRendered = ret
 	if !conf.Config.Debug {

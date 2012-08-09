@@ -160,5 +160,6 @@ func streamPage(ctx *web.Context, page string) string {
 
 	return base.Render("stream-index.mustache", dict{
 		"Entries":    entries,
-		"Pagination": paginator.Render(numObjects)}, ctx.Params)
+		"Pagination": paginator.Render(numObjects),
+		"title":      "Lifestream"}, ctx.Params)
 }

@@ -275,7 +275,18 @@ func (e StreamEntry) SummaryRender() string {
 		} else {
 			hash = "unknown"
 		}
-		ret = template.Render(template_name, dict{"Entry": e, "Event": event, "Hash": hash})
+		eventType := event["event"].(string)
+		isCommit := eventType == "commit"
+		isCreate := eventType == "create"
+		isFork := eventType == "fork"
+		ret = template.Render(template_name, dict{
+			"Entry":    e,
+			"Event":    event,
+			"Hash":     hash,
+			"IsCommit": isCommit,
+			"IsCreate": isCreate,
+			"IsFork":   isFork,
+		})
 	} else if e.Type == "bitbucket" {
 		ret = template.Render(template_name, dict{"Entry": e, "Data": data})
 	}

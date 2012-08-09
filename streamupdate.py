@@ -200,6 +200,7 @@ class GithubStream(object):
 
 def github_fix_1():
     # fix urls
+    import github
     fixed = 0
     double_urls = db.stream.find({"type": "github", "url": {"$regex": "https://github.comhttp.*", "$options": "i"}})
     for entry in double_urls:
@@ -227,6 +228,28 @@ def github_fix_1():
         if "message" not in commit and "commit" in commit:
             commit["message"] = commit["commit"]["message"]
             entry["data"] = json.dumps({"event": commit})
+            db.stream.save(entry)
+            fixed += 1
+
+    # fix timestamps on creates and forks
+    entries = db.stream.find({"type": "github"})
+    for entry in entries:
+        data = json.loads(entry["data"])
+        event = data["event"]
+        if event["event"] != "commit":
+            entry["timestamp"] = int(time.mktime(github.to_datetime(event["created_at"]).timetuple()))
+            db.stream.save(entry)
+            fixed += 1
+        else:
+            if "committed_date" in event:
+                ts = event["committed_date"]
+            else:
+                # fix the absense of "committed_date" key in older events
+                ts = event["commit"]["author"]["date"]
+                event["committed_date"] = ts
+                entry["data"] = json.dumps({"event": event})
+
+            entry["timestamp"] = time.mktime(github.to_datetime(ts).timetuple())
             db.stream.save(entry)
             fixed += 1
 

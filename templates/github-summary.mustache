@@ -1,8 +1,19 @@
 {{#Entry}}
     <div class="entry github">
         <a href="{{Url}}"><i class="icon icon-github-sign"></i></a>
+        {{#IsCommit}}
         <a href="{{Url}}">{{Hash}}</a> to 
         <span class="name">{{#Event}}{{#repository}}<a href="{{url}}">{{name}}</a>{{/repository}}{{/Event}}</span>
         <span class="message">{{#Event}}{{message}}{{/Event}}
+        {{/IsCommit}}
+        {{#IsCreate}}
+        <a href="{{Url}}">created {{#Event}}{{name}}</a>, {{description}}{{/Event}}
+        {{/IsCreate}}
+        {{#IsFork}}
+        <a href="{{Url}}">forked {{#Event}}{{name}}</a>, {{description}}{{/Event}}
+        {{/IsFork}}
+        {{^IsCommit}}{{^IsCreate}}{{^IsFork}}
+            Unknown action {{#Event}}{{event}}{{/Event}}
+        {{/IsFork}}{{/IsCreate}}{{/IsCommit}}
     </div>
 {{/Entry}}

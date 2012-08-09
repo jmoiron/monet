@@ -5,6 +5,7 @@ import (
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
+	"labix.org/v1/mgo/bson"
 	"strconv"
 )
 
@@ -140,8 +141,12 @@ func streamPage(ctx *web.Context, page string) string {
 	var numObjects int
 
 	if len(ctx.Params["Search"]) > 0 {
-		term := dict{"$regex": ctx.Params["Search"]}
-		search := dict{"$or": []dict{dict{"title": term}, dict{"content_rendered": term}}}
+		re := new(bson.RegEx)
+		re.Pattern = ctx.Params["Search"]
+		re.Options = "i"
+		term := dict{"$regex": re}
+		search := dict{"summaryrendered": term}
+		//search := dict{"$or": []dict{dict{"title": term}, dict{"summaryrendered": term}}}
 		err = cursor.Latest(search).Skip(paginator.Skip).Limit(perPage).All(&entries)
 		numObjects, _ = cursor.Latest(search).Count()
 	} else {

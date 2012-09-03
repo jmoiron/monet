@@ -194,7 +194,7 @@ class GithubStream(object):
             if commit['url'].startswith("https://api.github.com/repos"):
                 commit["url"] = commit["url"].replace("https://api.github.com/repos", "")
 
-            entry["url"] = "https://github.com%s" % commit["url"]
+            entry["url"] = ("https://github.com%s" % commit["url"]).replace("/commits/", "/commit/")
             entry["data"] = json.dumps({'event' : commit})
             db.stream.save(entry)
 
@@ -217,6 +217,12 @@ def github_fix_1():
     api_urls = db.stream.find({"type": "github", "url": {"$regex": "https://api.github.*", "$options": "i"}})
     for entry in api_urls:
         entry["url"] = "http://github.com%s" % (entry["url"].replace("https://api.github.com/repos", ""))
+        db.stream.save(entry)
+        fixed += 1
+
+    commits_urls = db.stream.find({"type":"github", "url": {"$regex": ".*/commits/.*"}})
+    for entry in commits_urls:
+        entry["url"] = entry["url"].replace("/commits/", "/commit/")
         db.stream.save(entry)
         fixed += 1
 

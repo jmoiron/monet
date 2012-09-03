@@ -14,16 +14,32 @@
 #preview-box { position: fixed; width: @site-width + 20px; height: @site-width + 20px; display: none; z-index: 110; background-color: #fff; padding: 30px; border-radius: 5px; box-shadow: 3px 3px 5px #000; overflow-y: scroll; }
 
 body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
-code,pre,b,strong { color: #111; }
+b,strong { color: #111; }
 /*
 pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee; 
   &:hover { border-left: 10px solid @limey; background-color: #fbfbfb; }
 }*/
 abbr { border-bottom: 1px dotted #aaa; }
-pre, blockquote {  padding: 5px 10px; color: #73775b;
+pre, blockquote {  
+  padding: 5px 10px; color: #48484c;
+  background-color: #f7f7f9;
+  border: 1px solid #e1e1e8;
+  border-radius: 4px;
   border-left: 10px solid @limey;
-  box-shadow: 2px 2px 3px #eee;
+  //box-shadow: inset 40px 0 0 #FBFBFC, inset 41px 0 0 #ECECF0;
+  //box-shadow: 2px 2px 3px #eee;
   p { margin: 0; }
+}
+
+blockquote {
+    background-color: #fbfbfc;
+    text-shadow: 0 1px 0 white;
+}
+
+.container pre {
+    font-size: 14px;
+    line-height: 18px;
+    text-shadow: 0 1px 0 white;
 }
 
 .frontend form {

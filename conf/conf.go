@@ -22,6 +22,8 @@ type config struct {
 	DbHost string
 	DbPort int
 	DbName string
+
+	Gallery map[string]string
 }
 
 var Path = "./config.json"
@@ -46,6 +48,7 @@ func (c *config) String() string {
 	s += fmt.Sprintf("   StaticPath: %s,\n", c.StaticPath)
 	s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
 	s += fmt.Sprintf("   Debug: %v\n", c.Debug)
+	s += fmt.Sprintf("   Gallery: %v\n", c.Gallery)
 	s += "}\n"
 	return s
 }

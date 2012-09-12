@@ -7,8 +7,8 @@ import (
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/template"
 	"io"
-	"labix.org/v1/mgo"
-	"labix.org/v1/mgo/bson"
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"strconv"
 	"strings"
 	"time"
@@ -156,16 +156,16 @@ func (p *Post) FromParams(params map[string]string) error {
 }
 
 func (p *PostCursor) Latest(query interface{}) *mgo.Query {
-	return p.C.Find(query).Sort(bson.M{"timestamp": -1})
+	return p.C.Find(query).Sort("-timestamp")
 }
 
 func (p *PostCursor) LatestPost() *Post {
 	var post *Post
 	err := p.Latest(bson.M{"published": 1}).One(&post)
-	if err != nil && err != mgo.NotFound {
+	if err != nil && err != mgo.ErrNotFound {
 		panic(err)
 	}
-	if err == mgo.NotFound {
+	if err == mgo.ErrNotFound {
 		fmt.Printf("Cannot find any documents.")
 		return nil
 	}
@@ -190,7 +190,7 @@ func (u *UserCursor) Validate(username, password string) bool {
 	user := new(User)
 	hashstr := fmt.Sprintf("%x", hash.Sum(nil))
 	err := Users().C.Find(bson.M{"username": username}).One(&user)
-	if err == mgo.NotFound {
+	if err == mgo.ErrNotFound {
 		return false
 	}
 	if user.Password != hashstr {
@@ -204,10 +204,10 @@ func (u *UserCursor) Validate(username, password string) bool {
 func (p *PageCursor) Get(url string) *Page {
 	var page *Page
 	err := p.C.Find(bson.M{"url": url}).One(&page)
-	if err != nil && err != mgo.NotFound {
+	if err != nil && err != mgo.ErrNotFound {
 		panic(err)
 	}
-	if err == mgo.NotFound {
+	if err == mgo.ErrNotFound {
 		return nil
 	}
 	return page
@@ -237,7 +237,7 @@ func (p *Page) Update() error {
 // entries
 
 func (s *StreamCursor) Latest(query interface{}) *mgo.Query {
-	return s.C.Find(query).Sort(bson.M{"timestamp": -1})
+	return s.C.Find(query).Sort("-timestamp")
 }
 
 func (e *StreamEntry) Update() error {
@@ -324,10 +324,10 @@ func Connect() {
 // if the collections aren't set up yet, initialize them by creating
 // the indexes monet needs to run properly
 func initCollection() {
-	Db.C("posts").EnsureIndexKey([]string{"slug"})
-	Db.C("posts").EnsureIndexKey([]string{"timestamp"})
-	Db.C("users").EnsureIndexKey([]string{"username"})
-	Db.C("pages").EnsureIndexKey([]string{"url"})
-	Db.C("stream").EnsureIndexKey([]string{"checksum"})
-	Db.C("stream").EnsureIndexKey([]string{"timestamp"})
+	Db.C("posts").EnsureIndexKey("slug")
+	Db.C("posts").EnsureIndexKey("timestamp")
+	Db.C("users").EnsureIndexKey("username")
+	Db.C("pages").EnsureIndexKey("url")
+	Db.C("stream").EnsureIndexKey("checksum")
+	Db.C("stream").EnsureIndexKey("timestamp")
 }

@@ -47,11 +47,10 @@ func AttachAdmin(url string) {
 	web.Post(url+"pages/preview/", pagePreview)
 	web.Get(url+"pages/delete/(.*)", pageDelete)
 	web.Get(url+"pages/(\\d+)?", pageList)
-
 	web.Get(url, adminIndex)
 }
 
-func requireAuthentication(ctx *web.Context) bool {
+func RequireAuthentication(ctx *web.Context) bool {
 	session, _ := store.Get(ctx.Request, "monet-session")
 
 	if session.Values["authenticated"] != true {
@@ -85,7 +84,7 @@ func logout(ctx *web.Context) string {
 }
 
 func adminIndex(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var posts []db.Post
@@ -100,7 +99,7 @@ func adminIndex(ctx *web.Context) string {
 }
 
 func postEdit(ctx *web.Context, slug string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var post *db.Post
@@ -121,7 +120,7 @@ func postEdit(ctx *web.Context, slug string) string {
 }
 
 func postList(ctx *web.Context, page string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	pageNum := 1
@@ -159,7 +158,7 @@ func postList(ctx *web.Context, page string) string {
 }
 
 func unpublishedList(ctx *web.Context, page string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	pageNum := 1
@@ -181,7 +180,7 @@ func unpublishedList(ctx *web.Context, page string) string {
 }
 
 func postAdd(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	return adminBase.Render("admin/posts-edit.mustache", ctx.Params,
@@ -189,7 +188,7 @@ func postAdd(ctx *web.Context) string {
 }
 
 func postAddPost(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	post := new(db.Post)
@@ -201,7 +200,7 @@ func postAddPost(ctx *web.Context) string {
 }
 
 func postPreview(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var post = new(db.Post)
@@ -211,7 +210,7 @@ func postPreview(ctx *web.Context) string {
 }
 
 func postDelete(ctx *web.Context, slug string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	db.Posts().C.Remove(dict{"slug": slug})
@@ -224,7 +223,7 @@ func postDelete(ctx *web.Context, slug string) string {
 }
 
 func pageAdd(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	ctx.Params["Url"] = strings.TrimLeft(ctx.Params["Url"], "/")
@@ -232,7 +231,7 @@ func pageAdd(ctx *web.Context) string {
 }
 
 func pageAddPost(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var page = new(db.Page)
@@ -244,7 +243,7 @@ func pageAddPost(ctx *web.Context) string {
 }
 
 func pageEdit(ctx *web.Context, url string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var page *db.Page
@@ -262,7 +261,7 @@ func pageEdit(ctx *web.Context, url string) string {
 }
 
 func pagePreview(ctx *web.Context) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	var page = new(db.Page)
@@ -271,7 +270,7 @@ func pagePreview(ctx *web.Context) string {
 }
 
 func pageDelete(ctx *web.Context, url string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	db.Pages().C.Remove(dict{"url": url})
@@ -284,7 +283,7 @@ func pageDelete(ctx *web.Context, url string) string {
 }
 
 func pageList(ctx *web.Context, page string) string {
-	if requireAuthentication(ctx) {
+	if RequireAuthentication(ctx) {
 		return ""
 	}
 	pageNum := 1
@@ -296,7 +295,7 @@ func pageList(ctx *web.Context, page string) string {
 	paginator := NewPaginator(pageNum, n)
 	paginator.Link = "/admin/pages/"
 	cursor := db.Pages().C
-	sort := dict{"url": 1}
+	sort := "url"
 
 	var pages []db.Page
 	// do a search, if required, of title and content

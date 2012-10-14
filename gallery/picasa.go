@@ -88,25 +88,6 @@ func NewPicasaAPI(UserID string) *PicasaAPI {
 	return p
 }
 
-type PicasaAlbum struct {
-	ApiUrl    string // id
-	Id        string //gphoto$id
-	Published string
-	Updated   string
-	Title     string
-	Summary   string
-	Rights    string //gphoto$access
-	Links     []string
-	//Authors   []map[string]string // [{name:uri}, ..]
-	NumPhotos int
-	AlbumType string // gphoto$albumType
-	Thumbnail string // media$thumbnail
-}
-
-func (p *PicasaAlbum) String() string {
-	return fmt.Sprintf("Album %s (id#%s, %d photos)", p.Title, p.Id, p.NumPhotos)
-}
-
 func (p *PicasaAPI) ListAlbums() ([]*PicasaAlbum, error) {
 	url := UrlJoin(PicasaAPIBase, fmt.Sprintf("/user/%s?alt=json", p.UserID))
 	println(url)
@@ -129,10 +110,10 @@ func (p *PicasaAPI) parseAlbums(js interface{}) ([]*PicasaAlbum, error) {
 	for i, entry := range entries {
 		eq := jsonq.NewQuery(entry)
 		album := new(PicasaAlbum)
-		album.ApiUrl, _ = eq.String("id")
-		album.Id, _ = eq.String("gphoto$id", "$t")
-		album.Published, _ = eq.String("published")
-		album.Updated, _ = eq.String("updated")
+		album.ApiUrl, _ = eq.String("id", "$t")
+		album.AlbumId, _ = eq.String("gphoto$id", "$t")
+		album.Published, _ = eq.String("published", "$t")
+		album.Updated, _ = eq.String("updated", "$t")
 		album.Title, _ = eq.String("title", "$t")
 		album.Summary, _ = eq.String("summary", "$t")
 		album.Rights, _ = eq.String("gphoto$access", "$t")

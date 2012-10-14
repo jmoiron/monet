@@ -13,7 +13,8 @@ type config struct {
 	WebHost string "web address"
 	WebPort int    "web port"
 
-	SessionSecret string
+	SessionSecret             string
+	GoogleAnalyticsTrackingID string
 
 	StaticPath         string
 	TemplatePaths      []string
@@ -49,6 +50,7 @@ func (c *config) String() string {
 	s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
 	s += fmt.Sprintf("   Debug: %v\n", c.Debug)
 	s += fmt.Sprintf("   Gallery: %v\n", c.Gallery)
+	s += fmt.Sprintf("   GoogleAnalyticsTrackingID: %v\n", c.GoogleAnalyticsTrackingID)
 	s += "}\n"
 	return s
 }

@@ -6,7 +6,6 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/gallery"
 	"github.com/jmoiron/monet/template"
 )
 
@@ -18,7 +17,6 @@ func main() {
 	// finished config
 	db.Connect()
 
-	gallery.AttachAdmin("/admin/")
 	app.AttachAdmin("/admin/")
 	app.Attach("/")
 	web.Run(conf.Config.HostString())

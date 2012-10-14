@@ -11,6 +11,10 @@
         <script src="/static/js/jquery.js"></script>
         <script src="/static/js/frontend.js"></script>
         <script src="/static/js/prettify.js"></script>
+        {{^Debug}}{{#Config}}{{#GoogleAnalyticsTrackingID}}
+        <script>GA_TRACKING_ID = "{{GoogleAnalyticsTrackingID}}";</script>
+        <script src="/static/js/ga.js"></script>
+        {{/GoogleAnalyticsTrackingID}}{{/Config}}{{/Debug}}
         <meta name="description" content="{{description}}">
         <title>{{title}}</title>
     </head>

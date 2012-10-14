@@ -28,6 +28,7 @@ func (b *Base) Render(t string, c ...interface{}) string {
 func Render(t string, c ...interface{}) string {
 	// add the Config to all of our template rendering
 	c = append(c, dict{"Debug": conf.Config.Debug})
+	c = append(c, dict{"Config": conf.Config})
 
 	if conf.Config.TemplatePreCompile {
 		template := templates[t]

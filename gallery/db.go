@@ -40,9 +40,6 @@ func (a *AlbumCursor) ByAlbumId(id string) (*PicasaAlbum, error) {
 }
 
 func (p *PicasaAlbum) Update() error {
-	if len(p.Id) == 0 {
-		p.Id = bson.NewObjectId()
-	}
 	_, err := Albums().C.Upsert(bson.M{"albumid": p.AlbumId}, &p)
 	return err
 }

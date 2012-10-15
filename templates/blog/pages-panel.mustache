@@ -1,0 +1,7 @@
+    <h3><a href="pages/">Pages</a></h3>
+    <ul class="note-list shortlist">
+        <li><form method="GET" action="pages/add/"><input type="text" data-default="Type a new URL..." value="Type a new URL..." class="list-new js-clear-default" id="page-url" name="Url"></form></li>
+    {{#pages}}
+    <li><a href="pages/edit/{{Url}}">/{{Url}}</a> <a class="del" href="pages/delete/{{Url}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{/pages}}
+    </ul>

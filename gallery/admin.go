@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hoisie/web"
-	"github.com/jmoiron/monet/app"
+	//"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/template"
 )
@@ -71,9 +71,9 @@ func missingConfig(ctx *web.Context, err error) string {
 }
 
 func galleryList(ctx *web.Context) string {
-	if app.RequireAuthentication(ctx) {
-		return ""
-	}
+	//if app.RequireAuthentication(ctx) {
+	//	return ""
+	//}
 	gc := NewGalleryConfig()
 	err := gc.Check()
 	if err != nil {

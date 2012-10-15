@@ -1,0 +1,8 @@
+    <h3><a href="posts/">Posts</a></h3>
+
+    <ul class="post-list shortlist">
+        <li><form method="GET" action="posts/add/"><input type="text" data-default="Type a new title..." value="Type a new title..." class="list-new js-clear-default" id="post-title" name="Title"></form></li>
+    {{#posts}}
+    <li><a href="posts/edit/{{Slug}}">{{Title}}</a> <a class="del" href="posts/delete/{{Slug}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{/posts}}
+    </ul>

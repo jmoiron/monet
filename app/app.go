@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/template"
 	"strconv"
 	"time"
@@ -10,7 +11,14 @@ type M map[string]interface{}
 
 var base = template.Base{Path: "base.mustache"}
 
+func GetPost(route string, handler interface{}) {
+	web.Get(route, handler)
+	web.Post(route, handler)
+}
+
+/* Should have this to be an app. */
 func Attach(url string) {
+
 }
 
 // Return a number for a page (default to 1)

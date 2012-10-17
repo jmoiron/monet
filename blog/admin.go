@@ -21,17 +21,13 @@ var (
 func AttachAdmin(url string) {
 	web.Get(url+"unpublished/(\\d+)?", unpublishedList)
 	web.Get(url+"posts/(\\d+)?", postList)
-	web.Get(url+"posts/edit/(.*)", postEdit)
-	web.Post(url+"posts/edit/(.*)", postEdit)
+	app.GetPost(url+"posts/edit/(.*)", postEdit)
 	web.Get(url+"posts/delete/(.*)", postDelete)
-	web.Get(url+"posts/add/", postAddGet)
-	web.Post(url+"posts/add/", postAddPost)
+	app.GetPost(url+"posts/add/", postAdd)
 	web.Post(url+"posts/preview/", postPreview)
 	// pages
-	web.Get(url+"pages/add/", pageAddGet)
-	web.Post(url+"pages/add/", pageAddPost)
-	web.Get(url+"pages/edit/(.*)", pageEdit)
-	web.Post(url+"pages/edit/(.*)", pageEdit)
+	app.GetPost(url+"pages/add/", pageAdd)
+	app.GetPost(url+"pages/edit/(.*)", pageEdit)
 	web.Post(url+"pages/preview/", pagePreview)
 	web.Get(url+"pages/delete/(.*)", pageDelete)
 	web.Get(url+"pages/(\\d+)?", pageList)
@@ -51,10 +47,10 @@ func unpublishedList(ctx *web.Context, page string) string {
 
 	var posts []Post
 	latest := db.Latest(&Post{}, M{"published": 0})
-	latest.Limit(listPageSize).Iter().All(&posts)
+	latest.Limit(listPageSize).All(&posts)
 
 	numObjects, _ := latest.Count()
-	return adminBase.Render("admin/post-list.mustache", M{
+	return adminBase.Render("blog/admin/post-list.mustache", M{
 		"Posts":       posts,
 		"Pagination":  paginator.Render(numObjects),
 		"Unpublished": true,
@@ -94,23 +90,21 @@ func postList(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return adminBase.Render("admin/post-list.mustache", M{
+	return adminBase.Render("blog/admin/post-list.mustache", M{
 		"Posts": posts, "Pagination": paginator.Render(numObjects)})
 
 }
 
-func postAddGet(ctx *web.Context) string {
+func postAdd(ctx *web.Context) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
-	return adminBase.Render("admin/posts-edit.mustache",
-		ctx.Params, M{"Published": 0, "IsPublished": false})
-}
 
-func postAddPost(ctx *web.Context) string {
-	if app.RequireAuthentication(ctx) {
-		return ""
+	if ctx.Request.Method == "GET" {
+		return adminBase.Render("blog/admin/posts-edit.mustache",
+			ctx.Params, M{"Published": 0, "IsPublished": false})
 	}
+
 	post := new(Post)
 	post.FromParams(ctx.Params)
 	db.Upsert(post)
@@ -135,7 +129,7 @@ func postEdit(ctx *web.Context, slug string) string {
 		db.Upsert(post)
 	}
 
-	return adminBase.Render("admin/posts-edit.mustache", post, M{
+	return adminBase.Render("blog/admin/posts-edit.mustache", post, M{
 		"IsPublished": post.Published == 1,
 		"IdHex":       post.Id.Hex()})
 }
@@ -165,18 +159,16 @@ func postDelete(ctx *web.Context, slug string) string {
 
 // *** Pages ***
 
-func pageAddGet(ctx *web.Context) string {
+func pageAdd(ctx *web.Context) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
-	ctx.Params["Url"] = strings.TrimLeft(ctx.Params["Url"], "/")
-	return adminBase.Render("admin/pages-edit.mustache", ctx.Params)
-}
 
-func pageAddPost(ctx *web.Context) string {
-	if app.RequireAuthentication(ctx) {
-		return ""
+	if ctx.Request.Method == "GET" {
+		ctx.Params["Url"] = strings.TrimLeft(ctx.Params["Url"], "/")
+		return adminBase.Render("blog/admin/pages-edit.mustache", ctx.Params)
 	}
+
 	var page = new(Page)
 	page.FromParams(ctx.Params)
 	db.Upsert(page)
@@ -200,7 +192,7 @@ func pageEdit(ctx *web.Context, url string) string {
 		page.FromParams(ctx.Params)
 		db.Upsert(page)
 	}
-	return adminBase.Render("admin/pages-edit.mustache", page)
+	return adminBase.Render("blog/admin/pages-edit.mustache", page)
 }
 
 func pagePreview(ctx *web.Context) string {
@@ -247,7 +239,7 @@ func pageList(ctx *web.Context, page string) string {
 		err = db.Find(p, search).Sort(sort).Skip(paginator.Skip).Limit(listPageSize).All(&pages)
 		numObjects, _ = db.Find(p, search).Count()
 	} else {
-		err = db.Find(p, nil).Sort(sort).Skip(paginator.Skip).Limit(listPageSize).Iter().All(&pages)
+		err = db.Find(p, nil).Sort(sort).Skip(paginator.Skip).Limit(listPageSize).All(&pages)
 		numObjects, _ = db.Cursor(p).Count()
 	}
 
@@ -255,7 +247,7 @@ func pageList(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return adminBase.Render("admin/page-list.mustache", M{
+	return adminBase.Render("blog/admin/page-list.mustache", M{
 		"Pages": pages, "Pagination": paginator.Render(numObjects)})
 }
 
@@ -266,7 +258,7 @@ type PostPanel struct{}
 func (pp *PostPanel) Render() string {
 	var posts []Post
 	db.Latest(&Post{}, M{"published": 1}).Limit(indexListSize).All(&posts)
-	return template.Render("blog/posts-panel.mustache", M{
+	return template.Render("blog/admin/posts-panel.mustache", M{
 		"posts": posts,
 	})
 }
@@ -276,7 +268,7 @@ type UnpublishedPanel struct{}
 func (up *UnpublishedPanel) Render() string {
 	var posts []Post
 	db.Latest(&Post{}, M{"published": 0}).Limit(indexListSize).All(&posts)
-	return template.Render("blog/unpublished-panel.mustache", M{
+	return template.Render("blog/admin/unpublished-panel.mustache", M{
 		"posts": posts,
 	})
 }
@@ -286,7 +278,7 @@ type PagesPanel struct{}
 func (pp *PagesPanel) Render() string {
 	var pages []Page
 	db.Find(&Page{}, nil).Limit(indexListSize).All(&pages)
-	return template.Render("blog/pages-panel.mustache", M{
+	return template.Render("blog/admin/pages-panel.mustache", M{
 		"pages": pages,
 	})
 }

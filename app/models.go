@@ -49,3 +49,7 @@ func ValidateUser(username, password string) bool {
 	}
 	return true
 }
+
+func init() {
+	db.Register(&User{})
+}

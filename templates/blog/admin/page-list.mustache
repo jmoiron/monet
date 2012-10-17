@@ -1,0 +1,15 @@
+
+<h2><a href="/admin/pages/">Pages</a></h2>
+
+<form action="/admin/pages/" method="GET"><input type="text" name="Search" class="search js-clear-default" data-default="Type a search query..." value="{{#Search}}{{Search}}{{/Search}}{{^Search}}Type a search query...{{/Search}}"></form>
+
+<ul class="shortlist listpage">
+{{#Pages}}
+<li>
+<a href="/admin/pages/edit/{{Url}}">/{{Url}}</a>
+<a class="del" href="/admin/pages/delete/{{Url}}"><i class="icon icon-remove-sign"></i></a>
+</li>
+{{/Pages}}
+</ul>
+
+{{{Pagination}}}

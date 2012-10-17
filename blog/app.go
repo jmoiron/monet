@@ -26,7 +26,7 @@ func RenderPost(post *Post) string {
 	if len(post.ContentRendered) == 0 {
 		db.Upsert(post)
 	}
-	return template.Render("post.mustache", post)
+	return template.Render("blog/post.mustache", post)
 }
 
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available
@@ -99,7 +99,7 @@ func blogPage(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return base.Render("blog-index.mustache", M{
+	return base.Render("blog/index.mustache", M{
 		"Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
@@ -153,7 +153,7 @@ func streamPage(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return base.Render("stream-index.mustache", M{
+	return base.Render("blog/stream/index.mustache", M{
 		"Entries":    entries,
 		"Pagination": paginator.Render(numObjects),
 		"title":      "Lifestream"}, ctx.Params)

@@ -70,6 +70,9 @@ func (p *Post) Unique() bson.M {
 
 func (p *Post) PreSave() {
 	p.ContentRendered = template.RenderMarkdown(p.Content)
+	if len(p.Id) == 0 {
+		p.Id = bson.NewObjectId()
+	}
 }
 
 // Instantiate a post object from POST parameters
@@ -113,6 +116,9 @@ func (p *Page) Unique() bson.M {
 func (p *Page) PreSave() {
 	p.ContentRendered = template.RenderMarkdown(p.Content)
 	p.Url = strings.TrimLeft(p.Url, "/")
+	if len(p.Id) == 0 {
+		p.Id = bson.NewObjectId()
+	}
 }
 
 // Instantiate a Page object from POST parameters

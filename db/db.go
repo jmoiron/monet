@@ -66,6 +66,16 @@ func Latest(o OrderedModel, query interface{}) *mgo.Query {
 	return Find(o.(Model), query).Sort(o.Sorting())
 }
 
+func Exists(u Updatable) bool {
+	var data interface{}
+	err := Current.Db.C(u.Collection()).Find(u.Unique()).One(&data)
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+// FIXME: call this Update, since it can't work with a zero oid
 func Upsert(u Updatable) (info *mgo.ChangeInfo, err error) {
 	u.PreSave()
 	return Current.Db.C(u.Collection()).Upsert(u.Unique(), u)

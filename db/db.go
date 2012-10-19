@@ -75,7 +75,6 @@ func Exists(u Updatable) bool {
 	return true
 }
 
-// FIXME: call this Update, since it can't work with a zero oid
 func Upsert(u Updatable) (info *mgo.ChangeInfo, err error) {
 	u.PreSave()
 	return Current.Db.C(u.Collection()).Upsert(u.Unique(), u)

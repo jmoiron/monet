@@ -18,7 +18,7 @@ type obj map[string]interface{}
 
 // Blog Post Model
 type Post struct {
-	Id              bson.ObjectId "_id"
+	Id              bson.ObjectId `bson:"_id,omitempty"`
 	Title           string
 	Slug            string
 	Content         string
@@ -31,14 +31,14 @@ type Post struct {
 
 // Flatpage Model
 type Page struct {
-	Id              bson.ObjectId "_id"
+	Id              bson.ObjectId `bson:"_id,omitempty"`
 	Url             string
 	Content         string
 	ContentRendered string
 }
 
 type Entry struct {
-	Id              bson.ObjectId "_id"
+	Id              bson.ObjectId `bson:"_id,omitempty"`
 	SourceId        string
 	Url             string
 	Type            string
@@ -70,9 +70,6 @@ func (p *Post) Unique() bson.M {
 
 func (p *Post) PreSave() {
 	p.ContentRendered = template.RenderMarkdown(p.Content)
-	if len(p.Id) == 0 {
-		p.Id = bson.NewObjectId()
-	}
 }
 
 // Instantiate a post object from POST parameters
@@ -116,9 +113,6 @@ func (p *Page) Unique() bson.M {
 func (p *Page) PreSave() {
 	p.ContentRendered = template.RenderMarkdown(p.Content)
 	p.Url = strings.TrimLeft(p.Url, "/")
-	if len(p.Id) == 0 {
-		p.Id = bson.NewObjectId()
-	}
 }
 
 // Instantiate a Page object from POST parameters

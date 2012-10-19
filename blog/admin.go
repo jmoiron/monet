@@ -107,7 +107,10 @@ func postAdd(ctx *web.Context) string {
 
 	post := new(Post)
 	post.FromParams(ctx.Params)
-	db.Upsert(post)
+	_, err := db.Upsert(post)
+	if err != nil {
+		fmt.Println(err)
+	}
 	ctx.Redirect(302, "/admin/")
 	return ""
 	//ctx.Redirect(302, "/admin/posts/edit/" + post.Slug + "/")

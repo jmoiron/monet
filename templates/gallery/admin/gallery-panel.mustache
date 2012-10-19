@@ -1,0 +1,11 @@
+
+<h2><a href="/admin/gallery/">Gallery</a></h2>
+<div>
+    <ul class="post-list shortlist">
+    {{#Albums}}
+        <li><a href="gallery/album/{{Slug}}">{{Title}}</a> <a class="del" href="gallery/album/disable/{{Slug}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{/Albums}}
+    </ul>
+</div>
+
+

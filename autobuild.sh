@@ -8,7 +8,7 @@ inotifywait -mqr --timefmt '%d/%m/%y %H:%M' --format '%T %w %f' \
     ext="${file##*.}"
     if [[ "$ext" = "go" ]]; then
         if [ $kill -eq 0 ]; then
-            kill %1
+            killall monet
         fi
         echo "$file changed @ $time $date, rebuilding..."
         go build

@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"github.com/hoisie/web"
-	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/blog"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
 	"reflect"
+	// apps
+	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/gallery"
 )
 
 func main() {
@@ -32,12 +34,16 @@ func main() {
 	app.AttachAdmin("/admin/")
 	app.Attach("/")
 
+	gallery.AttachAdmin("/admin/")
+	gallery.Attach("/")
+
 	web.Get("/([^/]*)", blog.Index)
 	web.Get("/(.*)", blog.Flatpage)
 
 	app.AddPanel(&blog.PostPanel{})
 	app.AddPanel(&blog.UnpublishedPanel{})
 	app.AddPanel(&blog.PagesPanel{})
+	app.AddPanel(&gallery.GalleryPanel{})
 
 	web.Run(conf.Config.HostString())
 }

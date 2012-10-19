@@ -7,6 +7,8 @@ import (
 	"io"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
+	"regexp"
+	"strings"
 )
 
 // -- Standard Models --
@@ -48,6 +50,23 @@ func ValidateUser(username, password string) bool {
 		return false
 	}
 	return true
+}
+
+// -- Utilities --
+
+var (
+	stripspace  = regexp.MustCompile("[^\\w\\s\\-]")
+	dashreplace = regexp.MustCompile("[^\\w]+")
+)
+
+// Slugify some text.  Do not strip words as django does, but do collapse
+// spaces and use dashes in favor of all other non-alphanum characters.
+func Slugify(text string) string {
+	s := text
+	s = stripspace.ReplaceAllString(s, "")
+	s = dashreplace.ReplaceAllString(s, "-")
+	s = strings.Replace(s, "_", "-", -1)
+	return strings.ToLower(s)
 }
 
 func init() {

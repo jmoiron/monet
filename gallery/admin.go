@@ -79,6 +79,7 @@ func forceUpdate(ctx *web.Context) string {
 		db.Upsert(album)
 	}
 	gc.LastRun = time.Now().Unix()
+	gc.Save()
 	ctx.Redirect(302, "/admin/")
 	return ""
 }

@@ -113,34 +113,42 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .admin {
-ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
-  li { padding: 5px; position: relative;
-    a { padding: 5px 10px; margin-left: 5px; }
-    a.del { padding: 0; margin-top: -1px; display:none; position: absolute; right: 0; font-size: 22px}
-    &:hover {
-      a.del { display: inline-block; color: #999; 
-        &:hover { color: #fa2a00; }
+    ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
+      li { padding: 5px; position: relative;
+        a { padding: 5px 10px; margin-left: 5px; }
+        a.del { padding: 0; margin-top: -1px; display:none; position: absolute; right: 0; font-size: 22px}
+        &:hover {
+          a.del { display: inline-block; color: #999; 
+            &:hover { color: #fa2a00; }
+          }
+        }
       }
     }
-  }
-}
-ul.listpage {
-  a { color: #000; &:hover { color: @bluelink; }}
-  li {
-    span.date { margin-right: 32px; }
-    &:hover { span.date { margin-right: 0; }}
-  }
-}
-  .panel-sep { height: 1em; border-bottom: 1px solid #fbfbfb; margin-bottom: 1em; }
-  .panel { color: #999;
-    a { color: #999; &:visited { color: #999 }}
-    &:hover a { color: #000; &:hover { color: @bluelink; }}
-    &:hover p { color: #222; }
-    &:hover input:focus { color: #000; }
-  }
-  .list-new { font-size: 18px; color: #999; }
-  input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+    ul.listpage {
+      a { color: #000; &:hover { color: @bluelink; }}
+      li {
+        span.date { margin-right: 32px; }
+        &:hover { span.date { margin-right: 0; }}
+      }
+    }
+    .panel-sep { height: 1em; border-bottom: 1px solid #fbfbfb; margin-bottom: 1em; }
+    .panel { color: #999;
+      a { color: #999; &:visited { color: #999 }}
+      &:hover a { color: #000; &:hover { color: @bluelink; }}
+      &:hover p { color: #222; }
+      &:hover input:focus { color: #000; }
+    }
+    .list-new { font-size: 18px; color: #999; }
+    input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
   // form styles
+}
+
+.album-thumbnail img {
+    padding: 3px;
+    box-shadow: 1px 1px 4px #ccc;
+    &:hover {
+        box-shadow: 1px 1px 4px #999;
+    }
 }
 
 .color-button (@bg, @color) {

@@ -45,6 +45,13 @@ func (a *PicasaAlbum) PreSave() {
 	}
 }
 
+func (a *PicasaAlbum) AlbumLink() string {
+	if len(a.Links) > 2 {
+		return a.Links[1]
+	}
+	return ""
+}
+
 func ByAlbumId(id string) (*PicasaAlbum, error) {
 	Album := new(PicasaAlbum)
 	err := db.Find(Album, bson.M{"albumid": id}).One(Album)

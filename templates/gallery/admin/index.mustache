@@ -1,0 +1,24 @@
+
+<h2>
+    <a href="/admin/gallery/">Gallery</a>
+    <a class="gallery-user" href="{{#GalleryConfig}}{{SourceLink}}{{/GalleryConfig}}"> <i class="icon-camera-retro"></i> view on {{#GalleryConfig}}{{Type}}{{/GalleryConfig}}</a>
+</h2>
+
+{{#Albums}}
+    <div class="{{side}}-panel">
+        {{#Album}}
+        <h2><a href="album/{{Slug}}">{{Title}}</a></h2>
+        <p class="album-thumbnail"><a href="album/{{Slug}}"><img src="{{Thumbnail}}" alt="{{Title}}" /></a></p>
+        <p class="album-info">{{#Summary}}{{Summary}}<br />{{/Summary}}{{NumPhotos}} photos</p>
+        {{/Album}}
+    </div>
+    {{#right}}<div class="clear panel-sep"></div>{{/right}}
+{{/Albums}}
+<div class="clear"></div>
+
+
+
+<div>
+
+</div>
+

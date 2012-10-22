@@ -3,45 +3,56 @@ package gallery
 import (
 	"errors"
 	"fmt"
-	"github.com/jmoiron/monet/conf"
+	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/db"
+	"labix.org/v2/mgo/bson"
 )
 
+var galleryConfig = new(GalleryConfig)
+var loaded = false
+
 type GalleryConfig struct {
-	conf   map[string]string
-	Type   string
-	UserID string
+	Id      bson.ObjectId `bson:"_id,omitempty"`
+	Type    string
+	UserID  string
+	LastRun int64
 }
 
-func NewGalleryConfig() *GalleryConfig {
-	g := new(GalleryConfig)
-	g.conf = conf.Config.Gallery
-	g.Type = g.conf["Type"]
-	g.UserID = g.conf["UserID"]
-	return g
+func (g *GalleryConfig) Collection() string  { return "gallery" }
+func (g *GalleryConfig) Indexes() [][]string { return [][]string{} }
+
+func LoadGalleryConfig() *GalleryConfig {
+	if loaded {
+		return galleryConfig
+	}
+	db.Find(galleryConfig, nil).One(&galleryConfig)
+	if len(galleryConfig.Type) == 0 {
+		galleryConfig.Type = "picasa"
+	}
+	loaded = true
+	return galleryConfig
+}
+
+func (g *GalleryConfig) Save() {
+	if len(g.Id) == 0 {
+		g.Id = bson.NewObjectId()
+	}
+	db.Cursor(galleryConfig).Upsert(bson.M{"_id": g.Id}, g)
+	loaded = false
 }
 
 func (g *GalleryConfig) Check() error {
-	if len(g.conf) == 0 {
-		return errors.New("Missing \"Gallery\" config.")
+	if g.Type != "picasa" {
+		return errors.New("Only \"picasa\" supported as gallery type.")
 	}
-	_, ok := g.conf["Type"]
-	if !ok {
-		return errors.New("Missing \"Type\" in gallery config.")
-	}
-	_, ok = g.conf["UserID"]
-	if !ok {
+	if len(g.UserID) == 0 {
 		return errors.New("Missing \"UserID\" in gallery config.")
 	}
 	return nil
 }
 
 func (g *GalleryConfig) String() string {
-	s := `"Gallery": {` + "\n"
-	for key, val := range conf.Config.Gallery {
-		s += fmt.Sprintf("    \"%s\": \"%s\",\n", key, val)
-	}
-	s = s[:len(s)-2] + "\n}\n"
-	return s
+	return fmt.Sprintf("GalleryConfig %s", app.PrettyPrint(*g))
 }
 
 func (g *GalleryConfig) SourceLink() string {

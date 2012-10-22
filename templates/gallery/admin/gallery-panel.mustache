@@ -1,11 +1,17 @@
 
 <h2><a href="/admin/gallery/">Gallery</a></h2>
 <div>
+    {{^HasRun}}
+    <p>You have configured <a href="{{#GalleryConfig}}{{SourceLink}}{{/GalleryConfig}}"><i class="icon-camera-retro"></i> your gallery</a>, but the updater has not yet run:</p>
+    <p class="centered"><a href="gallery/force-update/"><i class="icon-refresh"></i> Update</a></p>
+    {{/HasRun}}
+    {{#HasRun}}
     <ul class="post-list shortlist">
     {{#Albums}}
         <li><a href="gallery/album/{{Slug}}">{{Title}}</a> <a class="del" href="gallery/album/disable/{{Slug}}"><i class="icon icon-remove-sign"></i></a></li>
     {{/Albums}}
-    </ul>
+</ul>
+    {{/HasRun}}
 </div>
 
 

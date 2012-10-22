@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // join multiple url bits into one
@@ -72,6 +73,17 @@ func HttpGetJson(url string) (map[string]interface{}, error) {
 		return data, err
 	}
 	return data, nil
+}
+
+// Taken a timestamp in the picasa format, which seems like the standard
+// iso format time, return a int64 timestamp, ex:
+//    2009-04-27T07:18:46.000Z -> 
+func ParsePicasaTime(timestamp string) int64 {
+	t, err := time.Parse("2006-01-02T15:04:05.000Z", timestamp)
+	if err != nil {
+		return 0
+	}
+	return t.Unix()
 }
 
 const (

@@ -36,6 +36,8 @@ blockquote {
     text-shadow: 0 1px 0 white;
 }
 
+.centered { text-align: center; }
+
 .container pre {
     font-size: 14px;
     line-height: 18px;
@@ -133,6 +135,8 @@ ul.listpage {
   .panel { color: #999;
     a { color: #999; &:visited { color: #999 }}
     &:hover a { color: #000; &:hover { color: @bluelink; }}
+    &:hover p { color: #222; }
+    &:hover input:focus { color: #000; }
   }
   .list-new { font-size: 18px; color: #999; }
   input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
@@ -161,7 +165,7 @@ ul.listpage {
     input { .color-button(@limey, #fff); }
   }
 }
-.admin form {
+.admin {
   .buttons { float: right; }
   .extras { display: none; }
   .more-button { .color-button(#4DBCE9, #fff); }

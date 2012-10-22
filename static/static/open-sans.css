@@ -20,5 +20,5 @@
   font-family: 'FontAwesome';
   font-style: normal;
   font-weight: 700;
-  src: local('FontAwesome'),  url("/static/fontawesome.woff") format('woff');
+  src: local('FontAwesome'),  url("/static/fontawesome-webfont.woff") format('woff');
 }

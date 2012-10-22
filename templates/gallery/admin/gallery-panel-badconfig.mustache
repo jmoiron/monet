@@ -1,11 +1,9 @@
 
 <h2><a href="/admin/gallery/">Gallery</a></h2>
 <div>
-    <h3 style="text-align: center;">Configuration Error</h3>
-    <p>There is an error in your configuration:</p>
-    <blockquote>
-        {{ Error }}
-    </blockquote>
-    <p>Your configuration:</p>
-    <pre>{{ GalleryConfig }}</pre>
+    <p>Please add your picasa user id:</p>
+    <form method="POST" action="gallery/update-settings/">
+        <input name="type" type="hidden" value="picasa">
+        <input name="userid" id="gallery-userid" value="Picasa UserID..." data-default="Picasa UserID..." class="list-new js-clear-default">
+    </form>
 </div>

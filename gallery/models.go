@@ -7,28 +7,23 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-type SpiderData struct {
-	Id      bson.ObjectId `bson:"_id,omitempty"`
-	LastRun uint64
-}
-
 type PicasaAlbum struct {
 	Id                 bson.ObjectId `bson:"_id,omitempty"`
 	ApiUrl             string        // id
 	AlbumId            string        //gphoto$id
 	Published          string
-	PublishedTimestamp uint64
+	PublishedTimestamp int64
 	Updated            string
-	UpdatedTimestamp   uint64
+	UpdatedTimestamp   int64
 	Title              string
 	Slug               string
 	Summary            string
 	Rights             string //gphoto$access
 	Links              []string
+	AlbumType          string // gphoto$albumType
+	Thumbnail          string // media$thumbnail
+	NumPhotos          int
 	//Authors   []map[string]string // [{name:uri}, ..]
-	NumPhotos int
-	AlbumType string // gphoto$albumType
-	Thumbnail string // media$thumbnail
 }
 
 func (a *PicasaAlbum) Collection() string { return "albums" }
@@ -42,11 +37,12 @@ func (a *PicasaAlbum) Unique() bson.M {
 	return bson.M{"albumid": a.AlbumId}
 }
 func (a *PicasaAlbum) PreSave() {
-	// TODO: parse timestamps for UpdatedTimestamp & PublishedTimestamp
+	// parse timestamps for UpdatedTimestamp & PublishedTimestamp
+	a.UpdatedTimestamp = ParsePicasaTime(a.Updated)
+	a.PublishedTimestamp = ParsePicasaTime(a.Published)
 	if len(a.Slug) == 0 {
 		a.Slug = app.Slugify(a.Title)
 	}
-	// TODO: slugify title
 }
 
 func ByAlbumId(id string) (*PicasaAlbum, error) {

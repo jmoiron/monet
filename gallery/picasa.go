@@ -4,11 +4,29 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jmoiron/jsonq"
+	"github.com/jmoiron/monet/db"
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
+
+type WaitGroupErr struct {
+	sync.WaitGroup
+	Errors []error
+}
+
+func (w *WaitGroupErr) Error(err error) {
+	w.Errors = append(w.Errors, err)
+}
+
+func (w *WaitGroupErr) GetError() error {
+	if len(w.Errors) > 0 {
+		return w.Errors[0]
+	}
+	return nil
+}
 
 // join multiple url bits into one
 func UrlJoin(strs ...string) string {
@@ -91,17 +109,94 @@ const (
 )
 
 type PicasaAPI struct {
-	UserID string
+	UserId string
 }
 
-func NewPicasaAPI(UserID string) *PicasaAPI {
+func NewPicasaAPI(UserId string) *PicasaAPI {
 	p := new(PicasaAPI)
-	p.UserID = UserID
+	p.UserId = UserId
 	return p
 }
 
+// Update all picasa data and keep track of required bookkeeping
+func (p *PicasaAPI) UpdateAll() error {
+	gc := LoadGalleryConfig()
+	err := gc.Check()
+	if err != nil {
+		return err
+	}
+	err = p.UpdateAlbums()
+	if err != nil {
+		return err
+	}
+	var albums []*PicasaAlbum
+	db.Find(&PicasaAlbum{}, nil).All(&albums)
+
+	var wg WaitGroupErr
+
+	for _, album := range albums {
+		wg.Add(1)
+		go func(a *PicasaAlbum) {
+			defer wg.Done()
+			err := p.UpdatePhotos(a)
+			if err != nil {
+				wg.Error(err)
+			}
+		}(album)
+	}
+
+	wg.Wait()
+
+	gc.LastRun = time.Now().Unix()
+	gc.Save()
+
+	err = wg.GetError()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Update all picasa album info
+func (p *PicasaAPI) UpdateAlbums() error {
+	albums, err := p.ListAlbums()
+	if err != nil {
+		return err
+	}
+	for _, album := range albums {
+		db.Upsert(album)
+	}
+	return nil
+}
+
+func (p *PicasaAPI) UpdatePhotos(album *PicasaAlbum) error {
+	photos, err := p.ListPhotos(album)
+	if err != nil {
+		return err
+	}
+	for _, photo := range photos {
+		db.Upsert(photo)
+	}
+	return nil
+}
+
+func (p *PicasaAPI) ListPhotos(album *PicasaAlbum) ([]*PicasaPhoto, error) {
+	url := UrlJoin(PicasaAPIBase, "user", p.UserId, "albumid",
+		fmt.Sprintf("%s?alt=json&imgmax=1600", album.AlbumId))
+	println(url)
+	js, err := HttpGetJson(url)
+	if err != nil {
+		return []*PicasaPhoto{}, err
+	}
+	photos, err := p.parsePhotos(js)
+	if err != nil {
+		return photos, err
+	}
+	return photos, nil
+}
+
 func (p *PicasaAPI) ListAlbums() ([]*PicasaAlbum, error) {
-	url := UrlJoin(PicasaAPIBase, fmt.Sprintf("/user/%s?alt=json", p.UserID))
+	url := UrlJoin(PicasaAPIBase, fmt.Sprintf("/user/%s?alt=json", p.UserId))
 	println(url)
 	js, err := HttpGetJson(url)
 	if err != nil {
@@ -144,4 +239,62 @@ func (p *PicasaAPI) parseAlbums(js interface{}) ([]*PicasaAlbum, error) {
 		albums[i] = album
 	}
 	return albums, nil
+}
+
+func (p *PicasaAPI) parsePhotos(js interface{}) ([]*PicasaPhoto, error) {
+	jq := jsonq.NewQuery(js)
+	entries, _ := jq.Array("feed", "entry")
+	photos := make([]*PicasaPhoto, len(entries))
+
+	for i, entry := range entries {
+		eq := jsonq.NewQuery(entry)
+		photo := new(PicasaPhoto)
+		photo.ApiUrl, _ = eq.String("id", "$t")
+		photo.PhotoId, _ = eq.String("gphoto$id", "$t")
+		photo.AlbumId, _ = eq.String("gphoto$albumid", "$t")
+		photo.Published, _ = eq.String("published", "$t")
+		photo.Updated, _ = eq.String("updated", "$t")
+		photo.Title, _ = eq.String("title", "$t")
+		photo.Summary, _ = eq.String("summary", "$t")
+		photo.Rights, _ = eq.String("gphoto$access", "$t")
+		links, _ := eq.Array("link")
+		for _, link := range links {
+			lq := jsonq.NewQuery(link)
+			s, err := lq.String("href")
+			if err != nil {
+				continue
+			}
+			photo.Links = append(photo.Links, s)
+		}
+		photo.Height, _ = eq.Int("gphoto$height", "$t")
+		photo.Width, _ = eq.Int("gphoto$width", "$t")
+		photo.Size, _ = eq.Int("gphoto$size", "$t")
+
+		photo.Large.Url, _ = eq.String("media$group", "media$content", "0", "url")
+		photo.Large.Height, _ = eq.Int("media$group", "media$content", "0", "height")
+		photo.Large.Width, _ = eq.Int("media$group", "media$content", "0", "width")
+
+		photo.Position, _ = eq.Int("gphoto$position", "$t")
+
+		thumbnails, _ := eq.Array("media$group", "media$thumbnail")
+		for _, thumb := range thumbnails {
+			tq := jsonq.NewQuery(thumb)
+			t := Image{}
+			t.Url, _ = tq.String("url")
+			t.Height, _ = tq.Int("height")
+			t.Width, _ = tq.Int("width")
+			photo.Thumbnails = append(photo.Thumbnails, t)
+		}
+
+		photo.ExifTags = map[string]string{}
+
+		tags, _ := eq.Object("exif$tags")
+		for key, obj := range tags {
+			oq := jsonq.NewQuery(obj)
+			photo.ExifTags[key], _ = oq.String("$t")
+		}
+
+		photos[i] = photo
+	}
+	return photos, nil
 }

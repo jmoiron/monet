@@ -1,0 +1,33 @@
+
+<h2>
+    <a href="/admin/gallery/">Gallery</a>
+    <span class="right small">
+    <a href="{{#Album}}{{AlbumLink}}{{/Album}}"> <i class="icon-camera-retro"></i> view on source</a>&nbsp;&nbsp;
+    <a href="/admin/gallery/force-update/?from=/admin/gallery/"><i class="icon-refresh"></i> force refresh </a>
+    </span>
+</h2>
+
+{{#Album}}
+<h3>{{Title}} ({{NumPhotos}} photos)</h3>
+{{/Album}}
+
+    <div class="entries">
+{{#Photos}}
+    <div class="entry-container">
+    <div class="album-photo entry">
+        <a href="{{FullSize}}"><img src="{{#MediumThumbnail}}{{Url}}{{/MediumThumbnail}}" title="{{Title}}" class="pretty-thumb" /></a>
+        <div class="exif-tags right">
+            {{#ExifTags}}
+            <ul style="margin: 0; font-size: 12px;">
+                <li>Exposure: {{exif$exposure}}s</li>
+                <li>ISO: {{exif$iso}}</li>
+                <li>F-Stop: {{exif$fstop}}</li>
+                <li>Camera: {{exif$model}}</li>
+            </ul>
+            {{/ExifTags}}
+        </div>
+        <div class="clear"></div>
+    </div>
+    </div>
+{{/Photos}}
+    </div>

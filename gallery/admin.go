@@ -6,7 +6,6 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
-	"time"
 )
 
 type M map[string]interface{}
@@ -28,12 +27,13 @@ func auth(f func(*web.Context) string) func(*web.Context) string {
 }
 
 func AttachAdmin(url string) {
-	web.Get(url+"gallery/", auth(galleryList))
+	web.Get(url+"gallery/", auth(listAlbums))
 	web.Post(url+"gallery/update-settings/", auth(updateSettings))
 	web.Get(url+"gallery/force-update/", auth(forceUpdate))
+	web.Get(url+"gallery/album/(.*)", listPhotos)
 }
 
-func galleryList(ctx *web.Context) string {
+func listAlbums(ctx *web.Context) string {
 	gc := LoadGalleryConfig()
 	err := gc.Check()
 	if err != nil {
@@ -64,29 +64,53 @@ func galleryList(ctx *web.Context) string {
 	})
 }
 
+func listPhotos(ctx *web.Context, slug string) string {
+	if app.RequireAuthentication(ctx) {
+		return ""
+	}
+	album := new(PicasaAlbum)
+	err := db.Find(album, M{"slug": slug}).One(album)
+	if err != nil {
+		println(err)
+		println("Cannot find album " + slug)
+		ctx.Redirect(302, "/admin/gallery/")
+		return ""
+	}
+	var photos []*PicasaPhoto
+	err = db.Find(&PicasaPhoto{}, M{"albumid": album.AlbumId}).
+		Sort("position").All(&photos)
+	if err != nil {
+		println(err)
+	}
+
+	return adminBase.Render("gallery/admin/photo-list.mustache", M{
+		"Album":  album,
+		"Photos": photos,
+	})
+}
+
 func forceUpdate(ctx *web.Context) string {
 	gc := LoadGalleryConfig()
 	err := gc.Check()
 	if err != nil {
 		return missingConfig(ctx, err)
 	}
-	api := NewPicasaAPI(gc.UserID)
-	albums, err := api.ListAlbums()
+	api := NewPicasaAPI(gc.UserId)
+	err = api.UpdateAll()
 	if err != nil {
-		return fmt.Sprintf("Error: %s", err.Error())
+		fmt.Println(err)
 	}
-	for _, album := range albums {
-		db.Upsert(album)
+	if len(ctx.Params["from"]) > 0 {
+		ctx.Redirect(302, ctx.Params["from"])
+	} else {
+		ctx.Redirect(302, "/admin/")
 	}
-	gc.LastRun = time.Now().Unix()
-	gc.Save()
-	ctx.Redirect(302, "/admin/")
 	return ""
 }
 
 func updateSettings(ctx *web.Context) string {
 	gc := LoadGalleryConfig()
-	gc.UserID = ctx.Params["userid"]
+	gc.UserId = ctx.Params["userid"]
 	gc.Type = ctx.Params["type"]
 	gc.Save()
 	ctx.Redirect(302, "/admin/")

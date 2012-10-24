@@ -14,7 +14,7 @@ var loaded = false
 type GalleryConfig struct {
 	Id      bson.ObjectId `bson:"_id,omitempty"`
 	Type    string
-	UserID  string
+	UserId  string
 	LastRun int64
 }
 
@@ -45,8 +45,8 @@ func (g *GalleryConfig) Check() error {
 	if g.Type != "picasa" {
 		return errors.New("Only \"picasa\" supported as gallery type.")
 	}
-	if len(g.UserID) == 0 {
-		return errors.New("Missing \"UserID\" in gallery config.")
+	if len(g.UserId) == 0 {
+		return errors.New("Missing \"UserId\" in gallery config.")
 	}
 	return nil
 }
@@ -57,7 +57,7 @@ func (g *GalleryConfig) String() string {
 
 func (g *GalleryConfig) SourceLink() string {
 	if g.Type == "picasa" {
-		return fmt.Sprintf("https://picasaweb.google.com/%s", g.UserID)
+		return fmt.Sprintf("https://picasaweb.google.com/%s", g.UserId)
 	}
 	return ""
 }

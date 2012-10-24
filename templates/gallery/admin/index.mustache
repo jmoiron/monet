@@ -1,13 +1,16 @@
 
 <h2>
     <a href="/admin/gallery/">Gallery</a>
-    <a class="gallery-user" href="{{#GalleryConfig}}{{SourceLink}}{{/GalleryConfig}}"> <i class="icon-camera-retro"></i> view on {{#GalleryConfig}}{{Type}}{{/GalleryConfig}}</a>
+    <span class="right small">
+    <a href="{{#GalleryConfig}}{{SourceLink}}{{/GalleryConfig}}"> <i class="icon-camera-retro"></i> view on {{#GalleryConfig}}{{Type}}{{/GalleryConfig}}</a>&nbsp;&nbsp;
+    <a href="/admin/gallery/force-update/?from=/admin/gallery/"><i class="icon-refresh"></i> force refresh </a>
+    </span>
 </h2>
 
 {{#Albums}}
     <div class="{{side}}-panel">
         {{#Album}}
-        <h2><a href="album/{{Slug}}">{{Title}}</a></h2>
+        <h2><a href="album/{{Slug}}">{{Title}}</a> <a href="{{AlbumLink}}" class="external-link"><i class="icon-external-link"></i></a></h2>
         <p class="album-thumbnail"><a href="album/{{Slug}}"><img src="{{Thumbnail}}" alt="{{Title}}" /></a></p>
         <p class="album-info">{{#Summary}}{{Summary}}<br />{{/Summary}}{{NumPhotos}} photos</p>
         {{/Album}}
@@ -15,10 +18,3 @@
     {{#right}}<div class="clear panel-sep"></div>{{/right}}
 {{/Albums}}
 <div class="clear"></div>
-
-
-
-<div>
-
-</div>
-

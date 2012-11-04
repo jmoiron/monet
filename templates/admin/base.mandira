@@ -2,12 +2,12 @@
 <html>
     <head>
         <link rel="stylesheet" href="/static/open-sans.css">
-        {{#Debug}}
+        {{?if Debug}}
         <link rel="stylesheet/less" href="/static/style.less">
         <script src="/static/js/less.js"></script>
-        {{/Debug}}{{^Debug}}
+        {{?else}}
         <link rel="stylesheet" href="/static/style.css">
-        {{/Debug}}
+        {{/if}}
         <script src="/static/js/jquery.js"></script>
         <script src="/static/js/admin.js"></script>
         <title>{{title}}</title>
@@ -20,7 +20,7 @@
         </div>
         <div class="footer">
           <div class="container">
-            {{^login}}
+            {{?if not login}}
             <div class="user-controls">
               <a href="/admin/users/">users <i class="icon icon-user"></i></a>
             </div>
@@ -28,7 +28,7 @@
               <a href="/admin/">home <i class="icon icon-home"></i></a> or
               <a href="/admin/logout/">logout <i class="icon icon-signout"></i></a>
             </div>
-            {{/login}}
+            {{/if}}
           </div>
         </div>
     </body>

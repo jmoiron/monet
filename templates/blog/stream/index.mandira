@@ -1,0 +1,13 @@
+{{?if Search}}<h3><a href="/stream/">Full Stream</a></h3>{{/if}}
+
+<form action="/stream/" method="GET"><input type="text" name="Search" class="search js-clear-default" data-default="Search the stream..." value="{{?if Search}}{{Search}}{{?else}}Search the stream...{{/if}}"></form>
+
+<div class="entries">
+    {{#Entries}}
+    <div class="entry-container">
+        {{{SummaryRender}}}
+    </div>
+    {{/Entries}}
+</div>
+
+{{{Pagination}}}

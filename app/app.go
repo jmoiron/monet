@@ -11,7 +11,7 @@ import (
 
 type M map[string]interface{}
 
-var base = template.Base{Path: "base.mustache"}
+var base = template.Base{Path: "base.mandira"}
 
 func GetPost(route string, handler interface{}) {
 	web.Get(route, handler)

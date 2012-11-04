@@ -2,18 +2,19 @@
 <html>
     <head>
         <link rel="stylesheet" href="/static/open-sans.css">
-        {{#Debug}}
+        {{?if Debug}}
         <link rel="stylesheet/less" href="/static/style.less">
         <script src="/static/js/less.js"></script>
-        {{/Debug}}{{^Debug}}
+        {{?else}}
         <link rel="stylesheet" href="/static/style.css">
-        {{/Debug}}
+        {{/if}}
         <script src="/static/js/jquery.js"></script>
         <script src="/static/js/frontend.js"></script>
         <script src="/static/js/prettify.js"></script>
         <meta name="description" content="{{description}}">
         <title>{{title}}</title>
-        {{^Debug}}{{#Config}}{{#GoogleAnalyticsTrackingID}}
+        {{?if not Debug}}
+        {{#Config}}{{#GoogleAnalyticsTrackingID}}
         <script>
           var _gaq = _gaq || [];
           _gaq.push(['_setAccount', '{{GoogleAnalyticsTrackingID}}']);
@@ -25,7 +26,7 @@
             var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
           })();
         </script>
-        {{/GoogleAnalyticsTrackingID}}{{/Config}}{{/Debug}}
+        {{/GoogleAnalyticsTrackingID}}{{/Config}}{{/if}}
     </head>
     <body onload="prettyPrint();">
         <div class="content">

@@ -77,7 +77,7 @@ func (p *Paginator) Render(objCount int) string {
 			links = append(links, Link{Num: c, Url: p.Link + c, HasUrl: true})
 		}
 	}
-	return template.Render("paginator.mustache", M{"Pages": links}, p,
+	return template.Render("paginator.mandira", M{"Pages": links}, p,
 		M{
 			"NextPageUrl": p.Link + itoa(p.Page+1),
 			"PrevPageUrl": p.Link + itoa(p.Page-1),

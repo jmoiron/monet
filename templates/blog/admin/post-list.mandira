@@ -1,0 +1,16 @@
+
+{{?if Unpublished}}<h2>Posts</h2>{{?else}}<h2>Unpublished</h2>{{/if}}
+
+<form action="/admin/posts/" method="GET"><input type="text" name="Search" class="search js-clear-default" data-default="Type a search query..." value="{{?if Search}}{{Search}}{{?else}}Type a search query...{{/if}}"></form>
+
+<ul class="shortlist listpage">
+{{#Posts}}
+<li>
+<a href="/admin/posts/edit/{{Slug}}">{{Title}}</a>
+<a class="del" href="/admin/posts/delete/{{Slug}}"><i class="icon icon-remove-sign"></i></a>
+<span class="date">{{NaturalTime}}</span>
+</li>
+{{/Posts}}
+</ul>
+
+{{{Pagination}}}

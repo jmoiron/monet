@@ -11,7 +11,7 @@ import (
 type M map[string]interface{}
 
 var (
-	adminBase     = template.Base{Path: "admin/base.mustache"}
+	adminBase     = template.Base{Path: "admin/base.mandira"}
 	listPageSize  = 20
 	indexListSize = 6
 )
@@ -58,7 +58,7 @@ func listAlbums(ctx *web.Context) string {
 		fmt.Println(app.PrettyPrint(album))
 	}
 
-	return adminBase.Render("gallery/admin/index.mustache", M{
+	return adminBase.Render("gallery/admin/index.mandira", M{
 		"GalleryConfig": gc,
 		"Albums":        panels,
 	})
@@ -83,7 +83,7 @@ func listPhotos(ctx *web.Context, slug string) string {
 		println(err)
 	}
 
-	return adminBase.Render("gallery/admin/photo-list.mustache", M{
+	return adminBase.Render("gallery/admin/photo-list.mandira", M{
 		"Album":  album,
 		"Photos": photos,
 	})
@@ -119,7 +119,7 @@ func updateSettings(ctx *web.Context) string {
 
 func missingConfig(ctx *web.Context, err error) string {
 	gc := LoadGalleryConfig()
-	return adminBase.Render("gallery/missing-config.mustache", M{
+	return adminBase.Render("gallery/missing-config.mandira", M{
 		"GalleryConfig": gc, "Error": err.Error()})
 }
 
@@ -131,7 +131,7 @@ func (gp *GalleryPanel) Render() string {
 	gc := LoadGalleryConfig()
 	err := gc.Check()
 	if err != nil {
-		return template.Render("gallery/admin/gallery-panel-badconfig.mustache", M{
+		return template.Render("gallery/admin/gallery-panel-badconfig.mandira", M{
 			"GalleryConfig": gc,
 			"Error":         err.Error(),
 		})
@@ -139,7 +139,7 @@ func (gp *GalleryPanel) Render() string {
 
 	var albums []PicasaAlbum
 	db.Find(&PicasaAlbum{}, nil).Limit(indexListSize).All(&albums)
-	return template.Render("gallery/admin/gallery-panel.mustache", M{
+	return template.Render("gallery/admin/gallery-panel.mandira", M{
 		"GalleryConfig": gc,
 		"Albums":        albums,
 		"HasRun":        gc.LastRun > 0,

@@ -12,8 +12,8 @@
         {{#IsFork}}
         <a href="{{Url}}">forked {{#Event}}{{name}}</a>, {{description}}{{/Event}}
         {{/IsFork}}
-        {{^IsCommit}}{{^IsCreate}}{{^IsFork}}
+        {{?if not IsCommit and not IsCreate and not IsFork}}
             Unknown action {{#Event}}{{event}}{{/Event}}
-        {{/IsFork}}{{/IsCreate}}{{/IsCommit}}
+        {{/if}}
     </div>
 {{/Entry}}

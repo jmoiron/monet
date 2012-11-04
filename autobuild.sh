@@ -3,22 +3,29 @@
 cur=`pwd`
 kill=1
 
-inotifywait -mqr --timefmt '%d/%m/%y %H:%M' --format '%T %w %f' \
-   -e modify ./ | while read date time dir file; do
-    ext="${file##*.}"
-    if [[ "$ext" = "go" ]]; then
-        if [ $kill -eq 0 ]; then
-            killall monet
+function watchfile() {
+    inotifywait -mqr --timefmt '%d/%m/%y %H:%M' --format '%T %w %f' \
+       -e modify ./ | while read date time dir file; do
+        ext="${file##*.}"
+        if [[ "$ext" = "go" ]]; then
+            echo "$file changed @ $time $date, rebuilding..."
+            ./rebuild.sh
         fi
-        echo "$file changed @ $time $date, rebuilding..."
-        go build
-        if [ $? -eq 0 ]; then
-            kill=0
-            sleep 1
-            ./monet &
-        else
-            kill=1
+    done
+}
+
+case $(uname) in
+    Darwin)
+        if [ -z $(which watchmedo) ]; then
+            echo "Please install watchdog:"
+            echo "    pip install watchdog"
+            exit
         fi
-    fi
-done
+        watchmedo shell-command --patterns="*.go" --command="./rebuild.sh" .
+    ;;
+    *)
+        watchfile
+    ;;
+esac
+
 

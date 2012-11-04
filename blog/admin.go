@@ -13,7 +13,7 @@ import (
 type M bson.M
 
 var (
-	adminBase     = template.Base{Path: "admin/base.mustache"}
+	adminBase     = template.Base{Path: "admin/base.mandira"}
 	listPageSize  = 20
 	indexListSize = 6
 )
@@ -50,7 +50,7 @@ func unpublishedList(ctx *web.Context, page string) string {
 	latest.Limit(listPageSize).All(&posts)
 
 	numObjects, _ := latest.Count()
-	return adminBase.Render("blog/admin/post-list.mustache", M{
+	return adminBase.Render("blog/admin/post-list.mandira", M{
 		"Posts":       posts,
 		"Pagination":  paginator.Render(numObjects),
 		"Unpublished": true,
@@ -90,7 +90,7 @@ func postList(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return adminBase.Render("blog/admin/post-list.mustache", M{
+	return adminBase.Render("blog/admin/post-list.mandira", M{
 		"Posts": posts, "Pagination": paginator.Render(numObjects)})
 
 }
@@ -101,7 +101,7 @@ func postAdd(ctx *web.Context) string {
 	}
 
 	if ctx.Request.Method == "GET" {
-		return adminBase.Render("blog/admin/posts-edit.mustache",
+		return adminBase.Render("blog/admin/posts-edit.mandira",
 			ctx.Params, M{"Published": 0, "IsPublished": false})
 	}
 
@@ -132,7 +132,7 @@ func postEdit(ctx *web.Context, slug string) string {
 		db.Upsert(post)
 	}
 
-	return adminBase.Render("blog/admin/posts-edit.mustache", post, M{
+	return adminBase.Render("blog/admin/posts-edit.mandira", post, M{
 		"IsPublished": post.Published == 1,
 		"IdHex":       post.Id.Hex()})
 }
@@ -169,7 +169,7 @@ func pageAdd(ctx *web.Context) string {
 
 	if ctx.Request.Method == "GET" {
 		ctx.Params["Url"] = strings.TrimLeft(ctx.Params["Url"], "/")
-		return adminBase.Render("blog/admin/pages-edit.mustache", ctx.Params)
+		return adminBase.Render("blog/admin/pages-edit.mandira", ctx.Params)
 	}
 
 	var page = new(Page)
@@ -195,7 +195,7 @@ func pageEdit(ctx *web.Context, url string) string {
 		page.FromParams(ctx.Params)
 		db.Upsert(page)
 	}
-	return adminBase.Render("blog/admin/pages-edit.mustache", page)
+	return adminBase.Render("blog/admin/pages-edit.mandira", page)
 }
 
 func pagePreview(ctx *web.Context) string {
@@ -250,7 +250,7 @@ func pageList(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return adminBase.Render("blog/admin/page-list.mustache", M{
+	return adminBase.Render("blog/admin/page-list.mandira", M{
 		"Pages": pages, "Pagination": paginator.Render(numObjects)})
 }
 
@@ -261,7 +261,7 @@ type PostPanel struct{}
 func (pp *PostPanel) Render() string {
 	var posts []Post
 	db.Latest(&Post{}, M{"published": 1}).Limit(indexListSize).All(&posts)
-	return template.Render("blog/admin/posts-panel.mustache", M{
+	return template.Render("blog/admin/posts-panel.mandira", M{
 		"posts": posts,
 	})
 }
@@ -271,7 +271,7 @@ type UnpublishedPanel struct{}
 func (up *UnpublishedPanel) Render() string {
 	var posts []Post
 	db.Latest(&Post{}, M{"published": 0}).Limit(indexListSize).All(&posts)
-	return template.Render("blog/admin/unpublished-panel.mustache", M{
+	return template.Render("blog/admin/unpublished-panel.mandira", M{
 		"posts": posts,
 	})
 }
@@ -281,7 +281,7 @@ type PagesPanel struct{}
 func (pp *PagesPanel) Render() string {
 	var pages []Page
 	db.Find(&Page{}, nil).Limit(indexListSize).All(&pages)
-	return template.Render("blog/admin/pages-panel.mustache", M{
+	return template.Render("blog/admin/pages-panel.mandira", M{
 		"pages": pages,
 	})
 }

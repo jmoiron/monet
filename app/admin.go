@@ -17,7 +17,7 @@ func AddPanel(p AdminPanel) {
 	Panels = append(Panels, p)
 }
 
-var adminBase = template.Base{Path: "admin/base.mustache"}
+var adminBase = template.Base{Path: "admin/base.mandira"}
 var CookieStore = sessions.NewCookieStore([]byte(conf.Config.SessionSecret))
 
 func AttachAdmin(url string) {
@@ -60,7 +60,7 @@ func login(ctx *web.Context) string {
 			ctx.Redirect(302, "/admin/")
 		}
 	}
-	return adminBase.Render("admin/login.mustache", ctx.Params, M{"login": true})
+	return adminBase.Render("admin/login.mandira", ctx.Params, M{"login": true})
 }
 
 func logout(ctx *web.Context) string {
@@ -90,7 +90,7 @@ func adminIndex(ctx *web.Context) string {
 		})
 	}
 
-	return adminBase.Render("admin/index.mustache", M{
+	return adminBase.Render("admin/index.mandira", M{
 		"Panels": panels,
 	})
 	/*
@@ -101,7 +101,7 @@ func adminIndex(ctx *web.Context) string {
 		db.Posts().Latest(dict{"published": 0}).Limit(indexListSize).Iter().All(&unpublished)
 		db.Pages().C.Find(nil).Limit(indexListSize).Iter().All(&pages)
 
-		return adminBase.Render("admin/index.mustache", dict{
+		return adminBase.Render("admin/index.mandira", dict{
 			"posts": posts, "unpublished": unpublished, "pages": pages})
 	*/
 }

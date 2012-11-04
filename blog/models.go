@@ -153,7 +153,7 @@ func (e *Entry) SummaryRender() string {
 	b := []byte(e.Data)
 	json.Unmarshal(b, &data)
 
-	template_name := fmt.Sprintf("blog/stream/%s-summary.mustache", e.Type)
+	template_name := fmt.Sprintf("blog/stream/%s-summary.mandira", e.Type)
 
 	if e.Type == "twitter" {
 		ret = template.Render(template_name, obj{"Entry": e, "Tweet": data["tweet"]})

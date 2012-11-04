@@ -2,7 +2,7 @@ package template
 
 import (
 	"fmt"
-	"github.com/hoisie/mustache"
+	"github.com/jmoiron/mandira"
 	"github.com/jmoiron/monet/conf"
 	"github.com/russross/blackfriday"
 	"os"
@@ -16,7 +16,7 @@ type Base struct {
 	Path string
 }
 
-var templates = map[string]*mustache.Template{}
+var templates = map[string]*mandira.Template{}
 var templatePaths = map[string]string{}
 
 func (b *Base) Render(t string, c ...interface{}) string {
@@ -43,7 +43,7 @@ func Render(t string, c ...interface{}) string {
 		fmt.Printf("Error: template %s not found\n", t)
 		return ""
 	}
-	template, err := mustache.ParseFile(path)
+	template, err := mandira.ParseFile(path)
 	if err != nil {
 		fmt.Println(err)
 		return ""
@@ -65,9 +65,9 @@ func LoadDir(dir string) int {
 		templatePaths[tname] = path
 		// if template pre-compilation is on, compile these and store
 		if conf.Config.TemplatePreCompile {
-			templates[tname], err = mustache.ParseFile(path)
+			templates[tname], err = mandira.ParseFile(path)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Printf("%s: %v\n", tname, err)
 			}
 		}
 		numTemplates++

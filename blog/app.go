@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-var base = template.Base{Path: "base.mustache"}
+var base = template.Base{Path: "base.mandira"}
 
 // Attach the blog app frontend
 func Attach(url string) {
@@ -26,7 +26,7 @@ func RenderPost(post *Post) string {
 	if len(post.ContentRendered) == 0 {
 		db.Upsert(post)
 	}
-	return template.Render("blog/post.mustache", post)
+	return template.Render("blog/post.mandira", post)
 }
 
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available
@@ -37,7 +37,7 @@ func Flatpage(ctx *web.Context, url string) string {
 		return ""
 	}
 
-	return template.Render("base.mustache", M{
+	return template.Render("base.mandira", M{
 		"body":        p.ContentRendered,
 		"title":       "jmoiron.net",
 		"description": "Blog and assorted media from Jason Moiron.",
@@ -60,7 +60,7 @@ func Index(s string) string {
 	}
 
 	post = &posts[0]
-	return base.Render("index.mustache", M{
+	return base.Render("index.mandira", M{
 		"Post":        RenderPost(post),
 		"Posts":       posts[1:],
 		"Entries":     entries,
@@ -99,7 +99,7 @@ func blogPage(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return base.Render("blog/index.mustache", M{
+	return base.Render("blog/index.mandira", M{
 		"Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
@@ -112,7 +112,7 @@ func blogDetail(ctx *web.Context, slug string) string {
 		return ""
 	}
 
-	return template.Render("base.mustache", M{
+	return template.Render("base.mandira", M{
 		"body":        RenderPost(post),
 		"title":       post.Title,
 		"description": post.Summary})
@@ -153,7 +153,7 @@ func streamPage(ctx *web.Context, page string) string {
 		fmt.Println(err)
 	}
 
-	return base.Render("blog/stream/index.mustache", M{
+	return base.Render("blog/stream/index.mandira", M{
 		"Entries":    entries,
 		"Pagination": paginator.Render(numObjects),
 		"title":      "Lifestream"}, ctx.Params)

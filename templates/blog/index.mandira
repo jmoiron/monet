@@ -1,0 +1,14 @@
+{{?if Search}}<h3><a href="/blog/">All Posts</a></h3>{{/if}}
+
+<form action="/blog/" method="GET"><input type="text" name="Search" class="search js-clear-default" data-default="Type a search query..." value="{{?if Search}}{{Search}}{{?else}}Type a search query...{{/if}}"></form>
+
+<ul class="shortlist listpage">
+{{#Posts}}
+<li>
+<a href="/blog/{{Slug}}/">{{Title}}</a>
+<span class="date">{{NaturalTime}}</span>
+</li>
+{{/Posts}}
+</ul>
+
+{{{Pagination}}}

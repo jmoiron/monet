@@ -1,8 +1,8 @@
 
 <form method="POST" action="" class="posts-form">
     {{#Id}}<input type="hidden" name="id" id="id" value="{{IdHex}}" />{{/Id}}
-    <div><input type="text" name="title" id="title" class="post-title-input js-clear-default" value="{{#Title}}{{Title}}{{/Title}}{{^Title}}Type a new title...{{/Title}}" data-default="Type a new title..."></div>
-    <div><textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{#Content}}{{Content}}{{/Content}}{{^Content}}Type some new content...{{/Content}}</textarea></div>
+    <div><input type="text" name="title" id="title" class="post-title-input js-clear-default" value="{{?if Title}}{{Title}}{{?else}}Type a new title...{{/if}}" data-default="Type a new title..."></div>
+    <div><textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{?if Content}}{{Content}}{{?else}}Type some new content...{{/if}}</textarea></div>
     <div class="extras">
         <div>
             <label for="slug">slug</label>
@@ -17,7 +17,7 @@
     <div class="published">
         <input type="hidden" value="{{Published}}" name="published" id="published">
         <a class="published-toggle-button published-{{Published}}">Published 
-            <i class="icon {{#IsPublished}}icon-check{{/IsPublished}}{{^IsPublished}}icon-remove{{/IsPublished}}"></i>
+            <i class="icon {{?if IsPublished}}icon-check{{?else}}icon-remove{{/if}}"></i>
         </a>
     </div>
     <div class="buttons">

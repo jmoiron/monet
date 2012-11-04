@@ -143,7 +143,6 @@ func postPreview(ctx *web.Context) string {
 	}
 	var post = new(Post)
 	post.FromParams(ctx.Params)
-	/* not sure the ettiquite here, RenderPost is defined in app.go */
 	return RenderPost(post)
 }
 

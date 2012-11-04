@@ -18,8 +18,8 @@ repository might not be the best example of idiomatic go, but I try:
 * a front-end for twitter and github statuses (updater is currently in python).
 
 The blog and flatpages are written in markdown and stored in mongodb.  The site
-itself is rendered via mustache templates, which when the `Debug` configuration
-option is `false` get cached.
+itself is rendered via [mandira templates](http://jmoiron.github.com/mandira), 
+which when the `Debug` configuration option is `false` get cached.
 
 ## How do I run this?
 

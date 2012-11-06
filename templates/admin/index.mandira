@@ -1,9 +1,9 @@
 
 {{#Panels}}
-    <div class="{{side}}-panel panel">
-        {{{content}}}
+    <div class="{{?if .index|divisibleby(2)}}left{{?else}}right{{/if}}-panel panel">
+        {{{Render}}}
     </div>
-    {{#right}}<div class="clear panel-sep"></div>{{/right}}
+    {{?if not .index|divisibleby(2)}}<div class="clear panel-sep"></div>{{/if}}
 {{/Panels}}
 <div class="clear"></div>
 

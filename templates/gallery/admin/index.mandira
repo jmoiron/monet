@@ -8,13 +8,11 @@
 </h2>
 
 {{#Albums}}
-    <div class="{{side}}-panel">
-        {{#Album}}
+    <div class="{{?if .index|divisibleby(2)}}left{{?else}}right{{/if}}-panel">
         <h2><a href="album/{{Slug}}">{{Title}}</a> <a href="{{AlbumLink}}" class="external-link"><i class="icon-external-link"></i></a></h2>
         <p class="album-thumbnail"><a href="album/{{Slug}}"><img src="{{Thumbnail}}" alt="{{Title}}" /></a></p>
-        <p class="album-info">{{#Summary}}{{Summary}}<br />{{/Summary}}{{NumPhotos}} photos</p>
-        {{/Album}}
+        <p class="album-info">{{?if Summary}}{{Summary}}<br />{{/if}}{{NumPhotos}} photos</p>
     </div>
-    {{#right}}<div class="clear panel-sep"></div>{{/right}}
+    {{?if not .index|divisibleby(2)}}<div class="clear panel-sep"></div>{{/if}}
 {{/Albums}}
 <div class="clear"></div>

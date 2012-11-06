@@ -76,32 +76,7 @@ func adminIndex(ctx *web.Context) string {
 		return ""
 	}
 
-	panels := []M{}
-
-	for i, p := range Panels {
-		side := "left"
-		if i%2 != 0 {
-			side = "right"
-		}
-		panels = append(panels, M{
-			"side":    side,
-			"right":   side == "right",
-			"content": p.Render(),
-		})
-	}
-
 	return adminBase.Render("admin/index.mandira", M{
-		"Panels": panels,
+		"Panels": Panels,
 	})
-	/*
-		var posts []db.Post
-		var unpublished []db.Post
-		var pages []db.Page
-		db.Posts().Latest(dict{"published": 1}).Limit(indexListSize).Iter().All(&posts)
-		db.Posts().Latest(dict{"published": 0}).Limit(indexListSize).Iter().All(&unpublished)
-		db.Pages().C.Find(nil).Limit(indexListSize).Iter().All(&pages)
-
-		return adminBase.Render("admin/index.mandira", dict{
-			"posts": posts, "unpublished": unpublished, "pages": pages})
-	*/
 }

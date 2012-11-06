@@ -43,24 +43,9 @@ func listAlbums(ctx *web.Context) string {
 	var albums []*PicasaAlbum
 	db.Find(&PicasaAlbum{}, nil).All(&albums)
 
-	panels := []M{}
-
-	for i, album := range albums {
-		side := "left"
-		if i%2 != 0 {
-			side = "right"
-		}
-		panels = append(panels, M{
-			"side":  side,
-			"right": side == "right",
-			"Album": album,
-		})
-		fmt.Println(app.PrettyPrint(album))
-	}
-
 	return adminBase.Render("gallery/admin/index.mandira", M{
 		"GalleryConfig": gc,
-		"Albums":        panels,
+		"Albums":        albums,
 	})
 }
 

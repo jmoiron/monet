@@ -129,7 +129,7 @@ func _createFeed() *syndicate.Feed {
 		feed.Add(&syndicate.Item{
 			Title:       post.Title,
 			Link:        &syndicate.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
-			Description: post.Summary,
+			Description: post.ContentRendered,
 			Created:     time.Unix(int64(post.Timestamp), 0),
 		})
 	}

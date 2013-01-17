@@ -142,13 +142,7 @@ func atom(ctx *web.Context) string {
 	if feed == nil {
 		return "<!-- error -->"
 	}
-	a := &syndicate.Atom{feed}
-	af := a.AtomFeed()
-	for _, e := range af.Entries {
-		e.Content = e.Summary.Content
-		e.Summary = nil
-	}
-	text, err := syndicate.ToXML(af)
+	text, err := feed.ToAtom()
 	if err != nil {
 		fmt.Println(err)
 		return "<!-- error -->"

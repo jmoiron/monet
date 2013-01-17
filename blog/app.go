@@ -138,6 +138,7 @@ func _createFeed() *syndicate.Feed {
 
 func atom(ctx *web.Context) string {
 	feed := _createFeed()
+	ctx.Header().Set("Content-Type", "application/xml")
 	if feed == nil {
 		return "<!-- error -->"
 	}
@@ -151,6 +152,7 @@ func atom(ctx *web.Context) string {
 
 func rss(ctx *web.Context) string {
 	feed := _createFeed()
+	ctx.Header().Set("Content-Type", "application/xml")
 	if feed == nil {
 		return "<!-- error -->"
 	}

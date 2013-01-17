@@ -6,7 +6,9 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
+	"github.com/jmoiron/syndicate"
 	"labix.org/v2/mgo/bson"
+	"time"
 )
 
 var base = template.Base{Path: "base.mandira"}
@@ -18,6 +20,8 @@ func Attach(url string) {
 	web.Get(url+"blog/", blogIndex)
 	web.Get(url+"stream/page/(\\d+)", streamPage)
 	web.Get(url+"stream/", streamIndex)
+	web.Get(url+"blog/rss", rss)
+	web.Get(url+"blog/atom", atom)
 }
 
 // Render the post, using the cached ContentRendered if available, or generating
@@ -101,6 +105,61 @@ func blogPage(ctx *web.Context, page string) string {
 
 	return base.Render("blog/index.mandira", M{
 		"Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
+}
+
+func _createFeed() *syndicate.Feed {
+	var posts []Post
+	var post *Post
+
+	err := db.Latest(post, M{"published": 1}).Limit(10).Iter().All(&posts)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	feed := &syndicate.Feed{
+		Title:       "jmoiron.net blog",
+		Link:        &syndicate.Link{Href: "http://jmoiron.net"},
+		Description: "the blog of Jason Moiron, all thoughts his own",
+		Author:      &syndicate.Author{"Jason Moiron", "jmoiron@jmoiron.net"},
+		Updated:     time.Now(),
+	}
+
+	for _, post := range posts {
+		feed.Add(&syndicate.Item{
+			Title:       post.Title,
+			Link:        &syndicate.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
+			Description: post.Summary,
+			Created:     time.Unix(int64(post.Timestamp), 0),
+		})
+	}
+	return feed
+}
+
+func atom(ctx *web.Context) string {
+	feed := _createFeed()
+	if feed == nil {
+		return "<!-- error -->"
+	}
+	text, err := feed.ToAtom()
+	if err != nil {
+		fmt.Println(err)
+		return "<!-- error -->"
+	}
+	return text
+}
+
+func rss(ctx *web.Context) string {
+	feed := _createFeed()
+	if feed == nil {
+		return "<!-- error -->"
+	}
+	text, err := feed.ToRss()
+	if err != nil {
+		fmt.Println(err)
+		return "<!-- error -->"
+	}
+	return text
 }
 
 func blogDetail(ctx *web.Context, slug string) string {

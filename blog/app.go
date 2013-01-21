@@ -2,11 +2,11 @@ package blog
 
 import (
 	"fmt"
+	"github.com/gorilla/feeds"
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
-	"github.com/jmoiron/syndicate"
 	"labix.org/v2/mgo/bson"
 	"time"
 )
@@ -107,7 +107,7 @@ func blogPage(ctx *web.Context, page string) string {
 		"Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
-func _createFeed() *syndicate.Feed {
+func _createFeed() *feeds.Feed {
 	var posts []Post
 	var post *Post
 
@@ -117,18 +117,18 @@ func _createFeed() *syndicate.Feed {
 		return nil
 	}
 
-	feed := &syndicate.Feed{
+	feed := &feeds.Feed{
 		Title:       "jmoiron.net blog",
-		Link:        &syndicate.Link{Href: "http://jmoiron.net"},
+		Link:        &feeds.Link{Href: "http://jmoiron.net"},
 		Description: "the blog of Jason Moiron, all thoughts his own",
-		Author:      &syndicate.Author{"Jason Moiron", "jmoiron@jmoiron.net"},
+		Author:      &feeds.Author{"Jason Moiron", "jmoiron@jmoiron.net"},
 		Updated:     time.Now(),
 	}
 
 	for _, post := range posts {
-		feed.Add(&syndicate.Item{
+		feed.Add(&feeds.Item{
 			Title:       post.Title,
-			Link:        &syndicate.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
+			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
 			Description: post.ContentRendered,
 			Created:     time.Unix(int64(post.Timestamp), 0),
 		})

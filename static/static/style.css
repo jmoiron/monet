@@ -249,6 +249,7 @@ a{color:#0166d7;font-weight:bold;text-decoration:none;}a:hover{color:#278cfe;tex
 .date{color:#aaa;float:right;text-align:right;}.date:hover{color:#555;}
 .post{}.post h2 a img{display:none;}
 .post h2 a:hover{color:#000;}.post h2 a:hover img{display:inline;}
+.post p code{background-color:#fef;padding:0 2px;box-shadow:1px 1px 1px #ede;}
 .footer .container{border-top:1px solid #eee;padding-top:1em;}
 .footer .byline{font-size:14px;text-align:right;float:right;color:#ccc;}.footer .byline a{color:#aaa;}.footer .byline a:hover{color:#278cfe;}
 .footer .link-icons{float:left;}.footer .link-icons a{color:#ccc;}.footer .link-icons a:hover{color:#278cfe;}

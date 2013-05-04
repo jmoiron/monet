@@ -42,7 +42,7 @@ func (c *config) DbHostString() string {
 }
 
 func (c *config) String() string {
-	s := "{\n"
+	s := "Config:"
 	s += fmt.Sprintf("   Host: %s,\n", c.HostString())
 	s += fmt.Sprintf("   DB: %s,\n", c.DbHostString())
 	s += fmt.Sprintf("   TemplatePaths: %s,\n", c.TemplatePaths)
@@ -51,7 +51,6 @@ func (c *config) String() string {
 	s += fmt.Sprintf("   Debug: %v\n", c.Debug)
 	s += fmt.Sprintf("   Gallery: %v\n", c.Gallery)
 	s += fmt.Sprintf("   GoogleAnalyticsTrackingID: %v\n", c.GoogleAnalyticsTrackingID)
-	s += "}\n"
 	return s
 }
 
@@ -72,23 +71,18 @@ func init() {
 	Config.Debug = false
 	Config.TemplatePreCompile = true
 
-	Init(Path)
-}
-
-// post-flag initialize
-func Init(path string) {
-	env_path := os.Getenv("MONET_CONFIG_PATH")
-	if env_path != "" {
-		Path = env_path
+	if ecp := os.Getenv("MONET_CONFIG_PATH"); ecp != "" {
+		Path = ecp
 	}
 	file, err := os.Open(Path)
 	if err != nil {
-		if len(env_path) > 1 {
+		if len(Path) > 1 {
 			fmt.Printf("Error: could not read config file %s.\n", Path)
 		}
 		return
 	}
 	decoder := json.NewDecoder(file)
+	// overwrite in-mem config with new values
 	err = decoder.Decode(Config)
 	if err != nil {
 		fmt.Printf("Error decoding file %s\n%s\n", Path, err)

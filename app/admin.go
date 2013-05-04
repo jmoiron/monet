@@ -1,7 +1,7 @@
 package app
 
 import (
-	"code.google.com/p/gorilla/sessions"
+	"github.com/gorilla/sessions"
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/template"

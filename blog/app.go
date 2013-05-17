@@ -12,6 +12,8 @@ import (
 )
 
 var base = template.Base{Path: "base.mandira"}
+var RssHref string
+var AtomHref string
 
 // Attach the blog app frontend
 func Attach(url string) {
@@ -22,6 +24,9 @@ func Attach(url string) {
 	web.Get(url+"stream/", streamIndex)
 	web.Get(url+"blog/rss", rss)
 	web.Get(url+"blog/atom", atom)
+
+	RssHref = url + "blog/rss"
+	AtomHref = url + "blog/atom"
 }
 
 // Render the post, using the cached ContentRendered if available, or generating
@@ -104,7 +109,10 @@ func blogPage(ctx *web.Context, page string) string {
 	}
 
 	return base.Render("blog/index.mandira", M{
-		"Posts": posts, "Pagination": paginator.Render(numObjects)}, ctx.Params)
+		"Rss":        RssHref,
+		"Atom":       AtomHref,
+		"Posts":      posts,
+		"Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
 func _createFeed() *feeds.Feed {
@@ -174,6 +182,8 @@ func blogDetail(ctx *web.Context, slug string) string {
 	}
 
 	return template.Render("base.mandira", M{
+		"Rss":         RssHref,
+		"Atom":        AtomHref,
 		"body":        RenderPost(post),
 		"title":       post.Title,
 		"description": post.Summary})

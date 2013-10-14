@@ -33,7 +33,6 @@ $(function() {
     if (window.location.search.length > 0) {
         var qs = window.location.search;
         $("ul.paginator a").each(function() {
-            console.log("Hiya");
             var $this = $(this);
             $this.attr("href", $this.attr("href") + qs);
         });

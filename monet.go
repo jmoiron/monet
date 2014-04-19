@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
+	"reflect"
+
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/blog"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
-	"reflect"
 	// apps
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/gallery"
@@ -37,7 +38,7 @@ func main() {
 	gallery.AttachAdmin("/admin/")
 	gallery.Attach("/")
 
-	web.Get("/([^/]*)", blog.Index)
+	web.Get("/$", blog.Index)
 	web.Get("/(.*)", blog.Flatpage)
 
 	app.AddPanel(&blog.PostPanel{})

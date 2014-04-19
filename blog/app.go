@@ -2,13 +2,14 @@ package blog
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/gorilla/feeds"
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
 	"labix.org/v2/mgo/bson"
-	"time"
 )
 
 var base = template.Base{Path: "base.mandira"}
@@ -41,6 +42,7 @@ func RenderPost(post *Post) string {
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available
 func Flatpage(ctx *web.Context, url string) string {
 	p := GetPage(url)
+	fmt.Printf("Got page %v for url %s\n", p, url)
 	if p == nil {
 		ctx.Abort(404, "Page not found")
 		return ""
@@ -53,7 +55,7 @@ func Flatpage(ctx *web.Context, url string) string {
 	})
 }
 
-func Index(s string) string {
+func Index() string {
 	var post *Post
 	var entry *Entry
 	var posts []Post

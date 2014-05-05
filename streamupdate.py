@@ -103,6 +103,7 @@ class TwitterStream(object):
         return tweets
 
     def update(self, all=False, **kw):
+        return
         import twitter_text
         user_id = kw["user_id"]
         tweets = self.get_tweets(user_id, 200 if all else 20)

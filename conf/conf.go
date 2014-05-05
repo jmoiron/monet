@@ -25,6 +25,7 @@ type config struct {
 	DbName string
 
 	Gallery map[string]string
+	Streams []map[string]string
 }
 
 var Path = "./config.json"

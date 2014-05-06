@@ -51,10 +51,7 @@ class Stream(object):
     def update(self, force=False):
         now = time.time()
         if force or (self.last_updated() + self.interval < now):
-            print "Updating %s (%r)" % (self.type, self.arguments)
-            if self.type == "twitter":
-                TwitterStream().update(**self.arguments)
-            elif self.type == "github":
+            if self.type == "github":
                 GithubStream().update(**self.arguments)
             touch(self.path)
 
@@ -90,42 +87,6 @@ def main():
         rerender(streams)
         return
     update(streams, opts.force)
-
-class TwitterStream(object):
-    url = "http://api.twitter.com/1/statuses/user_timeline.json"
-
-    def get_tweets(self, user_id, count=20):
-        url = self.url + '?user_id=%s&count=%s' % (user_id, count)
-        try:
-            tweets = json.loads(urllib2.urlopen(url).read())
-        except:
-            tweets = []
-        return tweets
-
-    def update(self, all=False, **kw):
-        return
-        import twitter_text
-        user_id = kw["user_id"]
-        tweets = self.get_tweets(user_id, 200 if all else 20)
-        timeformat = '%a %b %d %H:%M:%S +0000 %Y'
-        for tweet in tweets:
-            checksum = md5sum(tweet['text'].encode("utf-8"))
-            if db.stream.find({"checksum":checksum}).count():
-                continue
-            sourceid = str(tweet["id"])
-            entry = db.stream.find_one({"sourceid": sourceid})
-            if not entry:
-                entry = {"type":"twitter", "sourceid": sourceid}
-            entry["checksum"] = checksum
-
-            user = tweet['user']
-            tweet['html_text'] = twitter_text.TwitterText(tweet['text']).autolink.auto_link()
-
-            entry["title"] = "tweet @ %s" % tweet['created_at']
-            entry["timestamp"] = int(time.mktime(time.strptime(tweet["created_at"], timeformat)))
-            entry["url"] = 'http://twitter.com/%s/status/%s' % (user['screen_name'], tweet['id_str'])
-            entry["data"] = json.dumps({"tweet":tweet})
-            db.stream.save(entry)
 
 class GithubStream(object):
 

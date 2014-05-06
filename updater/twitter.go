@@ -83,6 +83,7 @@ func renderTweet(tweet anaconda.Tweet) string {
 	urlt := `<a href="%s" rel="nofollow">%s</a>`
 	usert := `<a href="https://twitter.com/%s" title="@%s"
 		class="tweet-url username" rel="nofollow">@%s</a>`
+	mediat := `<a href="%s" rel="nofollow">%s</a>`
 
 	// allocate replacements
 	e := tweet.Entities
@@ -112,7 +113,14 @@ func renderTweet(tweet anaconda.Tweet) string {
 			Replacement: fmt.Sprintf(usert, user.Screen_name, user.Screen_name, user.Screen_name),
 		}
 		repl = append(repl, r)
+	}
 
+	for _, media := range e.Media {
+		r := trepl{
+			Indices:     [2]int{media.Indices[0], media.Indices[1]},
+			Replacement: fmt.Sprintf(mediat, media.Expanded_url, media.Display_url),
+		}
+		repl = append(repl, r)
 	}
 
 	sort.Sort(sort.Reverse(repl))

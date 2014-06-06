@@ -19,7 +19,7 @@ var AtomHref string
 // Attach the blog app frontend
 func Attach(url string) {
 	web.Get(url+"blog/page/(\\d+)", blogPage)
-	web.Get(url+"blog/([^/]+)/", blogDetail)
+	web.Get(url+"blog/([^/]+)/?", blogDetail)
 	web.Get(url+"blog/", blogIndex)
 	web.Get(url+"stream/page/(\\d+)", streamPage)
 	web.Get(url+"stream/", streamIndex)

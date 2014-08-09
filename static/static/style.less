@@ -32,9 +32,12 @@ pre, blockquote {
   p:last-of-type { margin-bottom: 0; }
 }
 
+code, kbd, pre {
+    font-family: Consolas, "Liberation Mono", Menlo, Monospace;
+}
+
 blockquote {
     background-color: #fbfbfc;
-    text-shadow: 0 1px 0 white;
 }
 
 .centered { text-align: center; }
@@ -42,7 +45,6 @@ blockquote {
 .container pre {
     font-size: 14px;
     line-height: 18px;
-    text-shadow: 0 1px 0 white;
 }
 
 .frontend form {
@@ -78,9 +80,9 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   h2 a img { display: none; }
   h2 a:hover { color: #000; img { display: inline; }}
   p code {
-    background-color: #fef;
-    padding: 0 2px;
-    box-shadow: 1px 1px 1px #ede;
+    background-color: #feffdd;
+    padding: 4px 5px;
+    border-radius: 5px;
   }
 }
 

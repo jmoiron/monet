@@ -1,3 +1,6 @@
 ./monet
 *.swp
 *.swo
+config.json
+node_modules
+monet

@@ -2,12 +2,13 @@ package template
 
 import (
 	"fmt"
-	"github.com/jmoiron/mandira"
-	"github.com/jmoiron/monet/conf"
-	"github.com/russross/blackfriday"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jmoiron/mandira"
+	"github.com/jmoiron/monet/conf"
+	"github.com/russross/blackfriday"
 )
 
 type dict map[string]interface{}
@@ -94,7 +95,6 @@ func RenderMarkdown(source string) string {
 	extensions |= blackfriday.EXTENSION_STRIKETHROUGH
 	extensions |= blackfriday.EXTENSION_SPACE_HEADERS
 	extensions |= blackfriday.EXTENSION_HARD_LINE_BREAK
-	flags |= blackfriday.HTML_GITHUB_BLOCKCODE
 	flags |= blackfriday.HTML_SAFELINK
 	renderer := blackfriday.HtmlRenderer(flags, "", "")
 	return string(blackfriday.Markdown([]byte(source), renderer, extensions))

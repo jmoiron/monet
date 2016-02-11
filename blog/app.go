@@ -56,7 +56,7 @@ func Flatpage(ctx *web.Context, url string) string {
 }
 
 func Index() string {
-	var post *Post
+	var post *Post = &Post{}
 	var entry *Entry
 	var posts []Post
 	var entries []*Entry
@@ -69,11 +69,14 @@ func Index() string {
 	if err != nil {
 		fmt.Println(err)
 	}
-
-	post = &posts[0]
+	renderPosts := []Post{}
+	if len(posts) > 0 {
+		post = &posts[0]
+		renderPosts = append(renderPosts, posts[1:]...)
+	}
 	return base.Render("index.mandira", M{
 		"Post":        RenderPost(post),
-		"Posts":       posts[1:],
+		"Posts":       renderPosts,
 		"Entries":     entries,
 		"title":       "jmoiron.net",
 		"description": post.Summary})

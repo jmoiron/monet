@@ -1,17 +1,23 @@
 package main
 
 import (
-	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/gorilla/handlers"
 	"github.com/jmoiron/monet/conf"
+	"github.com/spf13/pflag"
 )
 
 func main() {
+	config := conf.Default()
 
-	flag.BoolVar(&conf.Config.Debug, "debug", false, "enable debug mode")
+	pflag.BoolVarP(&config.Debug, "debug", "d", false, "enable debug mode")
+	pflag.Parse()
+
+	fmt.Println(config.String())
 
 	r := http.NewServeMux()
-	http.ListenAndServe(":8001", handlers.CompressHandler(r))
+	fmt.Printf("Listening on %s\n", config.ListenAddr)
+	http.ListenAndServe(config.ListenAddr, handlers.CompressHandler(r))
 }

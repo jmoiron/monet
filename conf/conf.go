@@ -28,6 +28,7 @@ type Config struct {
 func (c *Config) String() string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
 	err := enc.Encode(c)
 	if err != nil {
 		panic(err)

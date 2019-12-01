@@ -28,47 +28,64 @@ type postTag struct {
 	Tag    string
 }
 
-// GetPost returns a single post by ID.
-func GetPost(db DB, id int) (*Post, error) {
-	all, err := GetPosts(db, "WHERE id=?", id)
-	if err != nil {
-		return nil, err
-	}
-	if len(all) == 0 {
-		return nil, fmt.Errorf("no posts with id %d", id)
-	}
-	if len(all) > 1 {
-		return nil, fmt.Errorf("multiple posts with id %d", id)
-	}
-	return &all[0], nil
+type PostService struct {
+	db DB
 }
 
-// GetPosts loads posts from the database.
-func GetPosts(db DB, where string, args ...interface{}) ([]Post, error) {
+// NewPostService returns a cursor for Posts.
+func NewPostService(db DB) *PostService {
+	return &PostService{db}
+}
+
+// Get a post by its id.
+func (s *PostService) Get(id int) (*Post, error) {
+	var p Post
+	err := s.db.Get(&p, "SELECT * FROM post WHERE id=?", id)
+	if err != nil {
+		return nil, err
+	}
+	err = s.loadTags([]*Post{&p})
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// Select multiple posts via a query.
+func (s *PostService) Select(where string, args ...interface{}) ([]*Post, error) {
 	q := fmt.Sprintf(`SELECT * FROM post %s`, where)
-	var posts []Post
-	err := db.Select(&posts, q, args...)
+	var posts []*Post
+	err := s.db.Select(&posts, q, args...)
 
 	if err != nil {
 		return nil, err
 	}
+	err = s.loadTags(posts)
+	if err != nil {
+		return nil, err
+	}
 
+	return posts, nil
+}
+
+// loadTags fetches tags for each post and sets them to that post.
+func (s *PostService) loadTags(posts []*Post) error {
 	var ids []int
 	var postMap = make(map[uint64]*Post)
 	for i, p := range posts {
 		ids = append(ids, int(p.ID))
-		postMap[p.ID] = &posts[i]
+		postMap[p.ID] = posts[i]
 	}
 
-	q, args, err = sqlx.In(`SELECT * FROM post_tag WHERE post_id IN (?) ORDER BY post_id;`, ids)
+	q, args, err := sqlx.In(`SELECT * FROM post_tag WHERE post_id IN (?) ORDER BY post_id;`, ids)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var tags []postTag
-	err = db.Select(&tags, q, args...)
+	err = s.db.Select(&tags, q, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// we can be more clever but lets not bother
@@ -76,8 +93,7 @@ func GetPosts(db DB, where string, args ...interface{}) ([]Post, error) {
 		post := postMap[tag.PostID]
 		post.Tags = append(post.Tags, tag.Tag)
 	}
-
-	return posts, nil
+	return nil
 }
 
 // Save p to the database db.  If its ID is 0, it is created with a

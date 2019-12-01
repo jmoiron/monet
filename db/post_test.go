@@ -36,7 +36,8 @@ func TestPost(t *testing.T) {
 	// we didn't load tags but we should have saved them..
 	assert.False(len(p.Tags) == len(p2.Tags))
 
-	p3, err := GetPost(db, int(p.ID))
+	serv := NewPostService(db)
+	p3, err := serv.Get(int(p.ID))
 	assert.NoError(err)
 	assert.NotNil(p3)
 
@@ -55,7 +56,7 @@ func TestPost(t *testing.T) {
 	assert.NoError(db.Get(&count, `SELECT count(*) FROM post;`))
 	assert.Equal(1, count)
 
-	p4, err := GetPost(db, int(p.ID))
+	p4, err := serv.Get(int(p.ID))
 	assert.NoError(err)
 	assert.NotNil(p4)
 	assert.ElementsMatch(p3.Tags, p4.Tags)

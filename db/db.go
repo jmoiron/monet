@@ -1,106 +1,85 @@
 package db
 
 import (
-	"fmt"
-	"github.com/jmoiron/monet/conf"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"database/sql"
+	"regexp"
+	"strings"
+
+	"github.com/jmoiron/sqlx"
 )
 
-type Connection struct {
-	Session *mgo.Session
-	Db      *mgo.Database
-	Url     string
-	Host    string
-	Port    int
+// A DB is an interface to a database.
+type DB interface {
+	Get(interface{}, string, ...interface{}) error
+	Select(interface{}, string, ...interface{}) error
+	PrepareNamed(string) (*sqlx.NamedStmt, error)
+	Beginx() (*sqlx.Tx, error)
+	Exec(string, ...interface{}) (sql.Result, error)
 }
 
-// A thin Model interface.  Implementing this interface will allow a number
-// of simplifications to be executed on that model, like applying default
-// ordering, atomatically creating indexes, etc.  Though not necessary to
-// use the interface, you should add an empty instance of your model to
-// db.Models, which will auto-register indexes at connection time.
-type Model interface {
-	Collection() string
-	Indexes() [][]string
-}
-
-type OrderedModel interface {
-	Model
-	Sorting() string
-}
-
-type Updatable interface {
-	Model
-	Unique() bson.M
-	PreSave()
-}
-
-func RegisterAllIndexes() {
-	for _, m := range Models {
-		RegisterIndexes(m)
+// With executes fn with the provided transaction.  If an error is returned,
+// the transaction is rolled back;  otherwise, it's committed and the
+// potential error from the commit is returned.
+func With(tx *sqlx.Tx, fn func(tx *sqlx.Tx) error) error {
+	if err := fn(tx); err != nil {
+		// XXX: this can return an error too but you probably are more interested
+		// in the error caused by your function
+		tx.Rollback()
+		return err
 	}
+	return tx.Commit()
 }
 
-func RegisterIndexes(m Model) {
-	collection := Current.Db.C(m.Collection())
-	indexes := m.Indexes()
-	for _, v := range indexes {
-		err := collection.EnsureIndex(mgo.Index{Key: v})
+var (
+	stripspace  = regexp.MustCompile("[^\\w\\s\\-]")
+	dashreplace = regexp.MustCompile("[^\\w]+")
+)
+
+// Slugify returns a "slug" for some text, which is a string suitable for
+// inclusion in a URL.
+func Slugify(s string) string {
+	s = stripspace.ReplaceAllString(s, "")
+	s = dashreplace.ReplaceAllString(s, "-")
+	s = strings.Replace(s, "_", "-", -1)
+	return strings.ToLower(s)
+}
+
+func Ensure(db DB) error {
+	// create all tables if they don't exist
+	post := `CREATE TABLE IF NOT EXISTS post (
+		id INTEGER PRIMARY KEY,
+		title TEXT,
+		slug TEXT,
+		content TEXT DEFAULT '',
+		content_rendered TEXT DEFAULT '',
+		summary TEXT DEFAULT '',
+		timestamp INTEGER DEFAULT (strftime('%s', 'now')),
+		published INTEGER DEFAULT 0
+	);`
+
+	postTag := `CREATE TABLE IF NOT EXISTS post_tag (
+		post_id INTEGER,
+		tag TEXT,
+		FOREIGN KEY (post_id) REFERENCES post(id)
+	);`
+
+	tables := []string{post, postTag}
+	indexes := []string{}
+
+	for _, table := range tables {
+		_, err := db.Exec(table)
 		if err != nil {
-			panic(err)
+			return err
 		}
 	}
-}
 
-func Cursor(m Model) *mgo.Collection {
-	return Current.Db.C(m.Collection())
-}
+	for _, index := range indexes {
+		_, err := db.Exec(index)
+		if err != nil {
+			return err
+		}
 
-func Find(m Model, query interface{}) *mgo.Query {
-	cursor := Cursor(m)
-	return cursor.Find(query)
-}
-
-func Latest(o OrderedModel, query interface{}) *mgo.Query {
-	return Find(o.(Model), query).Sort(o.Sorting())
-}
-
-func Exists(u Updatable) bool {
-	var data interface{}
-	err := Current.Db.C(u.Collection()).Find(u.Unique()).One(&data)
-	if err != nil {
-		return false
-	}
-	return true
-}
-
-func Upsert(u Updatable) (info *mgo.ChangeInfo, err error) {
-	u.PreSave()
-	return Current.Db.C(u.Collection()).Upsert(u.Unique(), u)
-}
-
-var Current = new(Connection)
-var Models = []Model{}
-
-func Register(m Model) {
-	Models = append(Models, m)
-}
-
-// Connect to an mgo url
-func Connect(url, database string) {
-	session, err := mgo.Dial(url)
-	if err != nil {
-		panic(err)
-	}
-	db := session.DB(database)
-
-	Current.Session = session
-	Current.Db = db
-
-	for _, m := range Models {
-		RegisterIndexes(m)
 	}
 
-	fmt.Printf("Connected to mongodb on %s, using \"%s\"\n", url, conf.Config.DbName)
+	return nil
 }

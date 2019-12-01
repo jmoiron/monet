@@ -1,0 +1,201 @@
+package db
+
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/jmoiron/monet/template"
+	"github.com/jmoiron/sqlx"
+)
+
+// A Post is an entry in a blog
+type Post struct {
+	ID              uint64
+	Title           string
+	Slug            string
+	Content         string
+	ContentRendered string `db:"content_rendered"`
+	Summary         string
+	Timestamp       uint64
+	Published       int
+	Tags            []string `db:"-"`
+}
+
+// A postTag associates a post with a tag
+type postTag struct {
+	PostID uint64 `db:"post_id"`
+	Tag    string
+}
+
+// GetPost returns a single post by ID.
+func GetPost(db DB, id int) (*Post, error) {
+	all, err := GetPosts(db, "WHERE id=?", id)
+	if err != nil {
+		return nil, err
+	}
+	if len(all) == 0 {
+		return nil, fmt.Errorf("no posts with id %d", id)
+	}
+	if len(all) > 1 {
+		return nil, fmt.Errorf("multiple posts with id %d", id)
+	}
+	return &all[0], nil
+}
+
+// GetPosts loads posts from the database.
+func GetPosts(db DB, where string, args ...interface{}) ([]Post, error) {
+	q := fmt.Sprintf(`SELECT * FROM post %s`, where)
+	var posts []Post
+	err := db.Select(&posts, q, args...)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []int
+	var postMap = make(map[uint64]*Post)
+	for i, p := range posts {
+		ids = append(ids, int(p.ID))
+		postMap[p.ID] = &posts[i]
+	}
+
+	q, args, err = sqlx.In(`SELECT * FROM post_tag WHERE post_id IN (?) ORDER BY post_id;`, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	var tags []postTag
+	err = db.Select(&tags, q, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// we can be more clever but lets not bother
+	for _, tag := range tags {
+		post := postMap[tag.PostID]
+		post.Tags = append(post.Tags, tag.Tag)
+	}
+
+	return posts, nil
+}
+
+// Save p to the database db.  If its ID is 0, it is created with a
+// new ID, otherwise it's updated.  Even if the insertion or update
+// is a failure, p will still run a preSave routine that may modify
+// it.
+func (p *Post) Save(db DB) error {
+	// run preSave;  this runs even if
+	p.preSave()
+
+	// if the ID is zero, then insert
+	if p.ID == 0 {
+		return p.Insert(db)
+	}
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	return With(tx, func(tx *sqlx.Tx) error {
+		q := `UPDATE post SET
+		title=:title, slug=:slug, content=:content, content_rendered=:content_rendered,
+		summary=:summary, timestamp=:timestamp, published=:published
+	WHERE id=:id`
+		update, err := tx.PrepareNamed(q)
+		if err != nil {
+			return err
+		}
+		defer update.Close()
+		_, err = update.Exec(p)
+		if err != nil {
+			return err
+		}
+		err = p.updateTags(tx)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+}
+
+// Insert p into the database db.  If successful, p.ID will be set to the
+// auto incremented ID provided by the database.
+func (p *Post) Insert(db DB) error {
+	q := `INSERT INTO post
+	(title, slug, content, content_rendered, summary, timestamp, published) VALUES
+	(:title, :slug, :content, :content_rendered, :summary, :timestamp, :published);`
+
+	// TODO: tx, update tags
+
+	tx, err := db.Beginx()
+	if err != nil {
+		return err
+	}
+
+	return With(tx, func(tx *sqlx.Tx) error {
+		stmt, err := tx.PrepareNamed(q)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		res, err := stmt.Exec(p)
+		if err != nil {
+			return err
+		}
+		// we need to get the id out to add the tags to the join table
+		id, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		p.ID = uint64(id)
+
+		err = p.updateTags(tx)
+		if err != nil {
+			return err
+		}
+		return nil
+
+	})
+}
+
+// preSave is run prior to saving, ensuring that certain fields have
+// appropriate defaults when "empty" and others get updated
+func (p *Post) preSave() {
+	// render the content to a cached content field
+	p.ContentRendered = template.RenderMarkdown(p.Content)
+
+	// create a slug
+	p.Slug = Slugify(p.Title)
+
+	// TODO: summarize if missing?
+
+	// set the timestamp to now if it's unset
+	if p.Timestamp == 0 {
+		p.Timestamp = uint64(time.Now().Unix())
+	}
+}
+
+func (p *Post) updateTags(tx *sqlx.Tx) error {
+	_, err := tx.Exec(`DELETE FROM post_tag WHERE post_id=?`, p.ID)
+	if err != nil {
+		return err
+	}
+
+	var tags []string
+	var args []interface{}
+	for _, tag := range p.Tags {
+		tags = append(tags, "(?, ?)")
+		args = append(args, p.ID)
+		args = append(args, tag)
+	}
+	q := fmt.Sprintf(`INSERT INTO post_tag (post_id, tag) VALUES %s`,
+		strings.Join(tags, ", "))
+	_, err = tx.Exec(q, args...)
+	return err
+
+}

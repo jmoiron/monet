@@ -63,7 +63,13 @@ func Ensure(db DB) error {
 		FOREIGN KEY (post_id) REFERENCES post(id)
 	);`
 
-	tables := []string{post, postTag}
+	user := `CREATE TABLE IF NOT EXISTS user (
+		id INTEGER PRIMARY KEY,
+		username TEXT,
+		password TEXT
+	);`
+
+	tables := []string{post, postTag, user}
 	indexes := []string{}
 
 	for _, table := range tables {

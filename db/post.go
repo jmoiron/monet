@@ -96,23 +96,21 @@ func (s *PostService) loadTags(posts []*Post) error {
 	return nil
 }
 
-// Save p to the database db.  If its ID is 0, it is created with a
-// new ID, otherwise it's updated.  Even if the insertion or update
-// is a failure, p will still run a preSave routine that may modify
-// it.
-func (p *Post) Save(db DB) error {
-	// run preSave;  this runs even if
-	p.preSave()
+// Save p to the database.  If p's ID is 0, it is created with a new
+// ID, otherwise it is updated.  Even if the insertion or the update
+// is a failure, preSave routines that modify p will run.
+func (s *PostService) Save(p *Post) error {
 
-	// if the ID is zero, then insert
 	if p.ID == 0 {
-		return p.Insert(db)
+		return s.Insert(p)
 	}
 
-	tx, err := db.Beginx()
+	tx, err := s.db.Beginx()
 	if err != nil {
 		return err
 	}
+
+	p.preSave()
 
 	return With(tx, func(tx *sqlx.Tx) error {
 		q := `UPDATE post SET
@@ -128,7 +126,7 @@ func (p *Post) Save(db DB) error {
 		if err != nil {
 			return err
 		}
-		err = p.updateTags(tx)
+		err = updateTags(tx, p)
 		if err != nil {
 			return err
 		}
@@ -140,17 +138,19 @@ func (p *Post) Save(db DB) error {
 
 // Insert p into the database db.  If successful, p.ID will be set to the
 // auto incremented ID provided by the database.
-func (p *Post) Insert(db DB) error {
+func (s *PostService) Insert(p *Post) error {
 	q := `INSERT INTO post
 	(title, slug, content, content_rendered, summary, timestamp, published) VALUES
 	(:title, :slug, :content, :content_rendered, :summary, :timestamp, :published);`
 
 	// TODO: tx, update tags
 
-	tx, err := db.Beginx()
+	tx, err := s.db.Beginx()
 	if err != nil {
 		return err
 	}
+
+	p.preSave()
 
 	return With(tx, func(tx *sqlx.Tx) error {
 		stmt, err := tx.PrepareNamed(q)
@@ -170,13 +170,34 @@ func (p *Post) Insert(db DB) error {
 		}
 		p.ID = uint64(id)
 
-		err = p.updateTags(tx)
+		err = updateTags(tx, p)
 		if err != nil {
 			return err
 		}
 		return nil
 
 	})
+}
+
+// updateTags updates the tags for post p.  p should have a non-zero ID.
+// updateTags does not commit or rollback the passed in transaction.
+func updateTags(tx *sqlx.Tx, p *Post) error {
+	_, err := tx.Exec(`DELETE FROM post_tag WHERE post_id=?`, p.ID)
+	if err != nil {
+		return err
+	}
+
+	var tags []string
+	var args []interface{}
+	for _, tag := range p.Tags {
+		tags = append(tags, "(?, ?)")
+		args = append(args, p.ID)
+		args = append(args, tag)
+	}
+	q := fmt.Sprintf(`INSERT INTO post_tag (post_id, tag) VALUES %s`,
+		strings.Join(tags, ", "))
+	_, err = tx.Exec(q, args...)
+	return err
 }
 
 // preSave is run prior to saving, ensuring that certain fields have
@@ -194,24 +215,4 @@ func (p *Post) preSave() {
 	if p.Timestamp == 0 {
 		p.Timestamp = uint64(time.Now().Unix())
 	}
-}
-
-func (p *Post) updateTags(tx *sqlx.Tx) error {
-	_, err := tx.Exec(`DELETE FROM post_tag WHERE post_id=?`, p.ID)
-	if err != nil {
-		return err
-	}
-
-	var tags []string
-	var args []interface{}
-	for _, tag := range p.Tags {
-		tags = append(tags, "(?, ?)")
-		args = append(args, p.ID)
-		args = append(args, tag)
-	}
-	q := fmt.Sprintf(`INSERT INTO post_tag (post_id, tag) VALUES %s`,
-		strings.Join(tags, ", "))
-	_, err = tx.Exec(q, args...)
-	return err
-
 }

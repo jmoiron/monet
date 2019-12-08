@@ -16,6 +16,8 @@ func TestPost(t *testing.T) {
 
 	assert.NoError(Ensure(db))
 
+	serv := NewPostService(db)
+
 	p := &Post{
 		Title:     "hello, world",
 		Content:   "hi",
@@ -23,7 +25,7 @@ func TestPost(t *testing.T) {
 		Tags:      []string{"first", "post"},
 	}
 
-	err = p.Save(db)
+	err = serv.Save(p)
 	assert.NoError(err)
 
 	assert.True(p.ID > 0)
@@ -36,7 +38,6 @@ func TestPost(t *testing.T) {
 	// we didn't load tags but we should have saved them..
 	assert.False(len(p.Tags) == len(p2.Tags))
 
-	serv := NewPostService(db)
 	p3, err := serv.Get(int(p.ID))
 	assert.NoError(err)
 	assert.NotNil(p3)
@@ -49,7 +50,7 @@ func TestPost(t *testing.T) {
 	p3.Title = "nevermind planet!"
 	p3.Published = 2
 	p3.Tags = []string{"last", "post"}
-	assert.NoError(p3.Save(db))
+	assert.NoError(serv.Save(p3))
 
 	// should update existing, not change any
 	var count int

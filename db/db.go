@@ -72,19 +72,14 @@ func Ensure(db DB) error {
 	tables := []string{post, postTag, user}
 	indexes := []string{}
 
-	for _, table := range tables {
-		_, err := db.Exec(table)
-		if err != nil {
+	var ex []string
+	ex = append(ex, tables...)
+	ex = append(ex, indexes...)
+
+	for _, stmt := range ex {
+		if _, err := db.Exec(stmt); err != nil {
 			return err
 		}
-	}
-
-	for _, index := range indexes {
-		_, err := db.Exec(index)
-		if err != nil {
-			return err
-		}
-
 	}
 
 	return nil

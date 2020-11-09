@@ -7,7 +7,7 @@ since Apr 2012.
 
 `monet` runs a website with:
 
-* a clean blog with search, archive, admin w/ ajax preview
+* a clean blog with search, archive, admin
 * a simple flatpage system for one-off URLs (ie. `/about/`)
 * a front-end for twitter and github statuses (updater is currently in python).
 

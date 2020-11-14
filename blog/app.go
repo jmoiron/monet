@@ -83,23 +83,37 @@ func (b *Blog) Migrate() error {
 	return manager.Upgrade(set)
 }
 
+// Return an Admin object that can render admin homepage panels
+// and register all of the administrative pages.
 func (b *Blog) Admin() (sunrise.Admin, error) {
 	return nil
 }
 
-func (b *Blog) rss(w *http.ResponseWriter, req *http.Request) {
+func xml500(w http.ResponseWriter, msg string) {
+	w.WriteHeader(500)
+	w.Write([]byte(fmt.Sprintf("<!-- %s -->", msg)))
+}
+
+func (b *Blog) rss(w http.ResponseWriter, req *http.Request) {
 	w.Header()["Content-Type"] = "application/xml"
 
-	feed := _createFeed()
+	feed := newFeed()
 	if feed == nil {
-		return "<!-- error -->"
+		xml500(w, "empty")
+		return
 	}
 	text, err := feed.ToRss()
 	if err != nil {
 		fmt.Println(err)
-		return "<!-- error -->"
+		xml500(w, err.Error())
+		return
 	}
-	return text
+
+	w.Write([]byte(text))
+}
+
+func (b *Blog) detail(w http.ResponseWriter, req *http.Request) {
+
 }
 
 // Render the post, using the cached ContentRendered if available, or generating
@@ -189,7 +203,7 @@ func blogPage(page string) string {
 		"Pagination": paginator.Render(numObjects)}, ctx.Params)
 }
 
-func _createFeed() *feeds.Feed {
+func newFeed() *feeds.Feed {
 	var posts []Post
 	var post *Post
 

@@ -3,32 +3,37 @@ package blog
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/template"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type obj map[string]interface{}
 
-// Blog Post Model
+// A Post in a blog.
 type Post struct {
-	Id              bson.ObjectId `bson:"_id,omitempty"`
+	ID              int
 	Title           string
 	Slug            string
 	Content         string
-	ContentRendered string
+	ContentRendered string `db:content_rendered`
 	Summary         string
-	Tags            []string
 	Timestamp       uint64
 	Published       int
 }
 
+func (p *Post) Save() {
+	p.ContentRendered = template.RenderMarkdown(p.Content)
+}
+
+/*
 // Flatpage Model
 type Page struct {
 	Id              bson.ObjectId `bson:"_id,omitempty"`
@@ -48,6 +53,7 @@ type Entry struct {
 	ContentRendered string
 	Timestamp       uint64
 }
+*/
 
 // Post Implementation
 

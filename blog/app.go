@@ -2,32 +2,104 @@ package blog
 
 import (
 	"fmt"
+	"net/http"
+	"path"
 	"time"
 
 	"github.com/gorilla/feeds"
-	"github.com/hoisie/web"
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/sunrise"
 	"github.com/jmoiron/monet/template"
+	"github.com/jmoiron/sqlx"
 	"labix.org/v2/mgo/bson"
 )
 
-var base = template.Base{Path: "base.mandira"}
-var RssHref string
-var AtomHref string
+type Blog struct {
+	db *sqlx.DB
 
-// Attach the blog app frontend
-func Attach(url string) {
-	web.Get(url+"blog/rss", rss)
-	web.Get(url+"blog/atom", atom)
-	web.Get(url+"blog/page/(\\d+)", blogPage)
-	web.Get(url+"blog/([^/]+)/?", blogDetail)
-	web.Get(url+"blog/", blogIndex)
-	web.Get(url+"stream/page/(\\d+)", streamPage)
-	web.Get(url+"stream/", streamIndex)
+	FeedRSSURL  string
+	FeedAtomURL string
+}
 
-	RssHref = url + "blog/rss"
-	AtomHref = url + "blog/atom"
+// NewBlog instantiates a new Blog.
+func NewBlog(db *sqlx.DB) *Blog {
+	return &Blog{db: db}
+}
+
+// Attach the blog to r at base.
+func (b *Blog) Attach(r *mux.Router, base string) error {
+	get := r.PathPrefix(base).Methods("GET")
+
+	get.HandlerFunc("/rss", b.rss)
+	get.HandlerFunc("/atom", b.atom)
+	get.HandlerFunc("/page/{page:[0-9]+}", b.page)
+	get.HandlerFunc("/{slug:[^/]+}", b.detail)
+	get.HandlerFunc("/", b.index)
+	// web.Get(url+"stream/page/(\\d+)", streamPage)
+	// web.Get(url+"stream/", streamIndex)
+
+	b.FeedRSSURL = path.Join(base, "rss")
+	b.FeedAtomURL = path.Join(base, "atom")
+	return nil
+}
+
+// Migrate the blog backend.
+// TODO: how do we "rely" on modules, like auth/users?
+// Maybe it's built into sunrise?
+func (b *Blog) Migrate() error {
+	manager, err := monarch.NewManager(b.db)
+	if err != nil {
+		return nil
+	}
+
+	migrations := []monarch.Migration{
+		{
+			Up: `CREATE TABLE IF NOT EXISTS post (
+				id INTEGER PRIMARY KEY,
+				title TEXT,
+				slug TEXT,
+				content TEXT DEFAULT '',
+				content_rendered TEXT DEFAULT '',
+				summary TEXT DEFAULT '',
+				timestamp INTEGER DEFAULT (strftime('%s', 'now')),
+				published INTEGER DEFAULT 0
+			);`,
+			Down: `DROP TABLE post;`,
+		},
+		{
+			Up: `CREATE TABLE IF NOT EXISTS post_tag (
+				post_id INTEGER,
+				tag TEXT,
+				FOREIGN KEY (post_id) REFERENCES post(id)
+			);`,
+			Down: `DROP TABLE post_tag;`,
+		},
+	}
+
+	set := monarch.Set{Name: "blog", Migrations: migrations}
+	return manager.Upgrade(set)
+}
+
+func (b *Blog) Admin() (sunrise.Admin, error) {
+	return nil
+}
+
+func (b *Blog) rss(w *http.ResponseWriter, req *http.Request) {
+	w.Header()["Content-Type"] = "application/xml"
+
+	feed := _createFeed()
+	if feed == nil {
+		return "<!-- error -->"
+	}
+	text, err := feed.ToRss()
+	if err != nil {
+		fmt.Println(err)
+		return "<!-- error -->"
+	}
+	return text
 }
 
 // Render the post, using the cached ContentRendered if available, or generating
@@ -40,7 +112,7 @@ func RenderPost(post *Post) string {
 }
 
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available
-func Flatpage(ctx *web.Context, url string) string {
+func Flatpage(url string) string {
 	p := GetPage(url)
 	fmt.Printf("Got page %v for url %s\n", p, url)
 	if p == nil {
@@ -79,11 +151,11 @@ func Index() string {
 		"description": post.Summary})
 }
 
-func blogIndex(ctx *web.Context) string {
+func blogIndex() string {
 	return blogPage(ctx, "1")
 }
 
-func blogPage(ctx *web.Context, page string) string {
+func blogPage(page string) string {
 	pn := app.PageNumber(page)
 	perPage := 15
 	paginator := app.NewPaginator(pn, perPage)
@@ -146,35 +218,7 @@ func _createFeed() *feeds.Feed {
 	return feed
 }
 
-func atom(ctx *web.Context) string {
-	feed := _createFeed()
-	ctx.Header().Set("Content-Type", "application/xml")
-	if feed == nil {
-		return "<!-- error -->"
-	}
-	text, err := feed.ToAtom()
-	if err != nil {
-		fmt.Println(err)
-		return "<!-- error -->"
-	}
-	return text
-}
-
-func rss(ctx *web.Context) string {
-	feed := _createFeed()
-	ctx.Header().Set("Content-Type", "application/xml")
-	if feed == nil {
-		return "<!-- error -->"
-	}
-	text, err := feed.ToRss()
-	if err != nil {
-		fmt.Println(err)
-		return "<!-- error -->"
-	}
-	return text
-}
-
-func blogDetail(ctx *web.Context, slug string) string {
+func blogDetail(slug string) string {
 	var post = new(Post)
 	err := db.Find(post, M{"slug": slug}).One(&post)
 	if err != nil {
@@ -191,11 +235,11 @@ func blogDetail(ctx *web.Context, slug string) string {
 		"description": post.Summary})
 }
 
-func streamIndex(ctx *web.Context) string {
+func streamIndex() string {
 	return streamPage(ctx, "1")
 }
 
-func streamPage(ctx *web.Context, page string) string {
+func streamPage(page string) string {
 	num := app.PageNumber(page)
 	perPage := 25
 	paginator := app.NewPaginator(num, perPage)

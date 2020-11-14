@@ -2,13 +2,53 @@ package blog
 
 import (
 	"fmt"
-	"github.com/hoisie/web"
+	"strings"
+
+	"github.com/gorilla/mux"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/sunrise"
 	"github.com/jmoiron/monet/template"
+	"github.com/jmoiron/sqlx"
 	"labix.org/v2/mgo/bson"
-	"strings"
 )
+
+type BlogAdmin struct {
+	db *sqlx.DB
+}
+
+func NewBlogAdmin(db *sqlx.DB) {
+	return &BlogAdmin{db: db}
+}
+
+func (b *BlogAdmin) Attach(r *mux.Router, path string) error {
+	prefix := r.PathPrefix(path)
+
+	var (
+		get     = prefix.Methods("GET")
+		post    = prefix.Methods("POST")
+		getPost = prefix.Methods("GET", "POST")
+	)
+
+	get.HandlerFunc("/unpublished/", b.unpublishedList)
+	get.HandlerFunc("/unpublished/{page:[0-9]+}", b.unpublishedList)
+	get.HandlerFunc("/posts/", b.postList)
+	get.HandlerFunc("/posts/{page:[0-9]+}", b.postList)
+
+	getPost("/posts/edit/{slug:[^/]+}", b.edit)
+	getPost("/posts/add/", b.add)
+	post("/posts/delete/{id:[^/]+}", b.delete)
+	post("/posts/preview/", b.preview)
+
+	return nil
+}
+
+// Panel renders a blog admin panel.
+func (b *BlogAdmin) Panel() ([]byte, error) {
+
+}
+
+var _ sunrise.Admin = &BlogAdmin{}
 
 type M bson.M
 
@@ -19,24 +59,20 @@ var (
 )
 
 func AttachAdmin(url string) {
-	web.Get(url+"unpublished/(\\d+)?", unpublishedList)
-	web.Get(url+"posts/(\\d+)?", postList)
-	app.GetPost(url+"posts/edit/(.*)", postEdit)
-	web.Get(url+"posts/delete/(.*)", postDelete)
-	app.GetPost(url+"posts/add/", postAdd)
-	web.Post(url+"posts/preview/", postPreview)
 	// pages
-	app.GetPost(url+"pages/add/", pageAdd)
-	app.GetPost(url+"pages/edit/(.*)", pageEdit)
-	web.Post(url+"pages/preview/", pagePreview)
-	web.Get(url+"pages/delete/(.*)", pageDelete)
-	web.Get(url+"pages/(\\d+)?", pageList)
+	/*
+		app.GetPost(url+"pages/add/", pageAdd)
+		app.GetPost(url+"pages/edit/(.*)", pageEdit)
+		web.Post(url+"pages/preview/", pagePreview)
+		web.Get(url+"pages/delete/(.*)", pageDelete)
+		web.Get(url+"pages/(\\d+)?", pageList)
+	*/
 }
 
 // *** Posts ***
 
 // List detail for unpublished posts
-func unpublishedList(ctx *web.Context, page string) string {
+func unpublishedList(page string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -58,7 +94,7 @@ func unpublishedList(ctx *web.Context, page string) string {
 }
 
 // List detail for published posts
-func postList(ctx *web.Context, page string) string {
+func postList(page string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -95,7 +131,7 @@ func postList(ctx *web.Context, page string) string {
 
 }
 
-func postAdd(ctx *web.Context) string {
+func postAdd() string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -116,7 +152,7 @@ func postAdd(ctx *web.Context) string {
 	//ctx.Redirect(302, "/admin/posts/edit/" + post.Slug + "/")
 }
 
-func postEdit(ctx *web.Context, slug string) string {
+func postEdit(slug string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -137,7 +173,7 @@ func postEdit(ctx *web.Context, slug string) string {
 		"IdHex":       post.Id.Hex()})
 }
 
-func postPreview(ctx *web.Context) string {
+func postPreview() string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -146,7 +182,7 @@ func postPreview(ctx *web.Context) string {
 	return RenderPost(post)
 }
 
-func postDelete(ctx *web.Context, slug string) string {
+func postDelete(slug string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -161,7 +197,7 @@ func postDelete(ctx *web.Context, slug string) string {
 
 // *** Pages ***
 
-func pageAdd(ctx *web.Context) string {
+func pageAdd() string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -179,7 +215,7 @@ func pageAdd(ctx *web.Context) string {
 	//ctx.Redirect(302, "/admin/posts/edit/" + post.Slug + "/")
 }
 
-func pageEdit(ctx *web.Context, url string) string {
+func pageEdit(url string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -197,7 +233,7 @@ func pageEdit(ctx *web.Context, url string) string {
 	return adminBase.Render("blog/admin/pages-edit.mandira", page)
 }
 
-func pagePreview(ctx *web.Context) string {
+func pagePreview() string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -206,7 +242,7 @@ func pagePreview(ctx *web.Context) string {
 	return template.RenderMarkdown(page.Content)
 }
 
-func pageDelete(ctx *web.Context, url string) string {
+func pageDelete(url string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}
@@ -219,7 +255,7 @@ func pageDelete(ctx *web.Context, url string) string {
 	return ""
 }
 
-func pageList(ctx *web.Context, page string) string {
+func pageList(page string) string {
 	if app.RequireAuthentication(ctx) {
 		return ""
 	}

@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/gorilla/sessions"
-	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/template"
 )
@@ -22,23 +21,26 @@ var CookieStore = sessions.NewCookieStore([]byte(conf.Config.SessionSecret))
 
 func AttachAdmin(url string) {
 	// auth
-	web.Get(url+"login/", login)
-	web.Post(url+"login/", login)
-	web.Get(url+"logout/", logout)
+	/*
+		web.Get(url+"login/", login)
+		web.Post(url+"login/", login)
+		web.Get(url+"logout/", logout)
+	*/
 	// users
-	/*  too much unnecessary work? 
+	/*  too much unnecessary work?
 	    web.Get(url + "users/", userList)
 	    web.Get(url + "users/edit/(.*)", userEdit)
 	    web.Get(url + "users/delete/(.*)", userDelete)
 	    web.Get(url + "users/add/", userAdd)
 	    web.Post(url + "users/add/", userAddPost)
-	*/
+
 	web.Get(url, adminIndex)
+	*/
 }
 
 // Use this on all admin views to ensure the request is authenticated
 
-func RequireAuthentication(ctx *web.Context) bool {
+func RequireAuthentication() bool {
 	session, _ := CookieStore.Get(ctx.Request, "monet-session")
 
 	if session.Values["authenticated"] != true {
@@ -50,7 +52,7 @@ func RequireAuthentication(ctx *web.Context) bool {
 
 // views
 
-func login(ctx *web.Context) string {
+func login() string {
 	if ctx.Params != nil {
 		p := ctx.Params
 		if ValidateUser(p["username"], p["password"]) {
@@ -63,7 +65,7 @@ func login(ctx *web.Context) string {
 	return adminBase.Render("admin/login.mandira", ctx.Params, M{"login": true})
 }
 
-func logout(ctx *web.Context) string {
+func logout() string {
 	session, _ := CookieStore.Get(ctx.Request, "monet-session")
 	session.Values["authenticated"] = false
 	session.Save(ctx.Request, ctx.ResponseWriter)
@@ -71,7 +73,7 @@ func logout(ctx *web.Context) string {
 	return ""
 }
 
-func adminIndex(ctx *web.Context) string {
+func adminIndex() string {
 	if RequireAuthentication(ctx) {
 		return ""
 	}

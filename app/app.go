@@ -2,26 +2,16 @@ package app
 
 import (
 	"fmt"
-	"github.com/hoisie/web"
-	"github.com/jmoiron/monet/template"
 	"reflect"
 	"strconv"
 	"time"
+
+	"github.com/jmoiron/monet/template"
 )
 
 type M map[string]interface{}
 
 var base = template.Base{Path: "base.mandira"}
-
-func GetPost(route string, handler interface{}) {
-	web.Get(route, handler)
-	web.Post(route, handler)
-}
-
-/* Should have this to be an app. */
-func Attach(url string) {
-
-}
 
 // Return a number for a page (default to 1)
 func PageNumber(page string) int {

@@ -31,13 +31,13 @@ func NewBlog(db *sqlx.DB) *Blog {
 
 // Attach the blog to r at base.
 func (b *Blog) Attach(r *mux.Router, base string) error {
-	get := r.PathPrefix(base).Methods("GET")
+	get := r.PathPrefix(base).Methods("GET").Subrouter()
 
-	get.HandlerFunc("/rss", b.rss)
-	get.HandlerFunc("/atom", b.atom)
-	get.HandlerFunc("/page/{page:[0-9]+}", b.page)
-	get.HandlerFunc("/{slug:[^/]+}", b.detail)
-	get.HandlerFunc("/", b.index)
+	get.HandleFunc("/rss", b.rss)
+	get.HandleFunc("/atom", b.atom)
+	get.HandleFunc("/page/{page:[0-9]+}", b.page)
+	get.HandleFunc("/{slug:[^/]+}", b.detail)
+	get.HandleFunc("/", b.index)
 	// web.Get(url+"stream/page/(\\d+)", streamPage)
 	// web.Get(url+"stream/", streamIndex)
 
@@ -63,8 +63,9 @@ func (b *Blog) Migrate() error {
 				slug TEXT,
 				content TEXT DEFAULT '',
 				content_rendered TEXT DEFAULT '',
-				summary TEXT DEFAULT '',
-				timestamp INTEGER DEFAULT (strftime('%s', 'now')),
+				created_at INTEGER DEFAULT (strftime('%s', 'now')),
+				updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+				published_at INTEGER DEFAULT 0,
 				published INTEGER DEFAULT 0
 			);`,
 			Down: `DROP TABLE post;`,

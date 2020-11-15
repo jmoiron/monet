@@ -8,9 +8,11 @@ import (
 // Monarch is a simple migration application library.
 // It manages itself with itself.
 
+// A DB allows access to an SQL database.
 type DB interface {
 	Exec(query string, arguments ...interface{}) (sql.Result, error)
 	Get(dest interface{}, query string, arguments ...interface{}) error
+	Select(dest interface{}, query string, arguments ...interface{}) error
 }
 
 // A Manager applies migrations.

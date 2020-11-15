@@ -1,12 +1,7 @@
 package blog
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/gorilla/mux"
-	"github.com/jmoiron/monet/app"
-	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/sunrise"
 	"github.com/jmoiron/monet/template"
 	"github.com/jmoiron/sqlx"
@@ -25,20 +20,21 @@ func (b *BlogAdmin) Attach(r *mux.Router, path string) error {
 	prefix := r.PathPrefix(path)
 
 	var (
-		get     = prefix.Methods("GET")
-		post    = prefix.Methods("POST")
-		getPost = prefix.Methods("GET", "POST")
+		get     = prefix.Methods("GET").Subrouter()
+		post    = prefix.Methods("POST").Subrouter()
+		getPost = prefix.Methods("GET", "POST").Subrouter()
 	)
 
-	get.HandlerFunc("/unpublished/", b.unpublishedList)
-	get.HandlerFunc("/unpublished/{page:[0-9]+}", b.unpublishedList)
-	get.HandlerFunc("/posts/", b.postList)
-	get.HandlerFunc("/posts/{page:[0-9]+}", b.postList)
+	get.HandleFunc("/unpublished/", b.unpublishedList)
+	get.HandleFunc("/unpublished/{page:[0-9]+}", b.unpublishedList)
+	get.HandleFunc("/posts/", b.postList)
+	get.HandleFunc("/posts/{page:[0-9]+}", b.postList)
 
-	getPost("/posts/edit/{slug:[^/]+}", b.edit)
-	getPost("/posts/add/", b.add)
-	post("/posts/delete/{id:[^/]+}", b.delete)
-	post("/posts/preview/", b.preview)
+	getPost.HandleFunc("/posts/edit/{slug:[^/]+}", b.edit)
+	getPost.HandleFunc("/posts/add/", b.add)
+
+	post.HandleFunc("/posts/delete/{id:[^/]+}", b.delete)
+	post.HandleFunc("/posts/preview/", b.preview)
 
 	return nil
 }
@@ -71,6 +67,7 @@ func AttachAdmin(url string) {
 
 // *** Posts ***
 
+/*
 // List detail for unpublished posts
 func unpublishedList(page string) string {
 	if app.RequireAuthentication(ctx) {
@@ -320,3 +317,5 @@ func (pp *PagesPanel) Render() string {
 		"pages": pages,
 	})
 }
+
+*/

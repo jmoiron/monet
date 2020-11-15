@@ -25,6 +25,7 @@ require (
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201031054903-ff519b6c9102 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	labix.org/v2/mgo v0.0.0-20140701140051-000000000287

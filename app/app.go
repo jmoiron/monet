@@ -1,3 +1,10 @@
+// package app provides a composition based component framework for building
+// a personal site out of distinct sub-applications.
+//
+// An example of an application is a blog or a photo gallery.
+//
+// The app package tries to balance being opinionated and being flexible.
+
 package app
 
 import (
@@ -6,12 +13,44 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jmoiron/monet/template"
+	"github.com/go-chi/chi/v5"
 )
 
-type M map[string]interface{}
+// things to be opinionated about:
+// - binding to a router
+// - template system/engine
+// - db + migrations
+// - users/auth
+// - having an admin site to bind to; not enough introspection to make an "admin" app
 
-var base = template.Base{Path: "base.mandira"}
+// Bindable items can bind their URL routes to a router.
+type Bindable interface {
+	Bind(r chi.Router)
+}
+
+// A Renderer can render itself when called.
+type Renderer interface {
+	Render() (string, error)
+}
+
+// An App is a component that controls a part of a website.
+// An example of an App is a wiki, blog, gallery, etc.
+type App interface {
+	Bindable
+	Name() string
+	Migrate() error
+	GetAdmin() (Admin, error)
+}
+
+// An Admin is a component that allows a user to administer a website.
+//
+// An example is editing flatpages, wiki pages, blog posts, uploading photos
+// to a gallery, etc.
+type Admin interface {
+	Bindable
+	// WritePanel(io.Writer) error
+	Panel() Renderer
+}
 
 // Return a number for a page (default to 1)
 func PageNumber(page string) int {

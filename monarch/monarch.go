@@ -1,28 +1,22 @@
 package monarch
 
 import (
-	"database/sql"
 	"time"
+
+	"github.com/jmoiron/monet/db"
 )
 
 // Monarch is a simple migration application library.
 // It manages itself with itself.
 
-// A DB allows access to an SQL database.
-type DB interface {
-	Exec(query string, arguments ...interface{}) (sql.Result, error)
-	Get(dest interface{}, query string, arguments ...interface{}) error
-	Select(dest interface{}, query string, arguments ...interface{}) error
-}
-
 // A Manager applies migrations.
 type Manager struct {
-	db DB
+	db db.DB
 }
 
 // NewManager creates a new manager.  If it has not been bootstrapped on this db,
 // then it is bootstrapped now.  If it fails to bootstrap, it won't work.
-func NewManager(db DB) (*Manager, error) {
+func NewManager(db db.DB) (*Manager, error) {
 	manager := &Manager{db: db}
 	return manager, manager.bootstrap()
 }
@@ -84,12 +78,14 @@ func (m *Manager) Upgrade(set Set) error {
 }
 
 // GetVersion returns the latest applied migration version for appName.
+// If no version has been recorded in the migrations table, -1 is returned.
 func (m *Manager) GetVersion(setName string) (version int, err error) {
-	err = m.db.Get(&version, `SELECT COALESCE(max(version), -1) 
+	err = m.db.Get(&version, `SELECT COALESCE(max(version), -1)
 	FROM migrations WHERE name=?;`, setName)
 	return version, err
 }
 
+// SetVersion sets the version of setName to version.
 func (m *Manager) SetVersion(setName string, version int) error {
 	now := time.Now().Unix()
 	_, err := m.db.Exec(`INSERT INTO migrations (version, name, applied_at) VALUES (?, ?, ?);`,
@@ -97,11 +93,11 @@ func (m *Manager) SetVersion(setName string, version int) error {
 	return err
 }
 
-// An Application contains information about when a migration has been applied.
-type Application struct {
+// A MigrationVersion contains information about a specific migration's application.
+type MigrationVersion struct {
 	Name      string
 	Version   int
-	AppliedAt time.Time
+	AppliedAt time.Time `db:"applied_at"`
 }
 
 // A Set is a named set of migrations.

@@ -15,30 +15,30 @@ const (
 	loginUrl   = "/login"
 )
 
-type AuthApp struct {
+type App struct {
 	db    db.DB
 	store sessions.Store
-	serv  *Service
+	serv  *UserService
 }
 
-// NewAuthApp returns a new authz/n web application.
-func NewAuthApp(cfg conf.Config, db db.DB) *AuthApp {
-	return &AuthApp{
+// NewApp returns a new authz/n web application.
+func NewApp(cfg *conf.Config, db db.DB) *App {
+	return &App{
 		db:    db,
-		serv:  NewService(db),
+		serv:  NewUserService(db),
 		store: sessions.NewCookieStore([]byte(cfg.SessionSecret)),
 	}
 }
 
-func (a *AuthApp) Name() string { return "auth" }
+func (a *App) Name() string { return "auth" }
 
-func (a *AuthApp) Bind(r chi.Router) {
+func (a *App) Bind(r chi.Router) {
 	r.Get("/login/", a.login)
 	r.Get("/logout/", a.logout)
 	r.Post("/login/", a.login)
 }
 
-func (a *AuthApp) Migrate() error {
+func (a *App) Migrate() error {
 	m, err := monarch.NewManager(a.db)
 	if err != nil {
 		return err
@@ -46,7 +46,7 @@ func (a *AuthApp) Migrate() error {
 	return m.Upgrade(userMigration)
 }
 
-func (a *AuthApp) Authenticated(w http.ResponseWriter, req *http.Request) bool {
+func (a *App) Authenticated(w http.ResponseWriter, req *http.Request) bool {
 	session, _ := a.store.Get(req, sessionJar)
 
 	// TODO: forward URL to go back to where you wanted to go
@@ -57,7 +57,7 @@ func (a *AuthApp) Authenticated(w http.ResponseWriter, req *http.Request) bool {
 	return true
 }
 
-func (a *AuthApp) login(w http.ResponseWriter, req *http.Request) {
+func (a *App) login(w http.ResponseWriter, req *http.Request) {
 	// if we're trying to log in, validate
 	session, _ := a.store.Get(req, sessionJar)
 
@@ -77,7 +77,7 @@ func (a *AuthApp) login(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func (a *AuthApp) logout(w http.ResponseWriter, req *http.Request) {
+func (a *App) logout(w http.ResponseWriter, req *http.Request) {
 	session, _ := a.store.Get(req, "monet-session")
 	session.Values["authenticated"] = false
 	session.Values["user"] = ""

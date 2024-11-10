@@ -3,35 +3,11 @@ package auth
 import (
 	"testing"
 
-	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 )
-
-func Ensure(db db.DB) error {
-	// create all tables if they don't exist
-	user := `CREATE TABLE IF NOT EXISTS user (
-		id INTEGER PRIMARY KEY,
-		username TEXT,
-		password_hash TEXT
-	);`
-
-	tables := []string{user}
-	indexes := []string{}
-
-	var ex []string
-	ex = append(ex, tables...)
-	ex = append(ex, indexes...)
-
-	for _, stmt := range ex {
-		if _, err := db.Exec(stmt); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func TestPost(t *testing.T) {
 	assert := assert.New(t)
@@ -39,12 +15,13 @@ func TestPost(t *testing.T) {
 	conn, err := sqlx.Connect("sqlite3", ":memory:")
 	assert.NoError(err)
 
-	assert.NoError(Ensure(conn))
+	app := NewApp(conf.Default(), conn)
+	assert.NoError(app.Migrate())
 
-	_, err = conn.Exec(`SELECT * FROM user`)
+	_, err = conn.Exec(`SELECT * FROM user;`)
 	assert.NoError(err)
 
-	serv := NewService(conn)
+	serv := NewUserService(conn)
 
 	err = serv.CreateUser("shayla shayla", "weak")
 	assert.NoError(err)

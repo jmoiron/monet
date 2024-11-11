@@ -1,23 +1,152 @@
 package main
 
 import (
+	"embed"
+	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"os"
 
-	"github.com/gorilla/handlers"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/auth"
 	"github.com/jmoiron/monet/conf"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/passwd"
+	"github.com/jmoiron/sqlx"
 	"github.com/spf13/pflag"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
-func main() {
-	config := conf.Default()
+const cfgEnvVar = "MONET_CONFIG_PATH"
 
-	pflag.BoolVarP(&config.Debug, "debug", "d", false, "enable debug mode")
+type options struct {
+	ConfigPath string
+	Debug      bool
+	AddUser    string
+}
+
+var logLevel = new(slog.LevelVar)
+
+//go:embed static/*
+//go:embed templates/*
+var static embed.FS
+
+func main() {
+	slog.SetDefault(slog.New(
+		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
+	))
+
+	var opts options
+	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
+	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
+	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
 	pflag.Parse()
 
-	fmt.Println(config.String())
+	config, err := loadConfig(opts.ConfigPath)
+	if err != nil {
+		slog.Error("could not load config")
+		return
+	}
 
-	r := http.NewServeMux()
-	fmt.Printf("Listening on %s\n", config.ListenAddr)
-	http.ListenAndServe(config.ListenAddr, handlers.CompressHandler(r))
+	if config.Debug {
+		slog.Info("debug enabled")
+		logLevel.Set(slog.LevelDebug)
+	}
+
+	db, err := sqlx.Connect("sqlite3", config.DatabaseURI)
+	if err != nil {
+		slog.Error("could not connect to database", "uri", config.DatabaseURI, "error", err)
+		return
+	}
+
+	apps, err := collect(config, db)
+	if err != nil {
+		slog.Error("could not collect apps", "error", err)
+		return
+	}
+
+	reg := mtr.NewRegistry()
+	reg.AddBaseFS("base", "templates/base.html", static)
+
+	for _, app := range apps {
+		if err := app.Migrate(); err != nil {
+			slog.Error("could not apply migration for app", "name", app.Name())
+			return
+		}
+		app.Register(reg)
+	}
+
+	// add users via cmd line to bootstrap the admin user
+	if len(opts.AddUser) > 0 {
+		if err := addUser(db, opts.AddUser); err != nil {
+			fmt.Printf("Error: %s\n", err)
+		}
+		return
+	}
+
+	// build all of the templates
+	if err := reg.Build(); err != nil {
+		slog.Error("could not build templates", "error", err)
+		return
+	}
+
+	// set up the router
+
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(mtr.AddRegistryMiddleware(reg))
+
+	for _, app := range apps {
+		app.Bind(r)
+	}
+
+	slog.Info("Running with config", "config", config.String())
+	slog.Info("Listening on", "addr", config.ListenAddr)
+	http.ListenAndServe(config.ListenAddr, r)
+}
+
+func addUser(db db.DB, username string) error {
+	p1, err := passwd.GetPassword(fmt.Sprintf("enter password for user \"%s\"", username))
+	if err != nil {
+		return err
+	}
+
+	p2, err := passwd.GetPassword("repeat password:")
+	if err != nil {
+		return err
+	}
+
+	if p1 != p2 {
+		return errors.New("Error: passwords do not match")
+	}
+
+	if err := auth.NewUserService(db).CreateUser(username, p1); err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadConfig(path string) (*conf.Config, error) {
+	cfg := conf.Default()
+
+	if len(path) > 0 {
+		err := cfg.FromPath(path)
+		return cfg, err
+	}
+
+	return cfg, nil
+}
+
+func collect(cfg *conf.Config, db db.DB) (apps []app.App, err error) {
+	apps = append(apps, auth.NewApp(cfg, db))
+	return apps, nil
 }

@@ -3,7 +3,6 @@ package conf
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 )
@@ -61,12 +60,14 @@ func Default() *Config {
 	c.SessionSecret = "SET-IN-CONFIG-FILE"
 	c.TemplatePreCompile = true
 
-	if path := os.Getenv("MONET_CONFIG_PATH"); len(path) > 0 {
-		err := c.FromPath(path)
-		if err != nil {
-			fmt.Printf("Error loading config: %s\n", err)
+	/*
+		if path := os.Getenv("MONET_CONFIG_PATH"); len(path) > 0 {
+			err := c.FromPath(path)
+			if err != nil {
+				fmt.Printf("Error loading config: %s\n", err)
+			}
 		}
-	}
+	*/
 
 	return c
 }

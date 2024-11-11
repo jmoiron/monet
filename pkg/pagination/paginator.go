@@ -3,7 +3,6 @@ package app
 /* pagination helpers; ported from python code in github.com/jmoiron/jmoiron.net */
 
 import (
-	"github.com/jmoiron/monet/template"
 	"math"
 	"strconv"
 )
@@ -77,11 +76,14 @@ func (p *Paginator) Render(objCount int) string {
 			links = append(links, Link{Num: c, Url: p.Link + c, HasUrl: true})
 		}
 	}
-	return template.Render("paginator.mandira", M{"Pages": links}, p,
-		M{
-			"NextPageUrl": p.Link + itoa(p.Page+1),
-			"PrevPageUrl": p.Link + itoa(p.Page-1),
-		})
+	return ""
+	/*
+		return template.Render("paginator.mandira", M{"Pages": links}, p,
+			M{
+				"NextPageUrl": p.Link + itoa(p.Page+1),
+				"PrevPageUrl": p.Link + itoa(p.Page-1),
+			})
+	*/
 }
 
 /* shortcut */

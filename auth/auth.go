@@ -2,13 +2,18 @@ package auth
 
 import (
 	"embed"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/sessions"
+	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/mtr"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -52,6 +57,15 @@ func (a *App) Migrate() error {
 	return m.Upgrade(userMigration)
 }
 
+func (a *App) Register(r *mtr.Registry) {
+	r.AddPathFS("auth/login.html", authTemplates)
+}
+
+// GetAdmin returns nil
+func (a *App) GetAdmin() (app.Admin, error) {
+	return nil, nil
+}
+
 func (a *App) RequireAuthenticated(w http.ResponseWriter, req *http.Request) bool {
 	session, _ := a.store.Get(req, sessionJar)
 
@@ -66,6 +80,7 @@ func (a *App) RequireAuthenticated(w http.ResponseWriter, req *http.Request) boo
 func (a *App) login(w http.ResponseWriter, req *http.Request) {
 	// if we're trying to log in, validate
 	session, _ := a.store.Get(req, sessionJar)
+	registry := mtr.RegistryFromContext(req.Context())
 
 	if req.Method == "POST" {
 		username, password := req.Form.Get("username"), req.Form.Get("password")
@@ -81,6 +96,13 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 	}
 	// this is either a failed login or a new login attempt; either way,
 	// show the login screen
+	err := registry.RenderWithBase(w, "base", "auth/login.html", mtr.Ctx{
+		"title": "login",
+	})
+
+	if err != nil {
+		slog.Error("error rendering template", "page", "/login/", "error", err)
+	}
 
 }
 

@@ -1,0 +1,4 @@
+{
+    "DatabaseURI": "dev.db?cache=shared",
+    "Debug": true
+}

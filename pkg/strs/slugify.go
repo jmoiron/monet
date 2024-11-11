@@ -1,11 +1,9 @@
-package app
+package strs
 
 import (
 	"regexp"
 	"strings"
 )
-
-// -- Utilities --
 
 var (
 	stripspace  = regexp.MustCompile("[^\\w\\s\\-]")

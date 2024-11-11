@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        {{if .Rss}}
+        <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="{{.Rss}}">
+        {{end}}
+        {{if .Atom}}
+        <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="{{.Atom}}">
+        {{end}}
+        <link rel="stylesheet" href="/static/open-sans.css">
+        {{if .Debug}}
+        <link rel="stylesheet/less" href="/static/style.less">
+        <script src="/static/js/less.js"></script>
+        {{else}}
+        <link rel="stylesheet" href="/static/style.css">
+        {{end}}
+        <script src="/static/js/jquery.js"></script>
+        <script src="/static/js/frontend.js"></script>
+        <script src="/static/js/prettify.js"></script>
+        <meta name="description" content="{{.description}}">
+        <title>{{.title}}</title>
+        <!-- TODO: self-hosted GA style stats -->
+    </head>
+    <body onload="prettyPrint();">
+        <div class="content">
+            <div class="container frontend">
+                <h1><a href="/">jmoiron</a> <span class="sub">plays the blues</span></h1>
+                {{.body}}
+            </div>
+        </div>
+        <div class="footer">
+            <div class="container">
+                <div class="link-icons">
+                  <span class="icon github"><a href="http://github.com/jmoiron">G</a></span>
+                  <span class="icon twitter"><a href="http://twitter.com/jmoiron">t</a></span>
+                  <a href="http://news.ycombinator.com/user?id=jmoiron" class="yc">Y</a>
+                  <a class="about" href="/about/"><i class="icon icon-info-sign"></i></a>
+                </div>
+                <div class="byline">
+                  by <a href="mailto:jmoiron,at,jmoiron,dot,net">jason moiron</a>, 2016
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

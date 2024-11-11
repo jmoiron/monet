@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"embed"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,9 @@ const (
 	sessionJar = "monet-session"
 	loginUrl   = "/login"
 )
+
+//go:embed auth/*.html
+var authTemplates embed.FS
 
 type App struct {
 	db    db.DB
@@ -32,12 +36,14 @@ func NewApp(cfg *conf.Config, db db.DB) *App {
 
 func (a *App) Name() string { return "auth" }
 
+// Bind this app to endpoints in the router.
 func (a *App) Bind(r chi.Router) {
 	r.Get("/login/", a.login)
 	r.Get("/logout/", a.logout)
 	r.Post("/login/", a.login)
 }
 
+// Migrate runs db migrations for the Auth application.
 func (a *App) Migrate() error {
 	m, err := monarch.NewManager(a.db)
 	if err != nil {
@@ -46,7 +52,7 @@ func (a *App) Migrate() error {
 	return m.Upgrade(userMigration)
 }
 
-func (a *App) Authenticated(w http.ResponseWriter, req *http.Request) bool {
+func (a *App) RequireAuthenticated(w http.ResponseWriter, req *http.Request) bool {
 	session, _ := a.store.Get(req, sessionJar)
 
 	// TODO: forward URL to go back to where you wanted to go
@@ -67,6 +73,7 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 			session.Values["authenticated"] = true
 			session.Values["user"] = username
 			session.Save(req, w)
+			// FIXME: should probably redirect to either referer or admin
 			http.Redirect(w, req, "/", 302)
 		} else {
 			session.AddFlash("invalid username or password")

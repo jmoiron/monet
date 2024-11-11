@@ -47,3 +47,12 @@ func TestPost(t *testing.T) {
 	ok, err = serv.ChangePassword("shayla shayla", "weak", "best")
 	assert.False(ok)
 }
+
+func TestTemplates(t *testing.T) {
+	assert := assert.New(t)
+	f, err := authTemplates.ReadFile("auth/login.html")
+
+	assert.NoError(err)
+	assert.NotNil(f)
+	assert.True(len(f) > 10)
+}

@@ -39,6 +39,7 @@ type App interface {
 	Bindable
 	Name() string
 	Migrate() error
+	Register(*mtr.Registry)
 	GetAdmin() (Admin, error)
 }
 

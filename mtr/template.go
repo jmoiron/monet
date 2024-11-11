@@ -127,6 +127,9 @@ func (r *Registry) Build() error {
 		//
 		// The path could potentially match multiple templates, but only one will be used.
 		// This probably won't come up in practice.
+		if len(tmpl.Templates()) != 2 {
+			slog.Warn("found multiple templates", "name", t.name, "path", t.path, "isBase", t.isBase)
+		}
 		if t.isBase {
 			r.base.add(t.name, tmpl.Templates()[1])
 		} else {

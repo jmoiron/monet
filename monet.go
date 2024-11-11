@@ -4,6 +4,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -34,13 +35,21 @@ type options struct {
 var logLevel = new(slog.LevelVar)
 
 //go:embed static/*
-//go:embed templates/*
 var static embed.FS
+
+//go:embed templates
+var templates embed.FS
 
 func main() {
 	slog.SetDefault(slog.New(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
 	))
+
+	static, err := fs.Sub(static, "static")
+	if err != nil {
+		slog.Error("error w/ static embed", "error", err)
+		return
+	}
 
 	var opts options
 	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
@@ -72,7 +81,7 @@ func main() {
 	}
 
 	reg := mtr.NewRegistry()
-	reg.AddBaseFS("base", "templates/base.html", static)
+	reg.AddBaseFS("base", "templates/base.html", templates)
 
 	for _, app := range apps {
 		if err := app.Migrate(); err != nil {
@@ -108,6 +117,16 @@ func main() {
 	for _, app := range apps {
 		app.Bind(r)
 	}
+
+	if config.Debug {
+		fs.WalkDir(static, ".", func(path string, d fs.DirEntry, err error) error {
+			slog.Debug("static file", "path", path)
+			return nil
+		})
+	}
+
+	r.Handle("/favicon.ico", http.FileServer(http.FS(static)))
+	r.Handle("/static/*", http.FileServer(http.FS(static)))
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)

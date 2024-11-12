@@ -2,10 +2,13 @@ package auth
 
 import (
 	"embed"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/sessions"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
@@ -18,7 +21,7 @@ import (
 
 const (
 	sessionJar = "monet-session"
-	loginUrl   = "/login"
+	loginUrl   = "/login/"
 )
 
 //go:embed auth/*.html
@@ -39,13 +42,19 @@ func NewApp(cfg *conf.Config, db db.DB) *App {
 	}
 }
 
+func jsonResp(h http.HandlerFunc) http.HandlerFunc {
+	return middleware.SetHeader("content-type", "text/json")(h).(http.HandlerFunc)
+}
+
 func (a *App) Name() string { return "auth" }
 
 // Bind this app to endpoints in the router.
 func (a *App) Bind(r chi.Router) {
 	r.Get("/login/", a.login)
-	r.Get("/logout/", a.logout)
 	r.Post("/login/", a.login)
+
+	r.Get("/logout/", a.logout)
+	r.Get("/login/status.json", jsonResp(a.status))
 }
 
 // Migrate runs db migrations for the Auth application.
@@ -82,34 +91,54 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 	session, _ := a.store.Get(req, sessionJar)
 	registry := mtr.RegistryFromContext(req.Context())
 
+	var username string
+
 	if req.Method == "POST" {
-		username, password := req.Form.Get("username"), req.Form.Get("password")
+		req.ParseForm()
+		username = req.Form.Get("username")
+		password := req.Form.Get("password")
+
 		if ok, _ := a.serv.Validate(username, password); ok {
 			session.Values["authenticated"] = true
 			session.Values["user"] = username
 			session.Save(req, w)
+			slog.Info("user authenticated", "username", username)
 			// FIXME: should probably redirect to either referer or admin
 			http.Redirect(w, req, "/", 302)
 		} else {
+			slog.Warn("failed login attempt", "username", username)
 			session.AddFlash("invalid username or password")
 		}
 	}
+
 	// this is either a failed login or a new login attempt; either way,
 	// show the login screen
 	err := registry.RenderWithBase(w, "base", "auth/login.html", mtr.Ctx{
-		"title": "login",
+		"title":    "login",
+		"username": username,
+		"flashes":  session.Flashes(),
 	})
 
 	if err != nil {
 		slog.Error("error rendering template", "page", "/login/", "error", err)
 	}
-
 }
 
-func (a *App) logout(w http.ResponseWriter, req *http.Request) {
-	session, _ := a.store.Get(req, "monet-session")
+func (a *App) logout(w http.ResponseWriter, r *http.Request) {
+	session, _ := a.store.Get(r, "monet-session")
 	session.Values["authenticated"] = false
 	session.Values["user"] = ""
-	session.Save(req, w)
-	http.Redirect(w, req, loginUrl, 302)
+	session.Save(r, w)
+	http.Redirect(w, r, loginUrl, 302)
+}
+
+func (a *App) status(w http.ResponseWriter, r *http.Request) {
+	session, _ := a.store.Get(r, "monet-session")
+	w.Header().Add("content-type", "text/json")
+
+	json.NewEncoder(w).Encode(
+		map[string]string{
+			"user":          fmt.Sprint(session.Values["user"]),
+			"authenticated": fmt.Sprint(session.Values["authenticated"]),
+		})
 }

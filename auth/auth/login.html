@@ -1,6 +1,10 @@
+{{ range $flash := .flashes }}
+    <div class="flash">{{$flash}}</div>
+{{ end }}
+
 <form method="POST" action="" class="login-form">
     <div>
-        <label for="username">username</label> <input type="text" name="username" id="username" value="{{ .Username }}">
+        <label for="username">username</label> <input type="text" name="username" id="username" value="{{ .username }}">
     </div><div>
         <label for="password">password</label> <input type="password" name="password" id="password">
     </div><div class="login">

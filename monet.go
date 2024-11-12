@@ -118,7 +118,7 @@ func main() {
 		app.Bind(r)
 	}
 
-	if config.Debug {
+	if config.Debug && false {
 		fs.WalkDir(static, ".", func(path string, d fs.DirEntry, err error) error {
 			slog.Debug("static file", "path", path)
 			return nil

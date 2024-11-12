@@ -1,13 +1,49 @@
-package db
+package blog
 
 import (
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/jmoiron/monet/template"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/sqlx"
 )
+
+var postMigrations = monarch.Set{
+	Name: "post",
+	Migrations: []monarch.Migration{
+		{
+			Up: `CREATE TABLE IF NOT EXISTS post (
+				id INTEGER PRIMARY KEY,
+				title TEXT,
+				slug TEXT,
+				content TEXT DEFAULT '',
+				content_rendered TEXT DEFAULT '',
+				created_at datetime DEFAULT (strftime('%s', 'now')),
+				updated_at datetime DEFAULT (strftime('%s', 'now')),
+				published_at datetime DEFAULT 0,
+				published INTEGER DEFAULT 0
+			);`,
+			Down: `DROP TABLE post;`,
+		},
+	},
+}
+
+var postTagMigrations = monarch.Set{
+	Name: "post_tag",
+	Migrations: []monarch.Migration{
+		{
+			Up: `CREATE TABLE IF NOT EXISTS post_tag (
+				post_id INTEGER,
+				tag TEXT,
+				FOREIGN KEY (post_id) REFERENCES post(id)
+			);`,
+			Down: `DROP TABLE post_tag;`,
+		},
+	},
+}
 
 // A Post is an entry in a blog
 type Post struct {
@@ -15,11 +51,14 @@ type Post struct {
 	Title           string
 	Slug            string
 	Content         string
-	ContentRendered string `db:"content_rendered"`
-	Summary         string
-	Timestamp       uint64
+	ContentRendered string    `db:"content_rendered"`
+	CreatedAt       time.Time `db:"created_at"`
+	UpdatedAt       time.Time `db:"updated_at"`
+	PublishedAt     time.Time `db:"published_at"`
 	Published       int
 	Tags            []string `db:"-"`
+	// test usage
+	now func() time.Time
 }
 
 // A postTag associates a post with a tag
@@ -29,12 +68,12 @@ type postTag struct {
 }
 
 type PostService struct {
-	db DB
+	db db.DB
 }
 
 // NewPostService returns a cursor for Posts.
-func NewPostService(db DB) *PostService {
-	return &PostService{db}
+func NewPostService(db db.DB) *PostService {
+	return &PostService{db: db}
 }
 
 // Get a post by its id.
@@ -44,8 +83,20 @@ func (s *PostService) Get(id int) (*Post, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = s.loadTags([]*Post{&p})
+	if err = s.loadTags(&p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// GetSlug gets a post by its slug.
+func (s *PostService) GetSlug(slug string) (*Post, error) {
+	var p Post
+	err := s.db.Get(&p, `SELECT * FROM post WHERE slug=?`, slug)
 	if err != nil {
+		return nil, err
+	}
+	if err = s.loadTags(&p); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -60,7 +111,7 @@ func (s *PostService) Select(where string, args ...interface{}) ([]*Post, error)
 	if err != nil {
 		return nil, err
 	}
-	err = s.loadTags(posts)
+	err = s.loadTags(posts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +120,10 @@ func (s *PostService) Select(where string, args ...interface{}) ([]*Post, error)
 }
 
 // loadTags fetches tags for each post and sets them to that post.
-func (s *PostService) loadTags(posts []*Post) error {
+func (s *PostService) loadTags(posts ...*Post) error {
 	var ids []int
 	var postMap = make(map[uint64]*Post)
+
 	for i, p := range posts {
 		ids = append(ids, int(p.ID))
 		postMap[p.ID] = posts[i]
@@ -93,6 +145,7 @@ func (s *PostService) loadTags(posts []*Post) error {
 		post := postMap[tag.PostID]
 		post.Tags = append(post.Tags, tag.Tag)
 	}
+
 	return nil
 }
 
@@ -105,17 +158,12 @@ func (s *PostService) Save(p *Post) error {
 		return s.Insert(p)
 	}
 
-	tx, err := s.db.Beginx()
-	if err != nil {
-		return err
-	}
-
 	p.preSave()
 
-	return With(tx, func(tx *sqlx.Tx) error {
+	return db.With(s.db, func(tx *sqlx.Tx) error {
 		q := `UPDATE post SET
 		title=:title, slug=:slug, content=:content, content_rendered=:content_rendered,
-		summary=:summary, timestamp=:timestamp, published=:published
+		updated_at=:updated_at, published_at=:published_at, published=:published
 	WHERE id=:id`
 		update, err := tx.PrepareNamed(q)
 		if err != nil {
@@ -140,19 +188,12 @@ func (s *PostService) Save(p *Post) error {
 // auto incremented ID provided by the database.
 func (s *PostService) Insert(p *Post) error {
 	q := `INSERT INTO post
-	(title, slug, content, content_rendered, summary, timestamp, published) VALUES
-	(:title, :slug, :content, :content_rendered, :summary, :timestamp, :published);`
-
-	// TODO: tx, update tags
-
-	tx, err := s.db.Beginx()
-	if err != nil {
-		return err
-	}
+	(title, slug, content, content_rendered, published) VALUES
+	(:title, :slug, :content, :content_rendered, :published);`
 
 	p.preSave()
 
-	return With(tx, func(tx *sqlx.Tx) error {
+	return db.With(s.db, func(tx *sqlx.Tx) error {
 		stmt, err := tx.PrepareNamed(q)
 		if err != nil {
 			return err
@@ -175,28 +216,69 @@ func (s *PostService) Insert(p *Post) error {
 			return err
 		}
 		return nil
+	})
+}
 
+// InsertArchive inserts a post as an archival post, skipping the pre-save
+func (s *PostService) InsertArchive(p *Post) error {
+	// if CreatedAt is set, then do a full insert
+	q := `INSERT INTO post
+		(title, slug, content, content_rendered, created_at, updated_at, published_at, published) values
+		(:title, :slug, :content, :content_rendered, :created_at, :updated_at, :published_at, :published);`
+
+	return db.With(s.db, func(tx *sqlx.Tx) error {
+		stmt, err := tx.PrepareNamed(q)
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		res, err := stmt.Exec(p)
+		if err != nil {
+			return fmt.Errorf("insert %w", err)
+		}
+
+		// we need to get the id out to add the tags to the join table
+		id, err := res.LastInsertId()
+		if err != nil {
+			return fmt.Errorf("lastInsertID %w", err)
+		}
+		p.ID = uint64(id)
+
+		err = updateTags(tx, p)
+		if err != nil {
+			return fmt.Errorf("updateTags %w", err)
+		}
+		return nil
 	})
 }
 
 // updateTags updates the tags for post p.  p should have a non-zero ID.
 // updateTags does not commit or rollback the passed in transaction.
 func updateTags(tx *sqlx.Tx, p *Post) error {
-	_, err := tx.Exec(`DELETE FROM post_tag WHERE post_id=?`, p.ID)
-	if err != nil {
+	if _, err := tx.Exec(`DELETE FROM post_tag WHERE post_id=?`, p.ID); err != nil {
 		return err
 	}
 
-	var tags []string
-	var args []interface{}
+	// if there are no tags, we're done
+	if len(p.Tags) == 0 {
+		return nil
+	}
+
+	var (
+		tags []string
+		args []any
+	)
+
 	for _, tag := range p.Tags {
 		tags = append(tags, "(?, ?)")
-		args = append(args, p.ID)
-		args = append(args, tag)
+		args = append(args, p.ID, tag)
 	}
+
 	q := fmt.Sprintf(`INSERT INTO post_tag (post_id, tag) VALUES %s`,
 		strings.Join(tags, ", "))
-	_, err = tx.Exec(q, args...)
+
+	_, err := tx.Exec(q, args...)
 	return err
 }
 
@@ -204,15 +286,15 @@ func updateTags(tx *sqlx.Tx, p *Post) error {
 // appropriate defaults when "empty" and others get updated
 func (p *Post) preSave() {
 	// render the content to a cached content field
-	p.ContentRendered = template.RenderMarkdown(p.Content)
-
+	p.ContentRendered = mtr.RenderMarkdown(p.Content)
 	// create a slug
-	p.Slug = Slugify(p.Title)
+	p.Slug = db.Slugify(p.Title)
 
-	// TODO: summarize if missing?
-
-	// set the timestamp to now if it's unset
-	if p.Timestamp == 0 {
-		p.Timestamp = uint64(time.Now().Unix())
+	if !p.UpdatedAt.IsZero() {
+		// allow tests to update this to verify that updates change the time
+		if p.now == nil {
+			p.now = time.Now
+		}
+		p.UpdatedAt = p.now()
 	}
 }

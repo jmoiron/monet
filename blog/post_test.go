@@ -1,7 +1,8 @@
-package db
+package blog
 
 import (
 	"testing"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -14,7 +15,7 @@ func TestPost(t *testing.T) {
 	db, err := sqlx.Connect("sqlite3", ":memory:")
 	assert.NoError(err)
 
-	assert.NoError(Ensure(db))
+	assert.NoError(NewApp(db).Migrate())
 
 	serv := NewPostService(db)
 
@@ -50,6 +51,9 @@ func TestPost(t *testing.T) {
 	p3.Title = "nevermind planet!"
 	p3.Published = 2
 	p3.Tags = []string{"last", "post"}
+	p3.now = func() time.Time {
+		return p3.UpdatedAt.Add(time.Minute)
+	}
 	assert.NoError(serv.Save(p3))
 
 	// should update existing, not change any
@@ -61,5 +65,10 @@ func TestPost(t *testing.T) {
 	assert.NoError(err)
 	assert.NotNil(p4)
 	assert.ElementsMatch(p3.Tags, p4.Tags)
+
+	// p3.UpdatedAt should have been set automatically on save
+	assert.Equal(p4.UpdatedAt, p3.UpdatedAt)
+	// and it should be different in p4 (the db) vs the previous value
+	assert.NotEqual(p4.UpdatedAt, p2.UpdatedAt)
 
 }

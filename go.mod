@@ -41,5 +41,6 @@ require (
 	golang.org/x/text v0.20.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )

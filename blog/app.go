@@ -1,120 +1,231 @@
 package blog
 
 import (
+	"embed"
 	"fmt"
+	"html/template"
+	"log/slog"
 	"net/http"
 	"path"
+	"strconv"
 	"time"
 
-	"github.com/gorilla/feeds"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-sprout/sprout"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/monarch"
-	"github.com/jmoiron/monet/sunrise"
-	"github.com/jmoiron/monet/template"
-	"github.com/jmoiron/sqlx"
-	"labix.org/v2/mgo/bson"
+	"github.com/jmoiron/monet/mtr"
 )
 
-type Blog struct {
-	db *sqlx.DB
+//go:embed blog/*
+var blogTemplates embed.FS
 
+const defaultPageSize = 15
+
+type App struct {
+	db db.DB
+
+	BaseURL     string
 	FeedRSSURL  string
 	FeedAtomURL string
+
+	PageSize int
 }
 
-// NewBlog instantiates a new Blog.
-func NewBlog(db *sqlx.DB) *Blog {
-	return &Blog{db: db}
+// NewApp instantiates a new blog app.
+func NewApp(db db.DB) *App {
+	return &App{db: db, PageSize: defaultPageSize}
 }
+
+func NewAppURL(db db.DB, url string) *App {
+	a := NewApp(db)
+	a.BaseURL = url
+	return a
+}
+
+func (a *App) Name() string { return "blog" }
 
 // Attach the blog to r at base.
-func (b *Blog) Attach(r *mux.Router, base string) error {
-	get := r.PathPrefix(base).Methods("GET").Subrouter()
+func (a *App) Bind(r chi.Router) {
 
-	get.HandleFunc("/rss", b.rss)
-	get.HandleFunc("/atom", b.atom)
-	get.HandleFunc("/page/{page:[0-9]+}", b.page)
-	get.HandleFunc("/{slug:[^/]+}", b.detail)
-	get.HandleFunc("/", b.index)
+	r.Route(a.BaseURL, func(r chi.Router) {
+		r.Get("/rss", a.rss)
+		r.Get("/atom", a.atom)
+		r.Get("/page/{page:[0-9]+}", a.list)
+		r.Get("/{slug:[^/]+}", a.detail)
+		r.Get("/", a.index)
+	})
+
 	// web.Get(url+"stream/page/(\\d+)", streamPage)
 	// web.Get(url+"stream/", streamIndex)
 
-	b.FeedRSSURL = path.Join(base, "rss")
-	b.FeedAtomURL = path.Join(base, "atom")
-	return nil
+	a.FeedRSSURL = path.Join(a.BaseURL, "rss")
+	a.FeedAtomURL = path.Join(a.BaseURL, "atom")
+}
+
+func (a *App) Register(reg *mtr.Registry) {
+	// add blog related functions to template context
+	reg.Handler.AddRegistry(
+		mtr.NewSproutRegistry("blog", sprout.FunctionMap{
+			"safe": func(s string) template.HTML {
+				return template.HTML(s)
+			},
+			"naturalTime": func(t time.Time) string {
+				return app.FmtTimestamp(t.Unix())
+			},
+		}),
+	)
+
+	reg.AddPathFS("blog/index.html", blogTemplates)
+	reg.AddPathFS("blog/post_detail.html", blogTemplates)
 }
 
 // Migrate the blog backend.
-// TODO: how do we "rely" on modules, like auth/users?
-// Maybe it's built into sunrise?
-func (b *Blog) Migrate() error {
-	manager, err := monarch.NewManager(b.db)
+func (a *App) Migrate() error {
+	manager, err := monarch.NewManager(a.db)
 	if err != nil {
 		return nil
 	}
 
-	migrations := []monarch.Migration{
-		{
-			Up: `CREATE TABLE IF NOT EXISTS post (
-				id INTEGER PRIMARY KEY,
-				title TEXT,
-				slug TEXT,
-				content TEXT DEFAULT '',
-				content_rendered TEXT DEFAULT '',
-				created_at INTEGER DEFAULT (strftime('%s', 'now')),
-				updated_at INTEGER DEFAULT (strftime('%s', 'now')),
-				published_at INTEGER DEFAULT 0,
-				published INTEGER DEFAULT 0
-			);`,
-			Down: `DROP TABLE post;`,
-		},
-		{
-			Up: `CREATE TABLE IF NOT EXISTS post_tag (
-				post_id INTEGER,
-				tag TEXT,
-				FOREIGN KEY (post_id) REFERENCES post(id)
-			);`,
-			Down: `DROP TABLE post_tag;`,
-		},
+	for _, m := range []monarch.Set{postMigrations, postTagMigrations} {
+		if err := manager.Upgrade(m); err != nil {
+			return fmt.Errorf("error running %s migration: %w", m.Name, err)
+		}
 	}
 
-	set := monarch.Set{Name: "blog", Migrations: migrations}
-	return manager.Upgrade(set)
+	return nil
 }
 
 // Return an Admin object that can render admin homepage panels
 // and register all of the administrative pages.
-func (b *Blog) Admin() (sunrise.Admin, error) {
-	return nil
+func (a *App) GetAdmin() (app.Admin, error) {
+	return nil, nil
 }
+
+func (a *App) rss(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("content-type", "application/xml")
+
+	/*
+		feed := newFeed()
+		if feed == nil {
+			xml500(w, "empty")
+			return
+		}
+		text, err := feed.ToRss()
+		if err != nil {
+			fmt.Println(err)
+			xml500(w, err.Error())
+			return
+		}
+
+		w.Write([]byte(text))
+	*/
+}
+
+func (a *App) atom(w http.ResponseWriter, req *http.Request) {
+
+}
+
+func (a *App) detail(w http.ResponseWriter, req *http.Request) {
+	slog.Debug("blog detail", "slug", chi.URLParam(req, "slug"))
+	p, err := NewPostService(a.db).GetSlug(chi.URLParam(req, "slug"))
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(req.Context())
+	reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
+		"post": p,
+	})
+
+	/*
+		return template.Render("base.mandira", M{
+			"Rss":         RssHref,
+			"Atom":        AtomHref,
+			"body":        RenderPost(post),
+			"title":       post.Title,
+			"description": post.Summary})
+	*/
+}
+
+func (a *App) list(w http.ResponseWriter, req *http.Request) {
+	serv := NewPostService(a.db)
+
+	var count int
+	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published > 0;"); err != nil {
+		app.Http500("getting count", w, err)
+		return
+	}
+
+	pageNum := 1
+	strPage := chi.URLParam(req, "page")
+	if len(strPage) > 0 {
+		pageNum, _ = strconv.Atoi(strPage)
+	}
+	slog.Debug("loading page", "page", pageNum)
+
+	pageBase := path.Join(a.BaseURL, "page")
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(pageBase))
+	page := paginator.Page(pageNum)
+
+	// select the posts for the page we're trying to render
+	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d`, a.PageSize)
+	if page.Number > 1 {
+		q = fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
+	}
+
+	posts, err := serv.Select(q)
+	if err != nil {
+		app.Http500("loading posts", w, err)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(req.Context())
+	err = reg.RenderWithBase(w, "base", "blog/index.html", mtr.Ctx{
+		"posts":      posts,
+		"pagination": paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering template", "err", err)
+	}
+
+}
+
+func (a *App) index(w http.ResponseWriter, req *http.Request) {
+	a.list(w, req)
+	/*
+		serv := NewPostService(a.db)
+		posts, err := serv.Select("WHERE published > 0 ORDER BY created_at DESC LIMIT 1")
+		if err != nil {
+			app.Http500("loading posts", w, err)
+			return
+		}
+		if len(posts) == 0 {
+			http.Error(w, http.StatusText(http.StatusNoContent), http.StatusNoContent)
+			return
+		}
+
+		reg := mtr.RegistryFromContext(req.Context())
+
+		err = reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
+			"post": posts[0],
+		})
+
+		if err != nil {
+			slog.Error("rendering template", "err", err)
+		}
+	*/
+
+}
+
+/*
 
 func xml500(w http.ResponseWriter, msg string) {
 	w.WriteHeader(500)
 	w.Write([]byte(fmt.Sprintf("<!-- %s -->", msg)))
-}
-
-func (b *Blog) rss(w http.ResponseWriter, req *http.Request) {
-	w.Header()["Content-Type"] = "application/xml"
-
-	feed := newFeed()
-	if feed == nil {
-		xml500(w, "empty")
-		return
-	}
-	text, err := feed.ToRss()
-	if err != nil {
-		fmt.Println(err)
-		xml500(w, err.Error())
-		return
-	}
-
-	w.Write([]byte(text))
-}
-
-func (b *Blog) detail(w http.ResponseWriter, req *http.Request) {
-
 }
 
 // Render the post, using the cached ContentRendered if available, or generating
@@ -123,9 +234,12 @@ func RenderPost(post *Post) string {
 	if len(post.ContentRendered) == 0 {
 		db.Upsert(post)
 	}
-	return template.Render("blog/post.mandira", post)
+	return ""
+	// return template.Render("blog/post.mandira", post)
 }
+*/
 
+/*
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available
 func Flatpage(url string) string {
 	p := GetPage(url)
@@ -134,12 +248,13 @@ func Flatpage(url string) string {
 		ctx.Abort(404, "Page not found")
 		return ""
 	}
+	return ""
 
-	return template.Render("base.mandira", M{
-		"body":        p.ContentRendered,
-		"title":       "jmoiron.net",
-		"description": "Blog and assorted media from Jason Moiron.",
-	})
+		return template.Render("base.mandira", M{
+			"body":        p.ContentRendered,
+			"title":       "jmoiron.net",
+			"description": "Blog and assorted media from Jason Moiron.",
+		})
 }
 
 func Index() string {
@@ -242,12 +357,12 @@ func blogDetail(slug string) string {
 		return ""
 	}
 
-	return template.Render("base.mandira", M{
-		"Rss":         RssHref,
-		"Atom":        AtomHref,
-		"body":        RenderPost(post),
-		"title":       post.Title,
-		"description": post.Summary})
+		return template.Render("base.mandira", M{
+			"Rss":         RssHref,
+			"Atom":        AtomHref,
+			"body":        RenderPost(post),
+			"title":       post.Title,
+			"description": post.Summary})
 }
 
 func streamIndex() string {
@@ -290,3 +405,4 @@ func streamPage(page string) string {
 		"Pagination": paginator.Render(numObjects),
 		"title":      "Lifestream"}, ctx.Params)
 }
+*/

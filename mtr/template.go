@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"io/fs"
@@ -55,7 +56,7 @@ type deferredTemplate struct {
 
 // NewRegistry returns a new, empty template registry.
 func NewRegistry() *Registry {
-	return &Registry{
+	reg := &Registry{
 		base: newRegistry(),
 		tmpl: newRegistry(),
 		Handler: sprout.New(
@@ -67,6 +68,8 @@ func NewRegistry() *Registry {
 			),
 		),
 	}
+	reg.AddPathFS("mtr/pagination.html", paginationTemplate)
+	return reg
 }
 
 // XXX: do we want Add{Base}(name, {reader/[]byte}) ?
@@ -89,6 +92,16 @@ func (r *Registry) AddPathFS(path string, fs fs.FS) {
 // AddFS adds the named template from the given filesystem.
 func (r *Registry) AddFS(name, path string, fs fs.FS) {
 	r.addDt(name, path, fs, false)
+}
+
+func firstNonNil(ts []*template.Template) *template.Template {
+	for _, t := range ts {
+		if t.Tree == nil {
+			continue
+		}
+		return t
+	}
+	return nil
 }
 
 // Build the registry templates. Caller should not add more templates
@@ -130,12 +143,15 @@ func (r *Registry) Build() error {
 		if len(tmpl.Templates()) != 2 {
 			slog.Warn("found multiple templates", "name", t.name, "path", t.path, "isBase", t.isBase)
 		}
+		// take first template with a non-nil tree
+		tmpl = firstNonNil(tmpl.Templates())
 		if t.isBase {
-			r.base.add(t.name, tmpl.Templates()[1])
+			r.base.add(t.name, tmpl)
 		} else {
-			r.tmpl.add(t.name, tmpl.Templates()[1])
+			r.tmpl.add(t.name, tmpl)
 		}
 	}
+
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
@@ -145,6 +161,9 @@ func (r *Registry) Build() error {
 // Render the named template name to w using the provided context.
 func (r *Registry) Render(w io.Writer, name string, ctx Ctx) error {
 	content := r.tmpl.get(name)
+	if content == nil {
+		return fmt.Errorf("could not find template '%s'", name)
+	}
 	return content.Execute(w, ctx)
 }
 
@@ -154,6 +173,13 @@ func (r *Registry) Render(w io.Writer, name string, ctx Ctx) error {
 func (r *Registry) RenderWithBase(w io.Writer, base, name string, ctx Ctx) error {
 	baseTpl := r.base.get(base)
 	content := r.tmpl.get(name)
+
+	if baseTpl == nil {
+		return fmt.Errorf("could not find base template '%s'", base)
+	}
+	if content == nil {
+		return fmt.Errorf("could not find template '%s'", name)
+	}
 
 	var s bytes.Buffer
 	err := content.Execute(&s, ctx)

@@ -1,58 +1,74 @@
 package blog
 
 import (
-	"github.com/gorilla/mux"
-	"github.com/jmoiron/monet/sunrise"
-	"github.com/jmoiron/monet/template"
-	"github.com/jmoiron/sqlx"
-	"labix.org/v2/mgo/bson"
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/monet/db"
 )
 
-type BlogAdmin struct {
-	db *sqlx.DB
+type Admin struct {
+	db      db.DB
+	BaseURL string
 }
 
-func NewBlogAdmin(db *sqlx.DB) {
-	return &BlogAdmin{db: db}
+func NewBlogAdmin(db db.DB) *Admin {
+	return &Admin{db: db}
 }
 
-func (b *BlogAdmin) Attach(r *mux.Router, path string) error {
-	prefix := r.PathPrefix(path)
+func (a *Admin) Bind(r chi.Router) {
+	r.Route(a.BaseURL, func(r chi.Router) {
+		r.Get("/unpublished/", a.unpublishedList)
+		r.Get("/unpublished/{page:[0-9]+}", a.unpublishedList)
+		r.Get("/posts/", a.postList)
+		r.Get("/posts/{page:[0-9]+}", a.postList)
 
-	var (
-		get     = prefix.Methods("GET").Subrouter()
-		post    = prefix.Methods("POST").Subrouter()
-		getPost = prefix.Methods("GET", "POST").Subrouter()
-	)
+		r.Get("/posts/edit/{slug:[^/]+}", a.edit)
+		r.Post("/posts/edit/{slug:[^/]+}", a.edit)
 
-	get.HandleFunc("/unpublished/", b.unpublishedList)
-	get.HandleFunc("/unpublished/{page:[0-9]+}", b.unpublishedList)
-	get.HandleFunc("/posts/", b.postList)
-	get.HandleFunc("/posts/{page:[0-9]+}", b.postList)
+		r.Get("/posts/add/", a.add)
+		r.Post("/posts/add/", a.add)
 
-	getPost.HandleFunc("/posts/edit/{slug:[^/]+}", b.edit)
-	getPost.HandleFunc("/posts/add/", b.add)
-
-	post.HandleFunc("/posts/delete/{id:[^/]+}", b.delete)
-	post.HandleFunc("/posts/preview/", b.preview)
-
-	return nil
+		r.Post("/posts/delete/{slug:[^/]+}", a.delete)
+		r.Post("/posts/preview/", a.preview)
+	})
 }
 
-// Panel renders a blog admin panel.
-func (b *BlogAdmin) Panel() ([]byte, error) {
+// Render a blog admin panel.
+func (a *Admin) Render() (string, error) {
+	return "", nil
+}
+
+func (a *Admin) unpublishedList(w http.ResponseWriter, r *http.Request) {
 
 }
 
-var _ sunrise.Admin = &BlogAdmin{}
+func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
 
-type M bson.M
+}
 
+func (a *Admin) edit(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (a *Admin) add(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func (a *Admin) preview(w http.ResponseWriter, r *http.Request) {
+
+}
+
+/*
 var (
-	adminBase     = template.Base{Path: "admin/base.mandira"}
 	listPageSize  = 20
 	indexListSize = 6
 )
+*/
 
 func AttachAdmin(url string) {
 	// pages

@@ -1,14 +1,6 @@
 package blog
 
-import (
-	"errors"
-	"time"
-
-	"github.com/jmoiron/monet/monarch"
-	"github.com/jmoiron/monet/template"
-	"github.com/jmoiron/sqlx"
-)
-
+/*
 // A Post in a blog.
 type Post struct {
 	ID              int
@@ -22,23 +14,20 @@ type Post struct {
 	Published       int
 }
 
-// A Manager is a datalayer for the blog app.  It persists and fetches data
-// and provides a high level interface with which to build the app.
-type Manager struct {
-	db monarch.DB
+type PostService struct {
+	db db.DB
 }
 
-// Save p to the database.
-func (m *Manager) Save(p *Post) error {
-	p.ContentRendered = template.RenderMarkdown(p.Content)
+func (s *PostService) Save(p *Post) error {
+	p.ContentRendered = mtr.RenderMarkdown(p.Content)
 	if p.ID == 0 {
-		return m.create(p)
+		return s.create(p)
 	}
-	return m.update(p)
+	return s.update(p)
 }
 
 // create post p in the database.  p's id must be invalid (zero).
-func (m *Manager) create(p *Post) error {
+func (s *PostService) create(p *Post) error {
 	if p.ID != 0 {
 		return errors.New("cannot create post with id")
 	}
@@ -54,12 +43,12 @@ func (m *Manager) create(p *Post) error {
 		return err
 	}
 
-	_, err = m.db.Exec(query, args...)
+	_, err = s.db.Exec(query, args...)
 	return err
 }
 
 // update p in the database.  p must have a valid (non-zero) id.
-func (m *Manager) update(p *Post) error {
+func (s *PostService) update(p *Post) error {
 	if p.ID == 0 {
 		return errors.New("cannot update post without id")
 	}
@@ -76,32 +65,33 @@ func (m *Manager) update(p *Post) error {
 		return err
 	}
 
-	_, err = m.db.Exec(query, args...)
+	_, err = s.db.Exec(query, args...)
 	return err
 }
 
 // ByID loads a post by ID.
-func (m *Manager) ByID(id int) (*Post, error) {
-	query := `SELECT * FROM post WHERE id=?;`
+func (s *PostService) ByID(id int) (*Post, error) {
 	var p Post
-	err := m.db.Get(&p, query, id)
+	query := `SELECT * FROM post WHERE id=?;`
+	err := s.db.Get(&p, query, id)
 	return &p, err
 }
 
 // BySlug loads a post by its slug.
-func (m *Manager) BySlug(slug string) (*Post, error) {
+func (s *PostService) BySlug(slug string) (*Post, error) {
 	query := `SELECT * FROM post WHERE slug=?;`
 	var p Post
-	err := m.db.Get(&p, query, slug)
+	err := s.db.Get(&p, query, slug)
 	return &p, err
 }
 
-func (m *Manager) Latest() (*Post, error) {
+func (s *PostService) Latest() (*Post, error) {
 	query := `SELECT * FROM post ORDER BY published_at DESC LIMIT 1;`
 	var p Post
-	err := m.db.Get(&p, query)
+	err := s.db.Get(&p, query)
 	return &p, err
 }
+*/
 
 /*
 // Flatpage Model

@@ -62,9 +62,9 @@ func PageNumber(page string) int {
 }
 
 // Format a timestamp into a simple date
-func FmtTimestamp(ts uint64) string {
+func FmtTimestamp(ts int64) string {
 	now := time.Now()
-	ut := time.Unix(int64(ts), 0)
+	ut := time.Unix(ts, 0)
 	if now.Year() == ut.Year() {
 		return ut.Format("Jan _2")
 	}

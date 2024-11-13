@@ -3,15 +3,18 @@ package blog
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
 )
 
 const (
-	panelListSize = 5
+	panelListSize = 6
+	adminPageSize = 20
 )
 
 type Admin struct {
@@ -56,7 +59,7 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 	reg := mtr.RegistryFromContext(r.Context())
 
 	var b bytes.Buffer
-	err = reg.Render(&b, "blog/admin-post-panel.html", mtr.Ctx{
+	err = reg.Render(&b, "blog/admin/post-panel.html", mtr.Ctx{
 		"fullUrl":   "posts/",
 		"title":     "Posts",
 		"renderAdd": true,
@@ -68,7 +71,7 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 	panels = append(panels, b.String())
 	b.Reset()
 
-	err = reg.Render(&b, "blog/admin-post-panel.html", mtr.Ctx{
+	err = reg.Render(&b, "blog/admin/post-panel.html", mtr.Ctx{
 		"fullUrl": "unpublished/",
 		"title":   "Unpublished",
 		"posts":   unpublished,
@@ -82,18 +85,91 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 }
 
 func (a *Admin) unpublishedList(w http.ResponseWriter, r *http.Request) {
+	var count int
+	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published = 0;"); err != nil {
+		app.Http500("getting count", w, err)
+		return
+	}
+
+	paginator := mtr.NewPaginator(adminPageSize, count)
+	page := paginator.Page(app.GetIntParam(r, "page", 1))
+
+	// select the posts for the page we're trying to render
+	q := fmt.Sprintf(`WHERE published = 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, adminPageSize, page.StartOffset)
+
+	serv := NewPostService(a.db)
+	unpublished, err := serv.Select(q)
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-list.html", mtr.Ctx{
+		"unpublished": true,
+		"posts":       unpublished,
+		"pagination":  paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering list", "err", err)
+	}
 
 }
 
 func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
+	var count int
+	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published > 0;"); err != nil {
+		app.Http500("getting count", w, err)
+		return
+	}
 
+	paginator := mtr.NewPaginator(adminPageSize, count)
+	page := paginator.Page(app.GetIntParam(r, "page", 1))
+
+	// select the posts for the page we're trying to render
+	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, adminPageSize, page.StartOffset)
+
+	serv := NewPostService(a.db)
+	posts, err := serv.Select(q)
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-list.html", mtr.Ctx{
+		"posts":      posts,
+		"pagination": paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering list", "err", err)
+	}
 }
 
 func (a *Admin) edit(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	serv := NewPostService(a.db)
 
+	p, err := serv.GetSlug(slug)
+	if err != nil {
+		app.Http500("getting by slug", w, err)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
+		"post": p,
+	})
+	if err != nil {
+		slog.Error("rendering edit", "err", err)
+	}
 }
 
 func (a *Admin) add(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	title := r.Form.Get("Title")
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
+		"post": Post{Title: title},
+	})
+	if err != nil {
+		slog.Error("rendering add", "err", err)
+	}
 
 }
 
@@ -114,27 +190,6 @@ var (
 // *** Posts ***
 
 /*
-// List detail for unpublished posts
-func unpublishedList(page string) string {
-	if app.RequireAuthentication(ctx) {
-		return ""
-	}
-	num := app.PageNumber(page)
-
-	paginator := app.NewPaginator(num, listPageSize)
-	paginator.Link = "/admin/unpublished/"
-
-	var posts []Post
-	latest := db.Latest(&Post{}, M{"published": 0})
-	latest.Limit(listPageSize).All(&posts)
-
-	numObjects, _ := latest.Count()
-	return adminBase.Render("blog/admin/post-list.mandira", M{
-		"Posts":       posts,
-		"Pagination":  paginator.Render(numObjects),
-		"Unpublished": true,
-	})
-}
 
 // List detail for published posts
 func postList(page string) string {

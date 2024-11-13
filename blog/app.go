@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -158,11 +157,7 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	pageNum := 1
-	strPage := chi.URLParam(req, "page")
-	if len(strPage) > 0 {
-		pageNum, _ = strconv.Atoi(strPage)
-	}
+	pageNum := app.GetIntParam(req, "page", 1)
 	slog.Debug("loading page", "page", pageNum)
 
 	pageBase := path.Join(a.BaseURL, "page")
@@ -170,10 +165,7 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	page := paginator.Page(pageNum)
 
 	// select the posts for the page we're trying to render
-	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d`, a.PageSize)
-	if page.Number > 1 {
-		q = fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
-	}
+	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
 
 	posts, err := serv.Select(q)
 	if err != nil {

@@ -66,7 +66,7 @@ func NewPaginator(pageSize, objCount int) *Paginator {
 		NumPages:   int(math.Ceil(float64(objCount) / float64(pageSize))),
 		WindowSize: defaultWindowSize,
 		Ellipsis:   "...",
-		href:       SlashLinkFn("/"),
+		href:       SlashLinkFn("./"),
 	}
 }
 
@@ -96,8 +96,6 @@ func (p *Paginator) Render(reg *Registry, page *Page) template.HTML {
 	window := p.makeWindow(page)
 
 	var b bytes.Buffer
-	// XXX: error
-
 	err := reg.Render(&b, "mtr/pagination.html", Ctx{
 		"paginator": p,
 		"page":      page,

@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/fs"
 	"log/slog"
+	gostrings "strings"
 	"sync"
 
 	"github.com/go-sprout/sprout"
@@ -87,6 +88,16 @@ func (r *Registry) AddBaseFS(name, path string, fs fs.FS) {
 // AddPathFS adds path to the registry with the path as its name
 func (r *Registry) AddPathFS(path string, fs fs.FS) {
 	r.AddFS(path, path, fs)
+}
+
+// AddAllFS adds all paths in fs to the registry with paths as their name
+func (r *Registry) AddAllFS(f fs.FS) {
+	fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
+		if gostrings.HasSuffix(path, ".html") {
+			r.AddFS(path, path, f)
+		}
+		return nil
+	})
 }
 
 // AddFS adds the named template from the given filesystem.

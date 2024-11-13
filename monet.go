@@ -19,6 +19,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pkg/passwd"
+	"github.com/jmoiron/monet/stream"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/pflag"
 
@@ -32,6 +33,7 @@ type options struct {
 	Debug      bool
 	AddUser    string
 	LoadPosts  string
+	LoadEvents string
 }
 
 var logLevel = new(slog.LevelVar)
@@ -58,6 +60,7 @@ func main() {
 	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
 	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
+	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
 	pflag.Parse()
 
 	config, err := loadConfig(opts.ConfigPath)
@@ -94,16 +97,19 @@ func main() {
 		app.Register(reg)
 	}
 
-	// add users via cmd line to bootstrap the admin user
-	if len(opts.AddUser) > 0 {
+	switch {
+	case len(opts.AddUser) > 0:
 		if err := addUser(db, opts.AddUser); err != nil {
 			fmt.Printf("Error: %s\n", err)
 		}
 		return
-	}
-
-	if len(opts.LoadPosts) > 0 {
+	case len(opts.LoadPosts) > 0:
 		if err := loadPosts(db, opts.LoadPosts); err != nil {
+			fmt.Printf("Error: %s\n", err)
+		}
+		return
+	case len(opts.LoadEvents) > 0:
+		if err := loadEvents(db, opts.LoadEvents); err != nil {
 			fmt.Printf("Error: %s\n", err)
 		}
 		return
@@ -164,6 +170,17 @@ func addUser(db db.DB, username string) error {
 	return nil
 }
 
+func loadEvents(db db.DB, path string) error {
+	loader := stream.NewLoader(db)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Loading events from %s\n", path)
+	defer f.Close()
+	return loader.Load(f)
+}
+
 func loadPosts(db db.DB, path string) error {
 	loader := blog.NewLoader(db)
 	f, err := os.Open(path)
@@ -189,5 +206,6 @@ func loadConfig(path string) (*conf.Config, error) {
 func collect(cfg *conf.Config, db db.DB) (apps []app.App, err error) {
 	apps = append(apps, auth.NewApp(cfg, db))
 	apps = append(apps, blog.NewAppURL(db, "/blog/"))
+	apps = append(apps, stream.NewAppURL(db, "/stream/"))
 	return apps, nil
 }

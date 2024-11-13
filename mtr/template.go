@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-sprout/sprout"
 	"github.com/go-sprout/sprout/registry/maps"
+	"github.com/go-sprout/sprout/registry/numeric"
 	"github.com/go-sprout/sprout/registry/slices"
 	"github.com/go-sprout/sprout/registry/std"
 	"github.com/go-sprout/sprout/registry/strings"
@@ -66,6 +67,7 @@ func NewRegistry() *Registry {
 				strings.NewRegistry(),
 				slices.NewRegistry(),
 				maps.NewRegistry(),
+				numeric.NewRegistry(),
 			),
 		),
 	}

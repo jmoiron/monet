@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/jmoiron/monet/admin"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/auth"
 	"github.com/jmoiron/monet/blog"
@@ -56,12 +57,7 @@ func main() {
 	}
 
 	var opts options
-	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
-	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
-	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
-	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
-	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
-	pflag.Parse()
+	parseOpts(&opts)
 
 	config, err := loadConfig(opts.ConfigPath)
 	if err != nil {
@@ -80,11 +76,17 @@ func main() {
 		return
 	}
 
-	apps, err := collect(config, db)
+	// the authApp is sort of special;  we want its session middleware to be at the top
+	// of our stack, so we want to keep a handle on it
+	authApp := auth.NewApp(config, db)
+
+	apps := []app.App{authApp}
+	collected, err := collect(config, db)
 	if err != nil {
 		slog.Error("could not collect apps", "error", err)
 		return
 	}
+	apps = append(apps, collected...)
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)
@@ -97,23 +99,12 @@ func main() {
 		app.Register(reg)
 	}
 
-	switch {
-	case len(opts.AddUser) > 0:
-		if err := addUser(db, opts.AddUser); err != nil {
-			fmt.Printf("Error: %s\n", err)
-		}
-		return
-	case len(opts.LoadPosts) > 0:
-		if err := loadPosts(db, opts.LoadPosts); err != nil {
-			fmt.Printf("Error: %s\n", err)
-		}
-		return
-	case len(opts.LoadEvents) > 0:
-		if err := loadEvents(db, opts.LoadEvents); err != nil {
-			fmt.Printf("Error: %s\n", err)
-		}
+	if runUtil(&opts, db) {
 		return
 	}
+
+	adminApp := admin.NewApp(db, authApp.Sessions).WithBaseURL("/admin/")
+	adminApp.Register(reg)
 
 	// build all of the templates
 	if err := reg.Build(); err != nil {
@@ -124,6 +115,7 @@ func main() {
 	// set up the router
 
 	r := chi.NewRouter()
+	r.Use(authApp.Sessions.AddSessionMiddleware)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -133,6 +125,12 @@ func main() {
 	for _, app := range apps {
 		app.Bind(r)
 	}
+
+	adminApp.Collect(apps...)
+	r.Route("/admin/", func(r chi.Router) {
+		r.Use(authApp.Sessions.RequireAuthenticatedRedirect("/admin/"))
+		adminApp.Bind(r)
+	})
 
 	if config.Debug && false {
 		fs.WalkDir(static, ".", func(path string, d fs.DirEntry, err error) error {
@@ -203,8 +201,36 @@ func loadConfig(path string) (*conf.Config, error) {
 	return cfg, nil
 }
 
+func parseOpts(opts *options) {
+	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
+	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
+	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
+	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
+	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
+	pflag.Parse()
+}
+
+func runUtil(opts *options, db db.DB) bool {
+	switch {
+	case len(opts.AddUser) > 0:
+		if err := addUser(db, opts.AddUser); err != nil {
+			fmt.Printf("Error: %s\n", err)
+		}
+	case len(opts.LoadPosts) > 0:
+		if err := loadPosts(db, opts.LoadPosts); err != nil {
+			fmt.Printf("Error: %s\n", err)
+		}
+	case len(opts.LoadEvents) > 0:
+		if err := loadEvents(db, opts.LoadEvents); err != nil {
+			fmt.Printf("Error: %s\n", err)
+		}
+	default:
+		return false
+	}
+	return true
+}
+
 func collect(cfg *conf.Config, db db.DB) (apps []app.App, err error) {
-	apps = append(apps, auth.NewApp(cfg, db))
 	apps = append(apps, blog.NewAppURL(db, "/blog/"))
 	apps = append(apps, stream.NewAppURL(db, "/stream/"))
 	return apps, nil

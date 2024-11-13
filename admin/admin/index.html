@@ -1,0 +1,7 @@
+{{range $i, $panel := .panels}}
+    <div class="{{if eq (div $i 2) (0)}}left{{else}}right{{end}}-panel panel">
+        {{$panel|safe}}
+    </div>
+    {{if ne (div $i 2) (0)}}<div class="clear panel-sep"></div>{{end}}
+{{end}}
+<div class="clear"></div>

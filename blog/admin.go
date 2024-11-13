@@ -1,10 +1,17 @@
 package blog
 
 import (
+	"bytes"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/mtr"
+)
+
+const (
+	panelListSize = 5
 )
 
 type Admin struct {
@@ -17,26 +24,61 @@ func NewBlogAdmin(db db.DB) *Admin {
 }
 
 func (a *Admin) Bind(r chi.Router) {
-	r.Route(a.BaseURL, func(r chi.Router) {
-		r.Get("/unpublished/", a.unpublishedList)
-		r.Get("/unpublished/{page:[0-9]+}", a.unpublishedList)
-		r.Get("/posts/", a.postList)
-		r.Get("/posts/{page:[0-9]+}", a.postList)
+	r.Get("/unpublished/", a.unpublishedList)
+	r.Get("/unpublished/{page:[0-9]+}", a.unpublishedList)
 
-		r.Get("/posts/edit/{slug:[^/]+}", a.edit)
-		r.Post("/posts/edit/{slug:[^/]+}", a.edit)
+	r.Get("/posts/", a.postList)
+	r.Get("/posts/{page:[0-9]+}", a.postList)
+	r.Get("/posts/add/", a.add)
+	r.Get("/posts/edit/{slug:[^/]+}", a.edit)
 
-		r.Get("/posts/add/", a.add)
-		r.Post("/posts/add/", a.add)
-
-		r.Post("/posts/delete/{slug:[^/]+}", a.delete)
-		r.Post("/posts/preview/", a.preview)
-	})
+	r.Post("/posts/add/", a.add)
+	r.Post("/posts/edit/{slug:[^/]+}", a.edit)
+	r.Post("/posts/delete/{slug:[^/]+}", a.delete)
+	r.Post("/posts/preview/", a.preview)
 }
 
 // Render a blog admin panel.
-func (a *Admin) Render() (string, error) {
-	return "", nil
+func (a *Admin) Panels(r *http.Request) ([]string, error) {
+	// published + unpublished panel
+	serv := NewPostService(a.db)
+	published, err := serv.Select(fmt.Sprintf("WHERE published > 0 ORDER BY created_at DESC LIMIT %d;", panelListSize))
+	if err != nil {
+		return nil, err
+	}
+	unpublished, err := serv.Select(fmt.Sprintf("WHERE published = 0 ORDER BY updated_at DESC LIMIT %d;", panelListSize))
+	if err != nil {
+		return nil, err
+	}
+
+	var panels []string
+
+	reg := mtr.RegistryFromContext(r.Context())
+
+	var b bytes.Buffer
+	err = reg.Render(&b, "blog/admin-post-panel.html", mtr.Ctx{
+		"fullUrl":   "posts/",
+		"title":     "Posts",
+		"renderAdd": true,
+		"posts":     published,
+	})
+	if err != nil {
+		return nil, err
+	}
+	panels = append(panels, b.String())
+	b.Reset()
+
+	err = reg.Render(&b, "blog/admin-post-panel.html", mtr.Ctx{
+		"fullUrl": "unpublished/",
+		"title":   "Unpublished",
+		"posts":   unpublished,
+	})
+	if err != nil {
+		return nil, err
+	}
+	panels = append(panels, b.String())
+
+	return panels, nil
 }
 
 func (a *Admin) unpublishedList(w http.ResponseWriter, r *http.Request) {
@@ -66,20 +108,8 @@ func (a *Admin) preview(w http.ResponseWriter, r *http.Request) {
 /*
 var (
 	listPageSize  = 20
-	indexListSize = 6
 )
 */
-
-func AttachAdmin(url string) {
-	// pages
-	/*
-		app.GetPost(url+"pages/add/", pageAdd)
-		app.GetPost(url+"pages/edit/(.*)", pageEdit)
-		web.Post(url+"pages/preview/", pagePreview)
-		web.Get(url+"pages/delete/(.*)", pageDelete)
-		web.Get(url+"pages/(\\d+)?", pageList)
-	*/
-}
 
 // *** Posts ***
 

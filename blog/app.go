@@ -77,8 +77,7 @@ func (a *App) Register(reg *mtr.Registry) {
 		}),
 	)
 
-	reg.AddPathFS("blog/index.html", blogTemplates)
-	reg.AddPathFS("blog/post_detail.html", blogTemplates)
+	reg.AddAllFS(blogTemplates)
 }
 
 // Migrate the blog backend.
@@ -100,7 +99,7 @@ func (a *App) Migrate() error {
 // Return an Admin object that can render admin homepage panels
 // and register all of the administrative pages.
 func (a *App) GetAdmin() (app.Admin, error) {
-	return nil, nil
+	return NewBlogAdmin(a.db), nil
 }
 
 func (a *App) rss(w http.ResponseWriter, req *http.Request) {

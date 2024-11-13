@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/gorilla/sessions"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
@@ -20,25 +19,24 @@ import (
 )
 
 const (
-	sessionJar = "monet-session"
-	loginUrl   = "/login/"
+	loginUrl = "/login/"
 )
 
 //go:embed auth/*.html
 var authTemplates embed.FS
 
 type App struct {
-	db    db.DB
-	store sessions.Store
-	serv  *UserService
+	db       db.DB
+	serv     *UserService
+	Sessions *SessionManager
 }
 
 // NewApp returns a new authz/n web application.
 func NewApp(cfg *conf.Config, db db.DB) *App {
 	return &App{
-		db:    db,
-		serv:  NewUserService(db),
-		store: sessions.NewCookieStore([]byte(cfg.SessionSecret)),
+		db:       db,
+		serv:     NewUserService(db),
+		Sessions: NewSessionManager(cfg),
 	}
 }
 
@@ -75,20 +73,9 @@ func (a *App) GetAdmin() (app.Admin, error) {
 	return nil, nil
 }
 
-func (a *App) RequireAuthenticated(w http.ResponseWriter, req *http.Request) bool {
-	session, _ := a.store.Get(req, sessionJar)
-
-	// TODO: forward URL to go back to where you wanted to go
-	if session.Values["authenticated"] != true {
-		http.Redirect(w, req, loginUrl, 302)
-		return false
-	}
-	return true
-}
-
 func (a *App) login(w http.ResponseWriter, req *http.Request) {
 	// if we're trying to log in, validate
-	session, _ := a.store.Get(req, sessionJar)
+	session := a.Sessions.Session(req)
 	registry := mtr.RegistryFromContext(req.Context())
 
 	var username string
@@ -97,6 +84,7 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 		req.ParseForm()
 		username = req.Form.Get("username")
 		password := req.Form.Get("password")
+		redirect := req.Form.Get("redirect")
 
 		if ok, _ := a.serv.Validate(username, password); ok {
 			session.Values["authenticated"] = true
@@ -104,7 +92,10 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 			session.Save(req, w)
 			slog.Info("user authenticated", "username", username)
 			// FIXME: should probably redirect to either referer or admin
-			http.Redirect(w, req, "/", 302)
+			if len(redirect) == 0 {
+				redirect = "/"
+			}
+			http.Redirect(w, req, redirect, 302)
 		} else {
 			slog.Warn("failed login attempt", "username", username)
 			session.AddFlash("invalid username or password")
@@ -125,7 +116,7 @@ func (a *App) login(w http.ResponseWriter, req *http.Request) {
 }
 
 func (a *App) logout(w http.ResponseWriter, r *http.Request) {
-	session, _ := a.store.Get(r, "monet-session")
+	session := a.Sessions.Session(r)
 	session.Values["authenticated"] = false
 	session.Values["user"] = ""
 	session.Save(r, w)
@@ -133,7 +124,7 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) status(w http.ResponseWriter, r *http.Request) {
-	session, _ := a.store.Get(r, "monet-session")
+	session := a.Sessions.Session(r)
 	w.Header().Add("content-type", "text/json")
 
 	json.NewEncoder(w).Encode(

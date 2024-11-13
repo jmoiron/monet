@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <link rel="stylesheet" href="/static/open-sans.css">
+        {{if .debug}}
+        <link rel="stylesheet/less" href="/static/style.less">
+        <script src="/static/js/less.js"></script>
+        {{else}}
+        <link rel="stylesheet" href="/static/style.css">
+        {{end}}
+        <script src="/static/js/jquery.js"></script>
+        <script src="/static/js/admin.js"></script>
+        <title>{{.title}}</title>
+    </head>
+    <body>
+        <div class="content">
+            <div class="container admin">
+                {{.body}}
+            </div>
+        </div>
+        <div class="footer">
+          <div class="container">
+            <div class="user-controls">
+              <a href="/admin/users/">users <i class="icon icon-user"></i></a>
+            </div>
+            <div class="admin-controls">
+              <a href="/admin/">home <i class="icon icon-home"></i></a> or
+              <a href="/logout/">logout <i class="icon icon-signout"></i></a>
+            </div>
+          </div>
+        </div>
+    </body>
+</html>

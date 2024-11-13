@@ -8,6 +8,7 @@
 package app
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
@@ -27,11 +28,6 @@ type Bindable interface {
 	Bind(r chi.Router)
 }
 
-// A Renderer can render itself when called.
-type Renderer interface {
-	Render() (string, error)
-}
-
 // An App is a component that controls a part of a website.
 // An example of an App is a wiki, blog, gallery, etc.
 type App interface {
@@ -48,8 +44,8 @@ type App interface {
 // to a gallery, etc.
 type Admin interface {
 	Bindable
-	// WritePanel(io.Writer) error
-	Panel() Renderer
+	// generate one or more panels for the admin index
+	Panels(*http.Request) ([]string, error)
 }
 
 // Return a number for a page (default to 1)

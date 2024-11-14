@@ -19,6 +19,7 @@ import (
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pages"
 	"github.com/jmoiron/monet/pkg/passwd"
 	"github.com/jmoiron/monet/stream"
 	"github.com/jmoiron/sqlx"
@@ -35,6 +36,7 @@ type options struct {
 	AddUser    string
 	LoadPosts  string
 	LoadEvents string
+	LoadPages  string
 }
 
 var logLevel = new(slog.LevelVar)
@@ -70,7 +72,7 @@ func main() {
 		logLevel.Set(slog.LevelDebug)
 	}
 
-	db, err := sqlx.Connect("sqlite3", config.DatabaseURI)
+	dbh, err := sqlx.Connect("sqlite3", config.DatabaseURI)
 	if err != nil {
 		slog.Error("could not connect to database", "uri", config.DatabaseURI, "error", err)
 		return
@@ -78,10 +80,10 @@ func main() {
 
 	// the authApp is sort of special;  we want its session middleware to be at the top
 	// of our stack, so we want to keep a handle on it
-	authApp := auth.NewApp(config, db)
+	authApp := auth.NewApp(config, dbh)
 
 	apps := []app.App{authApp}
-	collected, err := collect(config, db)
+	collected, err := collect(config, dbh)
 	if err != nil {
 		slog.Error("could not collect apps", "error", err)
 		return
@@ -99,11 +101,11 @@ func main() {
 		app.Register(reg)
 	}
 
-	if runUtil(&opts, db) {
+	if runUtil(&opts, dbh) {
 		return
 	}
 
-	adminApp := admin.NewApp(db, authApp.Sessions).WithBaseURL("/admin/")
+	adminApp := admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
 	adminApp.Register(reg)
 
 	// build all of the templates
@@ -115,7 +117,11 @@ func main() {
 	// set up the router
 
 	r := chi.NewRouter()
+	// add sessions, config, & db
 	r.Use(authApp.Sessions.AddSessionMiddleware)
+	r.Use(conf.Default().AddConfigMiddleware)
+	r.Use(db.AddDbMiddleware(dbh))
+
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
@@ -147,7 +153,7 @@ func main() {
 	http.ListenAndServe(config.ListenAddr, r)
 }
 
-func addUser(db db.DB, username string) error {
+func addUser(dbh db.DB, username string) error {
 	p1, err := passwd.GetPassword(fmt.Sprintf("enter password for user \"%s\"", username))
 	if err != nil {
 		return err
@@ -162,14 +168,22 @@ func addUser(db db.DB, username string) error {
 		return errors.New("Error: passwords do not match")
 	}
 
-	if err := auth.NewUserService(db).CreateUser(username, p1); err != nil {
-		return err
-	}
-	return nil
+	return auth.NewUserService(dbh).CreateUser(username, p1)
 }
 
-func loadEvents(db db.DB, path string) error {
-	loader := stream.NewLoader(db)
+func loadPages(dbh db.DB, path string) error {
+	loader := pages.NewLoader(dbh)
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Loading pages from %s\n", path)
+	defer f.Close()
+	return loader.Load(f)
+}
+
+func loadEvents(dbh db.DB, path string) error {
+	loader := stream.NewLoader(dbh)
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -179,8 +193,8 @@ func loadEvents(db db.DB, path string) error {
 	return loader.Load(f)
 }
 
-func loadPosts(db db.DB, path string) error {
-	loader := blog.NewLoader(db)
+func loadPosts(dbh db.DB, path string) error {
+	loader := blog.NewLoader(dbh)
 	f, err := os.Open(path)
 	if err != nil {
 		return err
@@ -207,6 +221,7 @@ func parseOpts(opts *options) {
 	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
 	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
+	pflag.StringVar(&opts.LoadPages, "load-pages", "", "load pages from json")
 	pflag.Parse()
 }
 
@@ -224,6 +239,10 @@ func runUtil(opts *options, db db.DB) bool {
 		if err := loadEvents(db, opts.LoadEvents); err != nil {
 			fmt.Printf("Error: %s\n", err)
 		}
+	case len(opts.LoadPages) > 0:
+		if err := loadPages(db, opts.LoadPages); err != nil {
+			fmt.Printf("ERror: %s\n", err)
+		}
 	default:
 		return false
 	}
@@ -233,5 +252,6 @@ func runUtil(opts *options, db db.DB) bool {
 func collect(cfg *conf.Config, db db.DB) (apps []app.App, err error) {
 	apps = append(apps, blog.NewAppURL(db, "/blog/"))
 	apps = append(apps, stream.NewAppURL(db, "/stream/"))
+	apps = append(apps, pages.NewApp(db))
 	return apps, nil
 }

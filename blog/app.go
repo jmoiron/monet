@@ -137,15 +137,6 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
 		"post": p,
 	})
-
-	/*
-		return template.Render("base.mandira", M{
-			"Rss":         RssHref,
-			"Atom":        AtomHref,
-			"body":        RenderPost(post),
-			"title":       post.Title,
-			"description": post.Summary})
-	*/
 }
 
 func (a *App) list(w http.ResponseWriter, req *http.Request) {
@@ -187,48 +178,7 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 
 func (a *App) index(w http.ResponseWriter, req *http.Request) {
 	a.list(w, req)
-	/*
-		serv := NewPostService(a.db)
-		posts, err := serv.Select("WHERE published > 0 ORDER BY created_at DESC LIMIT 1")
-		if err != nil {
-			app.Http500("loading posts", w, err)
-			return
-		}
-		if len(posts) == 0 {
-			http.Error(w, http.StatusText(http.StatusNoContent), http.StatusNoContent)
-			return
-		}
-
-		reg := mtr.RegistryFromContext(req.Context())
-
-		err = reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
-			"post": posts[0],
-		})
-
-		if err != nil {
-			slog.Error("rendering template", "err", err)
-		}
-	*/
-
 }
-
-/*
-
-func xml500(w http.ResponseWriter, msg string) {
-	w.WriteHeader(500)
-	w.Write([]byte(fmt.Sprintf("<!-- %s -->", msg)))
-}
-
-// Render the post, using the cached ContentRendered if available, or generating
-// and re-saving it to the database if not
-func RenderPost(post *Post) string {
-	if len(post.ContentRendered) == 0 {
-		db.Upsert(post)
-	}
-	return ""
-	// return template.Render("blog/post.mandira", post)
-}
-*/
 
 /*
 // A Flatpage view.  Attach it via web.Get wherever you want flatpages to be available

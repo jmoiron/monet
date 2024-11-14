@@ -1,0 +1,38 @@
+package pages
+
+import (
+	"github.com/go-chi/chi/v5"
+	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/mtr"
+)
+
+type App struct {
+	db db.DB
+}
+
+func NewApp(db db.DB) *App {
+	return &App{db: db}
+}
+
+func (a *App) Name() string { return "pages" }
+
+func (a *App) Register(reg *mtr.Registry) {
+}
+
+func (a *App) Migrate() error {
+	mgr, err := monarch.NewManager(a.db)
+	if err != nil {
+		return err
+	}
+	return mgr.Upgrade(pageMigrations)
+}
+
+// GetAdmin is yo dawg?
+func (a *App) GetAdmin() (app.Admin, error) {
+	return nil, nil
+}
+
+func (a *App) Bind(r chi.Router) {
+}

@@ -2,10 +2,14 @@ package conf
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 )
+
+type configKey struct{}
 
 // A Config holds options for the running website.
 type Config struct {
@@ -48,6 +52,24 @@ func (c *Config) FromPath(path string) error {
 // FromReader loads a config from the reader r.
 func (c *Config) FromReader(r io.Reader) error {
 	return json.NewDecoder(r).Decode(c)
+}
+
+// AddConfigMiddleware adds this config to the request contxt.
+func (c *Config) AddConfigMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(c.WithConfig(r.Context())))
+	})
+}
+
+// WithConfig adds this config to the context. Get it back out with
+// conf.ConfigFromContext(ctx).
+func (c *Config) WithConfig(ctx context.Context) context.Context {
+	return context.WithValue(ctx, configKey{}, c)
+}
+
+// ConfigFromContext returns the config embedded within the context.
+func ConfigFromContext(ctx context.Context) *Config {
+	return ctx.Value(configKey{}).(*Config)
 }
 
 // Default returns a sensible default config with environment overrides

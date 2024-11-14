@@ -1,8 +1,10 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"errors"
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -39,6 +41,25 @@ func With(db DB, fn func(tx *sqlx.Tx) error) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+type dbKey struct{}
+
+// WithDb adds the db to the context. Fetch with DbFromContext(ctx).
+func WithDb(ctx context.Context, db DB) context.Context {
+	return context.WithValue(ctx, dbKey{}, db)
+}
+
+func DbFromContext(ctx context.Context) DB {
+	return ctx.Value(dbKey{}).(DB)
+}
+
+func AddDbMiddleware(db DB) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(WithDb(r.Context(), db)))
+		})
+	}
 }
 
 var (

@@ -2,10 +2,10 @@ package gallery
 
 import (
 	"fmt"
+
 	"github.com/hoisie/web"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/template"
 )
 
 type M map[string]interface{}

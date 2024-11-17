@@ -1,6 +1,7 @@
 package monarch
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jmoiron/monet/db"
@@ -64,7 +65,7 @@ func (m *Manager) Upgrade(set Set) error {
 		}
 		_, err := m.db.Exec(mig.Up)
 		if err != nil {
-			return err
+			return fmt.Errorf("'%s' version %d: %w <%s>", set.Name, v, err, mig.Up)
 		}
 		// this would be bad;  we've applied a migraiton safely
 		// but could not update the version.

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -26,14 +27,18 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/pflag"
 
+	"github.com/mattn/go-sqlite3"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const cfgEnvVar = "MONET_CONFIG_PATH"
+const monetVersion = "0.0.1-std"
 
 type options struct {
 	ConfigPath string
 	Debug      bool
+	Version    bool
+
 	AddUser    string
 	LoadPosts  string
 	LoadEvents string
@@ -74,6 +79,13 @@ func main() {
 
 	var opts options
 	parseOpts(&opts)
+
+	if opts.Version {
+		v, _, t := sqlite3.Version()
+		fmt.Printf("Monet v%s\n", monetVersion)
+		fmt.Printf("Built w/ Sqlite3 version %v (%s)\n", v, strings.Split(t, " ")[0])
+		return
+	}
 
 	static := die(fs.Sub(static, "static"))("initializing static fs")
 	config := die(loadConfig(opts.ConfigPath))("loading config")
@@ -239,6 +251,7 @@ func loadConfig(path string) (*conf.Config, error) {
 func parseOpts(opts *options) {
 	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
 	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
+	pflag.BoolVarP(&opts.Version, "version", "v", false, "show version info")
 	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
 	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")

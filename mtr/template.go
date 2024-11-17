@@ -171,13 +171,23 @@ func (r *Registry) Build() error {
 	return nil
 }
 
+func (r *Registry) getAny(name string) (*template.Template, error) {
+	if c := r.tmpl.get(name); c != nil {
+		return c, nil
+	}
+	if c := r.base.get(name); c != nil {
+		return c, nil
+	}
+	return nil, fmt.Errorf("could not resolve template '%s'", name)
+}
+
 // Render the named template name to w using the provided context.
 func (r *Registry) Render(w io.Writer, name string, ctx Ctx) error {
-	content := r.tmpl.get(name)
-	if content == nil {
-		return fmt.Errorf("could not find template '%s'", name)
+	c, err := r.getAny(name)
+	if err != nil {
+		return err
 	}
-	return content.Execute(w, ctx)
+	return c.Execute(w, ctx)
 }
 
 // RenderWithBase renders the template 'name' with the base template 'base' to the writer,

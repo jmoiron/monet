@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sprout/sprout"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
@@ -37,8 +38,7 @@ func NewApp(db db.DB) *App {
 	return &App{db: db, PageSize: defaultPageSize}
 }
 
-func NewAppURL(db db.DB, url string) *App {
-	a := NewApp(db)
+func (a *App) WithBaseURL(url string) *App {
 	a.BaseURL = url
 	return a
 }
@@ -47,17 +47,15 @@ func (a *App) Name() string { return "blog" }
 
 // Attach the blog to r at base.
 func (a *App) Bind(r chi.Router) {
-
 	r.Route(a.BaseURL, func(r chi.Router) {
+		// support old /blog/slug/ style slash urls
+		r.Use(middleware.StripSlashes)
 		r.Get("/rss", a.rss)
 		r.Get("/atom", a.atom)
 		r.Get("/page/{page:[0-9]+}", a.list)
 		r.Get("/{slug:[^/]+}", a.detail)
 		r.Get("/", a.index)
 	})
-
-	// web.Get(url+"stream/page/(\\d+)", streamPage)
-	// web.Get(url+"stream/", streamIndex)
 
 	a.FeedRSSURL = path.Join(a.BaseURL, "rss")
 	a.FeedAtomURL = path.Join(a.BaseURL, "atom")

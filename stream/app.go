@@ -31,9 +31,8 @@ func NewApp(db db.DB) *App {
 	return &App{db: db, PageSize: defaultPageSize}
 }
 
-func NewAppURL(db db.DB, base string) *App {
-	a := NewApp(db)
-	a.BaseURL = base
+func (a *App) WithBaseURL(url string) *App {
+	a.BaseURL = url
 	return a
 }
 

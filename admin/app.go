@@ -65,11 +65,14 @@ func (a *App) GetAdmin() (app.Admin, error) {
 
 func (a *App) Bind(r chi.Router) {
 	// presumably we are bound to something like `/admin/`
-	for _, ad := range a.Admins {
-		ad.Bind(r)
-	}
+	r.Route(a.BaseURL, func(r chi.Router) {
+		r.Use(a.sm.RequireAuthenticatedRedirect("/admin/"))
+		for _, ad := range a.Admins {
+			ad.Bind(r)
+		}
 
-	r.Get("/", a.index)
+		r.Get("/", a.index)
+	})
 }
 
 func (a *App) index(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,12 @@
 package pages
 
 import (
+	"fmt"
+	"html/template"
+	"log/slog"
+	"net/http"
+	"strings"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
@@ -35,4 +41,28 @@ func (a *App) GetAdmin() (app.Admin, error) {
 }
 
 func (a *App) Bind(r chi.Router) {
+	r.Get("/*", a.index)
+}
+
+func (a *App) index(w http.ResponseWriter, r *http.Request) {
+	url := strings.TrimLeft(r.URL.Path, "/")
+	serv := NewPageService(a.db)
+
+	p, err := serv.GetByURL(url)
+	fmt.Println("getting url", url)
+	if err != nil {
+		app.Http404(w)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.Render(w, "base", mtr.Ctx{
+		"title": fmt.Sprintf(p.Title),
+		"body":  template.HTML(p.ContentRendered),
+	})
+
+	if err != nil {
+		slog.Error("rendering template", "err", err)
+	}
+
 }

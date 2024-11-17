@@ -4,6 +4,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -47,72 +48,72 @@ var static embed.FS
 //go:embed templates
 var templates embed.FS
 
+func must(err error, msg string, args ...any) {
+	if err != nil {
+		args = append(args, "err", err)
+		slog.Error(msg, args...)
+		os.Exit(-1)
+	}
+}
+
+func die[T any](v T, err error) func(string, ...any) T {
+	return func(msg string, args ...any) T {
+		if err != nil {
+			args = append(args, "err", err)
+			slog.Error(msg, args...)
+			os.Exit(-1)
+		}
+		return v
+	}
+}
+
 func main() {
 	slog.SetDefault(slog.New(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
 	))
 
-	static, err := fs.Sub(static, "static")
-	if err != nil {
-		slog.Error("error w/ static embed", "error", err)
-		return
-	}
-
 	var opts options
 	parseOpts(&opts)
 
-	config, err := loadConfig(opts.ConfigPath)
-	if err != nil {
-		slog.Error("could not load config")
-		return
-	}
+	static := die(fs.Sub(static, "static"))("initializing static fs")
+	config := die(loadConfig(opts.ConfigPath))("loading config")
 
 	if config.Debug {
 		slog.Info("debug enabled")
 		logLevel.Set(slog.LevelDebug)
 	}
 
-	dbh, err := sqlx.Connect("sqlite3", config.DatabaseURI)
-	if err != nil {
-		slog.Error("could not connect to database", "uri", config.DatabaseURI, "error", err)
-		return
-	}
+	dbh := die(sqlx.Connect("sqlite3", config.DatabaseURI))("uri", config.DatabaseURI)
 
 	// the authApp is sort of special;  we want its session middleware to be at the top
 	// of our stack, so we want to keep a handle on it
-	authApp := auth.NewApp(config, dbh)
+	var (
+		authApp   = auth.NewApp(config, dbh)
+		adminApp  = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
+		blogApp   = blog.NewApp(dbh).WithBaseURL("/blog/")
+		streamApp = stream.NewApp(dbh).WithBaseURL("/stream/")
+		pagesApp  = pages.NewApp(dbh)
+	)
 
-	apps := []app.App{authApp}
-	collected, err := collect(config, dbh)
-	if err != nil {
-		slog.Error("could not collect apps", "error", err)
-		return
-	}
-	apps = append(apps, collected...)
+	// pages should be last as it binds to /*
+	apps := []app.App{authApp, adminApp, blogApp, streamApp, pagesApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)
+	reg.AddPathFS("templates/index.html", templates)
 
 	for _, app := range apps {
-		if err := app.Migrate(); err != nil {
-			slog.Error("could not apply migration for app", "name", app.Name())
-			return
-		}
+		must(app.Migrate(), "could not migrate app", "name", app.Name())
 		app.Register(reg)
 	}
+
+	adminApp.Collect(apps...)
 
 	if runUtil(&opts, dbh) {
 		return
 	}
 
-	adminApp := admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
-	adminApp.Register(reg)
-
-	// build all of the templates
-	if err := reg.Build(); err != nil {
-		slog.Error("could not build templates", "error", err)
-		return
-	}
+	must(reg.Build(), "could not build templates")
 
 	// set up the router
 
@@ -132,18 +133,16 @@ func main() {
 		app.Bind(r)
 	}
 
-	adminApp.Collect(apps...)
-	r.Route("/admin/", func(r chi.Router) {
-		r.Use(authApp.Sessions.RequireAuthenticatedRedirect("/admin/"))
-		adminApp.Bind(r)
-	})
+	r.Get("/", index)
 
-	if config.Debug && false {
-		fs.WalkDir(static, ".", func(path string, d fs.DirEntry, err error) error {
-			slog.Debug("static file", "path", path)
-			return nil
-		})
-	}
+	/*
+		if config.Debug && false {
+			fs.WalkDir(static, ".", func(path string, d fs.DirEntry, err error) error {
+				slog.Debug("static file", "path", path)
+				return nil
+			})
+		}
+	*/
 
 	r.Handle("/favicon.ico", http.FileServer(http.FS(static)))
 	r.Handle("/static/*", http.FileServer(http.FS(static)))
@@ -151,6 +150,36 @@ func main() {
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)
 	http.ListenAndServe(config.ListenAddr, r)
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+	reg := mtr.RegistryFromContext(r.Context())
+	db := db.DbFromContext(r.Context())
+
+	postalService := blog.NewPostService(db)
+	streamService := stream.NewEventService(db)
+
+	posts, err := postalService.Select("WHERE published > 0 ORDER BY published_at DESC LIMIT 6")
+	if err != nil {
+		app.Http500("loading posts", w, err)
+		return
+	}
+	events, err := streamService.Select("ORDER BY timestamp DESC LIMIT 5")
+	if err != nil {
+		app.Http500("loading events", w, err)
+		return
+	}
+
+	err = reg.RenderWithBase(w, "base", "templates/index.html", mtr.Ctx{
+		"title":  "jmoiron plays the blues",
+		"post":   posts[0],
+		"posts":  posts[1:],
+		"events": events,
+	})
+
+	if err != nil {
+		slog.Error("rendering index", "err", err)
+	}
 }
 
 func addUser(dbh db.DB, username string) error {
@@ -171,37 +200,29 @@ func addUser(dbh db.DB, username string) error {
 	return auth.NewUserService(dbh).CreateUser(username, p1)
 }
 
-func loadPages(dbh db.DB, path string) error {
-	loader := pages.NewLoader(dbh)
+type loader interface {
+	Load(io.Reader) error
+}
+
+func loadPath(l loader, path string) error {
 	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Loading pages from %s\n", path)
 	defer f.Close()
-	return loader.Load(f)
+	return l.Load(f)
+}
+
+func loadPages(dbh db.DB, path string) error {
+	return loadPath(pages.NewLoader(dbh), path)
 }
 
 func loadEvents(dbh db.DB, path string) error {
-	loader := stream.NewLoader(dbh)
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Loading events from %s\n", path)
-	defer f.Close()
-	return loader.Load(f)
+	return loadPath(stream.NewLoader(dbh), path)
 }
 
 func loadPosts(dbh db.DB, path string) error {
-	loader := blog.NewLoader(dbh)
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("Loading posts from %s\n", path)
-	defer f.Close()
-	return loader.Load(f)
+	return loadPath(blog.NewLoader(dbh), path)
 }
 
 func loadConfig(path string) (*conf.Config, error) {
@@ -247,11 +268,4 @@ func runUtil(opts *options, db db.DB) bool {
 		return false
 	}
 	return true
-}
-
-func collect(cfg *conf.Config, db db.DB) (apps []app.App, err error) {
-	apps = append(apps, blog.NewAppURL(db, "/blog/"))
-	apps = append(apps, stream.NewAppURL(db, "/stream/"))
-	apps = append(apps, pages.NewApp(db))
-	return apps, nil
 }

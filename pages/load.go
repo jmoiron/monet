@@ -16,7 +16,7 @@ type jsonPage struct {
 	Id              json.RawMessage `json:"_id"`
 	URL             string
 	Content         string
-	ContentRendered string `json:"content_rendered"`
+	ContentRendered string `json:"contentrendered"`
 }
 
 func NewLoader(db db.DB) *Loader {

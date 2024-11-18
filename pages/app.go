@@ -10,7 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 )

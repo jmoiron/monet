@@ -1,9 +1,9 @@
 {{if .Search}}<h3><a href="/blog/">All Posts</a></h3>{{end}}
 
 <form action="/blog/" method="GET">
-    <input type="text" name="Search" class="search js-clear-default"
+    <input type="text" name="q" class="search js-clear-default"
            data-default="Type a search query..."
-           value="{{if .Search}}{{.Search}}{{else}}Type a search query...{{end}}">
+           value="{{if .query}}{{.query}}{{else}}Type a search query...{{end}}">
 </form>
 
 <ul class="shortlist listpage">

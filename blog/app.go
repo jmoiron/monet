@@ -14,8 +14,9 @@ import (
 	"github.com/go-sprout/sprout"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/sqlx"
 )
 
 //go:embed blog/*
@@ -137,8 +138,76 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
+
+	// make query safe for fts5
+	query = db.SafeQuery(query)
+
+	countq := `SELECT count(*) FROM post_fts WHERE published > 0 AND post_fts MATCH ? ORDER BY rank`
+	var count int
+	if err := a.db.Get(&count, countq, query); err != nil {
+		app.Http500("counting results", w, err)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(req.Context())
+
+	if count == 0 {
+		reg.RenderWithBase(w, "base", "blog/index.html", mtr.Ctx{
+			"query": query,
+		})
+		return
+	}
+
+	pageNum := app.GetIntParam(req, "page", 1)
+	slog.Debug("loading search page", "page", pageNum)
+
+	pageBase := path.Join(a.BaseURL, "page")
+	// XXX: a link function that retains our query
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(pageBase))
+	page := paginator.Page(pageNum)
+
+	// any makes it easier to use these in sqlx.In
+	var slugs []any
+	searchq := fmt.Sprintf(`select slug from post_fts where published > 0 AND post_fts
+		MATCH ? ORDER BY rank LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
+
+	if err := a.db.Select(&slugs, searchq, query); err != nil {
+		app.Http500("fetching results", w, err)
+		return
+	}
+
+	q, args, err := sqlx.In(`select * from post where slug in (?)`, slugs)
+	if err != nil {
+		app.Http500("forming in query", w, err)
+		return
+	}
+
+	var posts []Post
+	if err := a.db.Select(&posts, q, args...); err != nil {
+		app.Http500("fetching posts", w, err)
+		return
+	}
+	// XXX: order posts by the order of slugs
+
+	err = reg.RenderWithBase(w, "base", "blog/index.html", mtr.Ctx{
+		"query":      query,
+		"posts":      posts,
+		"pagination": paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering template", "err", err)
+	}
+}
+
 func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	serv := NewPostService(a.db)
+	req.ParseForm()
+	if query := req.Form.Get("q"); len(query) > 0 {
+		a.search(w, req, query)
+		return
+	}
 
 	var count int
 	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published > 0;"); err != nil {

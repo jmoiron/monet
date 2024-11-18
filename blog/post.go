@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/sqlx"
 )
@@ -29,34 +29,34 @@ var postMigrations = monarch.Set{
 			Down: `DROP TABLE post;`,
 		}, {
 			Up: `CREATE VIRTUAL TABLE post_fts USING fts5(
-				title, slug, content,
+				title, slug, content, published,
 				content='post',
 				content_rowid='id',
 				tokenize="trigram"
 			)`,
 			Down: `drop table post_fts;`,
 		}, {
-			Up:   `INSERT INTO post_fts SELECT title, slug, content FROM post;`,
+			Up:   `INSERT INTO post_fts SELECT title, slug, content, published FROM post;`,
 			Down: `DELETE FROM post_fts;`,
 		}, {
 			Up: `CREATE TRIGGER post_i AFTER INSERT ON post BEGIN
-				INSERT INTO post_fts (id, title, slug, content) VALUES
-					(new.id, new.title, new.slug, new.content);
+				INSERT INTO post_fts (id, title, slug, content, published) VALUES
+					(new.id, new.title, new.slug, new.content, new.published);
 			 END;`,
 			Down: `DROP TRIGGER post_i;`,
 		}, {
 			Up: `CREATE TRIGGER post_d AFTER DELETE ON post BEGIN
-				INSERT INTO post_fts (post_fts, id, title, slug, content) VALUES
-					('delete', old.id, old.title, old.slug, old.content);
+				INSERT INTO post_fts (post_fts, id, title, slug, content, published) VALUES
+					('delete', old.id, old.title, old.slug, old.content, old.published);
 			END`,
 			Down: `DROP TRIGGER post_d;`,
 		}, {
 			// delete + insert
 			Up: `CREATE TRIGGER post_u AFTER UPDATE ON post BEGIN
-				INSERT INTO post_fts (post_fts, id, title, slug, content) VALUES
-					('delete', old.id, old.title, old.slug, old.content);
-				INSERT INTO post_fts (id, title, slug, content) VALUES
-					(new.id, new.title, new.slug, new.content);
+				INSERT INTO post_fts (post_fts, id, title, slug, content, published) VALUES
+					('delete', old.id, old.title, old.slug, old.content, old.published);
+				INSERT INTO post_fts (id, title, slug, content, published) VALUES
+					(new.id, new.title, new.slug, new.content, new.published);
 			END`,
 			Down: `DROP TRIGGER post_u;`,
 		},

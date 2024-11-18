@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/monarch"
+	"github.com/jmoiron/monet/db/monarch"
 )
 
 var pageMigrations = monarch.Set{

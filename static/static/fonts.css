@@ -1,3 +1,4 @@
+/*
 @font-face {
   font-family: 'Open Sans';
   font-style: normal;
@@ -10,6 +11,21 @@
   font-weight: 700;
   src: local('Open Sans Bold'), local('OpenSans-Bold'), url("/static/open-sans-bold.woff") format('woff');
 }
+*/
+
+@font-face {
+    font-family: 'Lora';
+    font-style: normal;
+    font-weight: 400 700;
+    src: url("/static/lora.ttf") format("truetype");
+}
+@font-face {
+    font-family: 'Lora';
+    font-style: italic;
+    font-weight: 400 700;
+    src: url("/static/lora-italic.ttf") format("truetype");
+}
+
 @font-face {
   font-family: 'JustVector';
   font-style: normal;

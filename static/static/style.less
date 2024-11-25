@@ -2,11 +2,12 @@
 @bluelink: lighten(#014ea4, 10%);
 // @bluelink: darken(#26ADE4, 10%);
 @bluehover: lighten(@bluelink, 15%);
-@site-width: 620px;
+@site-width: 720px;
 @limey: darken(#D1E751, 10%);
 @rawrind: #C4E661;
 @twitter: #00aced;
 @boring: #3465a4;
+@body-font: Lora, Georgia, serif;
 
 @import "font-awesome.less";
 @import "prettify.less";
@@ -14,10 +15,10 @@
 #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; opacity: 0.75; z-index: 100; display: none; }
 #preview-box { position: fixed; width: @site-width + 20px; height: @site-width + 20px; display: none; z-index: 110; background-color: #fff; padding: 30px; border-radius: 5px; box-shadow: 3px 3px 5px #000; overflow-y: scroll; }
 
-body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
+body { font-family: @body-font; padding: 0; margin: 0; color: #444; }
 b,strong { color: #111; }
 /*
-pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee; 
+pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee;
   &:hover { border-left: 10px solid @limey; background-color: #fbfbfb; }
 }*/
 abbr { border-bottom: 1px dotted #aaa; }
@@ -48,13 +49,13 @@ blockquote {
 }
 
 .frontend form {
-  input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+  input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
   input.search { width: @site-width - 20px; color: #aaa;
     &:hover, &:active { color: #333; }
   }
 }
 
-h1 { text-align: center; font-size: 48px; 
+h1 { text-align: center; font-size: 48px;
   margin-bottom: 0.75em;
   span { display: block; margin-top: 1em; color: #ccc; font-size: 14px; font-weight: normal; }
 }
@@ -62,8 +63,8 @@ h1 { text-align: center; font-size: 48px;
 .container { width: @site-width; margin: 0 auto;  padding: 2em 0; font-size: 16px; line-height: 26px; }
 .footer { padding-bottom: 1em;}
 .clear { clear: both; }
-h1,h2,h3 { color: #000; 
-  a { color: #000; font-weight: bold; text-decoration: none; text-shadow: -1px -1px #eee; 
+h1,h2,h3 { color: #000;
+  a { color: #000; font-weight: bold; text-decoration: none; text-shadow: 1px 1px #eee;
     &:hover { text-decoration: none; }
   }
 }
@@ -88,17 +89,17 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 
 .footer {
   .container { border-top: 1px solid #eee; padding-top: 1em; }
-  .byline { font-size: 14px; text-align: right; float: right; color: #ccc; 
+  .byline { font-size: 14px; text-align: right; float: right; color: #ccc;
     a { color: #aaa; &:hover { color: @bluehover; }}
   }
   .link-icons {
     float: left;
     a { color: #ccc; &:hover { color: @bluehover; }}
-    span.icon { font-size: 20px; color: #ccc; font-family: JustVector; 
-      text-shadow: 0 1px 1px rgba(200,200,200,0.5); 
+    span.icon { font-size: 20px; color: #ccc; font-family: JustVector;
+      text-shadow: 0 1px 1px rgba(200,200,200,0.5);
     }
     a.about { font-size: 20px; margin-left: 3px; }
-    .yc { font-family: "Open Sans"; border: 1px solid; padding: 0px 5px; font-size: 16px; line-height: 18px;
+    .yc { font-family: @body-font; border: 1px solid; padding: 0px 5px; font-size: 18px; line-height: 22px;
       &:hover { color: @bluehover; }
     }
   }
@@ -126,7 +127,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
         a { padding: 5px 10px; margin-left: 5px; }
         a.del { padding: 0; margin-top: -1px; display:none; position: absolute; right: 0; font-size: 22px}
         &:hover {
-          a.del { display: inline-block; color: #999; 
+          a.del { display: inline-block; color: #999;
             &:hover { color: #fa2a00; }
           }
         }
@@ -147,7 +148,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
       &:hover input:focus { color: #000; }
     }
     .list-new { font-size: 18px; color: #999; }
-    input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+    input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
   // form styles
 }
 
@@ -252,7 +253,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   h3 { text-align: center; }
   .date { float: none; color: #ccc; font-size: 12px; }
   ul { margin: 0; padding: 0; list-style: none; }
-  li { margin-left: 0; padding: 5px 0; 
+  li { margin-left: 0; padding: 5px 0;
     a { color: #000; font-weight: normal;
         &:hover { color: @bluehover; }
     }
@@ -284,7 +285,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   padding: .75em 1em;
   border-bottom: 1px solid #eee;
   &:hover { color: #000; }
-  
+
   i.icon { font-size: 32px; display: inline-block; float: left; padding: 0 0.25em;  }
 
   &.github {
@@ -309,4 +310,3 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 
 .right { float: right; }
 h2 .small { font-size: 14px; }
-

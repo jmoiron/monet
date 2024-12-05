@@ -161,7 +161,9 @@ func main() {
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)
-	http.ListenAndServe(config.ListenAddr, r)
+	if err := http.ListenAndServe(config.ListenAddr, r); err != nil {
+		slog.Error("error listening", "err", err)
+	}
 }
 
 func index(w http.ResponseWriter, r *http.Request) {

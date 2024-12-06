@@ -45,7 +45,7 @@ blockquote {
 
 .container pre {
     font-size: 14px;
-    line-height: 18px;
+    //line-height: 18px;
 }
 
 .frontend form {
@@ -57,10 +57,10 @@ blockquote {
 
 h1 { text-align: center; font-size: 48px;
   margin-bottom: 0.75em;
-  span { display: block; margin-top: 1em; color: #ccc; font-size: 14px; font-weight: normal; }
+  span { display: block; color: #ccc; font-size: 14px; font-weight: normal; }
 }
 .content { background-color: #fff; border-top: 10px solid #eee; }
-.container { width: @site-width; margin: 0 auto;  padding: 2em 0; font-size: 16px; line-height: 26px; }
+.container { width: @site-width; margin: 0 auto;  padding: 2em 0; }
 .footer { padding-bottom: 1em;}
 .clear { clear: both; }
 h1,h2,h3 { color: #000;
@@ -76,6 +76,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 .date { color: #aaa; float: right; text-align: right;
   &:hover { color: #555; }
 }
+
 .post {
   /* show link icon when hovering on title */
   h2 a img { display: none; }
@@ -85,6 +86,10 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
     padding: 4px 5px;
     border-radius: 5px;
   }
+}
+.post-content {
+  font-size: 18px;
+  line-height: 1.6;
 }
 
 .footer {

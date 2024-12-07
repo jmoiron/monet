@@ -49,7 +49,7 @@ blockquote {
 }
 
 .frontend form {
-  input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+  input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 16px; }
   input.search { width: @site-width - 20px; color: #aaa;
     &:hover, &:active { color: #333; }
   }
@@ -59,8 +59,27 @@ h1 { text-align: center; font-size: 48px;
   margin-bottom: 0.75em;
   span { display: block; color: #ccc; font-size: 14px; font-weight: normal; }
 }
-.content { background-color: #fff; border-top: 10px solid #eee; }
-.container { width: @site-width; margin: 0 auto;  padding: 2em 0; }
+.content {
+  background-color: #fff;
+  border-top: 10px solid #eee;
+}
+
+.post-content {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.page-content {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.container {
+  width: @site-width;
+  margin: 0 auto;
+  padding: 2em 0;
+}
+
 .footer { padding-bottom: 1em;}
 .clear { clear: both; }
 h1,h2,h3 { color: #000;
@@ -88,7 +107,6 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   }
 }
 .post-content {
-  font-size: 18px;
   line-height: 1.6;
 }
 

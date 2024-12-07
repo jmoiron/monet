@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"embed"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -14,6 +15,9 @@ import (
 	"github.com/jmoiron/monet/mtr"
 )
 
+//go:embed pages/*
+var pageTemplates embed.FS
+
 type App struct {
 	db db.DB
 }
@@ -25,6 +29,7 @@ func NewApp(db db.DB) *App {
 func (a *App) Name() string { return "pages" }
 
 func (a *App) Register(reg *mtr.Registry) {
+	reg.AddAllFS(pageTemplates)
 }
 
 func (a *App) Migrate() error {
@@ -35,7 +40,6 @@ func (a *App) Migrate() error {
 	return mgr.Upgrade(pageMigrations)
 }
 
-// GetAdmin is yo dawg?
 func (a *App) GetAdmin() (app.Admin, error) {
 	return nil, nil
 }
@@ -56,9 +60,9 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reg := mtr.RegistryFromContext(r.Context())
-	err = reg.Render(w, "base", mtr.Ctx{
+	err = reg.RenderWithBase(w, "base", "pages/page.html", mtr.Ctx{
 		"title": fmt.Sprintf(p.Title),
-		"body":  template.HTML(p.ContentRendered),
+		"page":  template.HTML(p.ContentRendered),
 	})
 
 	if err != nil {

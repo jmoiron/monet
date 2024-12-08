@@ -50,8 +50,12 @@ func (a *App) Collect(apps ...app.App) {
 	a.Apps = apps
 	for _, app := range apps {
 		ad, err := app.GetAdmin()
-		if err != nil || ad == nil {
-			slog.Warn("no admin or error for app", "app", app.Name(), "err", err)
+		if err != nil {
+			slog.Error("error for adminapp", "app", app.Name(), "err", err)
+			continue
+		}
+		if ad == nil {
+			slog.Debug("no admin for app", "app", app.Name())
 			continue
 		}
 		a.Admins = append(a.Admins, ad)

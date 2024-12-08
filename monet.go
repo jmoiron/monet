@@ -20,6 +20,7 @@ import (
 	"github.com/jmoiron/monet/blog"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pages"
 	"github.com/jmoiron/monet/pkg/passwd"
@@ -43,6 +44,9 @@ type options struct {
 	LoadPosts  string
 	LoadEvents string
 	LoadPages  string
+
+	ShowMigration bool
+	Downgrade     string
 }
 
 var logLevel = new(slog.LevelVar)
@@ -96,6 +100,16 @@ func main() {
 	}
 
 	dbh := die(sqlx.Connect("sqlite3", config.DatabaseURI))("uri", config.DatabaseURI)
+
+	if opts.ShowMigration {
+		showMigration(dbh)
+		return
+	}
+
+	if len(opts.Downgrade) > 0 {
+		downgradeApp(dbh, opts.Downgrade)
+		return
+	}
 
 	// the authApp is sort of special;  we want its session middleware to be at the top
 	// of our stack, so we want to keep a handle on it
@@ -214,6 +228,36 @@ func addUser(dbh db.DB, username string) error {
 	return auth.NewUserService(dbh).CreateUser(username, p1)
 }
 
+func showMigration(db db.DB) {
+	m, err := monarch.NewManager(db)
+	if err != nil {
+		slog.Error("initializing monarch manager", "err", err)
+		return
+	}
+
+	latest, err := m.LatestVersions()
+	if err != nil {
+		slog.Error("Error fetching versions", "err", err)
+		return
+	}
+
+	for _, v := range latest {
+		fmt.Printf("app=%s version=%d applied-at=%s\n", v.Name, v.Version, v.AppliedAt)
+	}
+}
+
+func downgradeApp(db db.DB, app string) {
+	m, err := monarch.NewManager(db)
+	if err != nil {
+		slog.Error("initializing monarch manager", "err", err)
+		return
+	}
+
+	if err := m.Downgrade(app); err != nil {
+		slog.Error("error downgrading app", "app", app, "err", err)
+	}
+}
+
 type loader interface {
 	Load(io.Reader) error
 }
@@ -258,6 +302,8 @@ func parseOpts(opts *options) {
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
 	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
 	pflag.StringVar(&opts.LoadPages, "load-pages", "", "load pages from json")
+	pflag.BoolVar(&opts.ShowMigration, "migrations", false, "show migration state for each application")
+	pflag.StringVar(&opts.Downgrade, "downgrade", "", "downgrade an app by one migration version")
 	pflag.Parse()
 }
 

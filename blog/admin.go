@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
@@ -36,7 +37,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Get("/posts/edit/{slug:[^/]+}", a.edit)
 
 	r.Post("/posts/add/", a.add)
-	r.Post("/posts/edit/{slug:[^/]+}", a.edit)
+	r.Post("/posts/edit/{slug:[^/]+}", a.save)
 	r.Post("/posts/delete/{slug:[^/]+}", a.delete)
 	r.Post("/posts/preview/", a.preview)
 }
@@ -149,14 +150,52 @@ func (a *Admin) edit(w http.ResponseWriter, r *http.Request) {
 		app.Http500("getting by slug", w, err)
 		return
 	}
+	a.showEdit(w, r, p)
+}
 
+func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 	reg := mtr.RegistryFromContext(r.Context())
-	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
+	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
 		"post": p,
 	})
 	if err != nil {
 		slog.Error("rendering edit", "err", err)
 	}
+
+}
+
+func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		app.Http500("parsing form", w, err)
+		return
+	}
+
+	id, err := strconv.Atoi(r.Form.Get("id"))
+	if err != nil {
+		app.Http500(fmt.Sprintf("invalid id sent: %s", r.Form.Get("id")), w, err)
+		return
+	}
+
+	serv := NewPostService(a.db)
+	p, err := serv.Get(id)
+	if err != nil {
+		app.Http500("fetching post", w, err)
+		return
+	}
+
+	// update p and save
+	p.Title = r.Form.Get("title")
+	p.Slug = r.Form.Get("slug")
+	p.Content = r.Form.Get("content")
+	// published? created?
+
+	if err := serv.Save(p); err != nil {
+		app.Http500("saving post", w, err)
+		return
+	}
+
+	a.showEdit(w, r, p)
+
 }
 
 func (a *Admin) add(w http.ResponseWriter, r *http.Request) {
@@ -180,12 +219,6 @@ func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
 func (a *Admin) preview(w http.ResponseWriter, r *http.Request) {
 
 }
-
-/*
-var (
-	listPageSize  = 20
-)
-*/
 
 // *** Posts ***
 

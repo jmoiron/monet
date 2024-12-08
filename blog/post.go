@@ -29,14 +29,14 @@ var postMigrations = monarch.Set{
 			Down: `DROP TABLE post;`,
 		}, {
 			Up: `CREATE VIRTUAL TABLE post_fts USING fts5(
-				title, slug, content, published,
+				id, title, slug, content, published,
 				content='post',
 				content_rowid='id',
 				tokenize="trigram"
 			)`,
 			Down: `drop table post_fts;`,
 		}, {
-			Up:   `INSERT INTO post_fts SELECT title, slug, content, published FROM post;`,
+			Up:   `INSERT INTO post_fts SELECT id, title, slug, content, published FROM post;`,
 			Down: `DELETE FROM post_fts;`,
 		}, {
 			Up: `CREATE TRIGGER post_i AFTER INSERT ON post BEGIN

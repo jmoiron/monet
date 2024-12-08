@@ -28,7 +28,8 @@ func (m *Manager) bootstrapMigrations() []Migration {
 			Up: `CREATE TABLE IF NOT EXISTS migrations (
 					version int NOT NULL,
 					name text NOT NULL,
-					applied_at int NOT NULL,
+					down text NOT NULL,
+					applied_at datetime NOT NULL,
 					PRIMARY KEY (version, name)
 				);`,
 			Down: `DROP TABLE migrations;`,
@@ -51,6 +52,40 @@ func (m *Manager) bootstrap() error {
 	return m.Upgrade(Set{Name: "monarch", Migrations: migrations})
 }
 
+func (m *Manager) LatestVersions() ([]MigrationVersion, error) {
+	q := `WITH ranked AS (
+		SELECT version, name, applied_at, rank() over (partition by name order by version desc) AS rank FROM migrations
+	) SELECT version, name, applied_at FROM ranked WHERE rank=1 ORDER BY name;`
+
+	var mvs []MigrationVersion
+	err := m.db.Select(&mvs, q)
+	return mvs, err
+}
+
+// Downgrade a single version
+func (m *Manager) Downgrade(name string) error {
+	var cur MigrationVersion
+	q := `SELECT * FROM migrations WHERE name=? ORDER BY version DESC LIMIT 1;`
+	if err := m.db.Get(&cur, q, name); err != nil {
+		return err
+	}
+
+	if cur.Version == 0 {
+		return fmt.Errorf("cannot downgrade past version 0")
+	}
+
+	_, err := m.db.Exec(cur.Down)
+	if err != nil {
+		return fmt.Errorf("executing `%s` (%w)", cur.Down, err)
+	}
+
+	if err := m.RemoveVersion(name, cur.Version); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Upgrade app to the latest migration level.
 func (m *Manager) Upgrade(set Set) error {
 	version, err := m.GetVersion(set.Name)
@@ -69,7 +104,7 @@ func (m *Manager) Upgrade(set Set) error {
 		}
 		// this would be bad;  we've applied a migraiton safely
 		// but could not update the version.
-		err = m.SetVersion(set.Name, v)
+		err = m.AddVersion(set.Name, v, mig.Down)
 		if err != nil {
 			return err
 		}
@@ -87,10 +122,15 @@ func (m *Manager) GetVersion(setName string) (version int, err error) {
 }
 
 // SetVersion sets the version of setName to version.
-func (m *Manager) SetVersion(setName string, version int) error {
+func (m *Manager) AddVersion(setName string, version int, down string) error {
 	now := time.Now().Unix()
-	_, err := m.db.Exec(`INSERT INTO migrations (version, name, applied_at) VALUES (?, ?, ?);`,
-		version, setName, now)
+	_, err := m.db.Exec(`INSERT INTO migrations (version, name, applied_at, down) VALUES (?, ?, ?, ?);`,
+		version, setName, now, down)
+	return err
+}
+
+func (m *Manager) RemoveVersion(setName string, version int) error {
+	_, err := m.db.Exec(`DELETE FROM migrations WHERE name=? AND version=?;`, setName, version)
 	return err
 }
 
@@ -98,6 +138,8 @@ func (m *Manager) SetVersion(setName string, version int) error {
 type MigrationVersion struct {
 	Name      string
 	Version   int
+	Up        string
+	Down      string
 	AppliedAt time.Time `db:"applied_at"`
 }
 

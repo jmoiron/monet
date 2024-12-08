@@ -16,8 +16,8 @@
             <input type="text" name="slug" id="slug" class="post-slug-input" value="{{.post.Slug}}">
         </div>
         <div>
-            <label for="timestamp">created at</label>
-            <input type="timestamp" name="timestamp" id="timestamp" value="{{.post.CreatedAt}}">
+            <label for="created">created at</label>
+            <input type="timestamp" name="created" id="created" value="{{.post.CreatedAt}}">
             <span class="date" style="float:none;">{{.post.CreatedAt | naturalTime}}</span>
         </div>
     </div>

@@ -187,7 +187,8 @@ func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
 	p.Title = r.Form.Get("title")
 	p.Slug = r.Form.Get("slug")
 	p.Content = r.Form.Get("content")
-	// published? created?
+	// created?
+	p.Published, _ = strconv.Atoi(r.Form.Get("published"))
 
 	if err := serv.Save(p); err != nil {
 		app.Http500("saving post", w, err)

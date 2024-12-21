@@ -1,14 +1,14 @@
 <!DOCTYPE html>
 <html>
     <head>
-        {{if .Rss}}
-        <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="{{.Rss}}">
+        {{if .rss}}
+        <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="{{.rss}}">
         {{end}}
-        {{if .Atom}}
-        <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="{{.Atom}}">
+        {{if .atom}}
+        <link rel="alternate" type="application/atom+xml" title="Atom Feed" href="{{.atom}}">
         {{end}}
         <link rel="stylesheet" href="/static/fonts.css">
-        {{if .Debug}}
+        {{if .debug}}
         <link rel="stylesheet/less" href="/static/style.less">
         <script src="/static/js/less.js"></script>
         {{else}}

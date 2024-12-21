@@ -23,6 +23,7 @@ import (
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pages"
+	"github.com/jmoiron/monet/pkg/hotswap"
 	"github.com/jmoiron/monet/pkg/passwd"
 	"github.com/jmoiron/monet/stream"
 	"github.com/jmoiron/sqlx"
@@ -32,8 +33,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-const cfgEnvVar = "MONET_CONFIG_PATH"
-const monetVersion = "0.0.1-std"
+const (
+	cfgEnvVar    = "MONET_CONFIG_PATH"
+	monetVersion = "0.0.1-std"
+	staticPath   = "static/"
+)
 
 type options struct {
 	ConfigPath string
@@ -92,6 +96,7 @@ func main() {
 	}
 
 	static := die(fs.Sub(static, "static"))("initializing static fs")
+	staticAlt := os.DirFS("static")
 	config := die(loadConfig(opts.ConfigPath))("loading config")
 
 	if config.Debug {
@@ -170,8 +175,16 @@ func main() {
 		}
 	*/
 
-	r.Handle("/favicon.ico", http.FileServer(http.FS(static)))
-	r.Handle("/static/*", http.FileServer(http.FS(static)))
+	swp := hotswap.NewSwapper(static)
+	swp.Add(staticAlt)
+	if config.Debug {
+		swp.Swap()
+	}
+
+	reg.DefaultCtx["debug"] = config.Debug
+
+	r.Handle("/favicon.ico", http.FileServer(http.FS(swp)))
+	r.Handle("/static/*", http.FileServer(http.FS(swp)))
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)

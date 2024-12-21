@@ -28,6 +28,24 @@ type regKey struct{}
 // A Ctx defines the data available to a template at rendering time.
 type Ctx map[string]any
 
+// Union combines combines c and o, returning a new Ctx with the
+// keys and values of both.  Keys that exist in c and o will take
+// their values from o. If c is empty or nil, no copy is made, and
+// o is returned.
+func (c Ctx) Union(o Ctx) Ctx {
+	if len(c) == 0 {
+		return o
+	}
+	x := make(Ctx, len(o)+len(c))
+	for k := range c {
+		x[k] = c[k]
+	}
+	for k := range o {
+		x[k] = o[k]
+	}
+	return x
+}
+
 // A Registry manages a set of templates from various apps, providing a way
 // for them to share features with eachother.
 //
@@ -48,6 +66,10 @@ type Registry struct {
 
 	// Handler is a sprout handler.
 	Handler sprout.Handler
+	// DefaultCtx is a default template context that can be populated with values
+	// that should be available to all templates, such as configuration/version
+	// information.
+	DefaultCtx Ctx
 }
 
 type deferredTemplate struct {
@@ -70,6 +92,7 @@ func NewRegistry() *Registry {
 				numeric.NewRegistry(),
 			),
 		),
+		DefaultCtx: Ctx{},
 	}
 	reg.AddPathFS("mtr/pagination.html", paginationTemplate)
 	return reg
@@ -187,7 +210,7 @@ func (r *Registry) Render(w io.Writer, name string, ctx Ctx) error {
 	if err != nil {
 		return err
 	}
-	return c.Execute(w, ctx)
+	return c.Execute(w, r.DefaultCtx.Union(ctx))
 }
 
 // RenderWithBase renders the template 'name' with the base template 'base' to the writer,
@@ -205,7 +228,7 @@ func (r *Registry) RenderWithBase(w io.Writer, base, name string, ctx Ctx) error
 	}
 
 	var s bytes.Buffer
-	err := content.Execute(&s, ctx)
+	err := content.Execute(&s, r.DefaultCtx.Union(ctx))
 	if err != nil {
 		return err
 	}
@@ -216,7 +239,7 @@ func (r *Registry) RenderWithBase(w io.Writer, base, name string, ctx Ctx) error
 		return err
 	}
 
-	return baseTpl.Execute(w, ctx)
+	return baseTpl.Execute(w, r.DefaultCtx.Union(ctx))
 }
 
 // Context adds this registry to the context.

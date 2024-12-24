@@ -7,7 +7,7 @@ $.fn.center = function() {
 
 $(function() {
     /* handle clearing default fields ... */
-    $(".js-clear-default").focus(function() {
+    $(".js-clear-default").on("focus", function() {
         var $this = $(this);
         if ($this.is("textarea")) {
             if ($this.html() == $this.attr("data-default")) {
@@ -18,7 +18,7 @@ $(function() {
                 $this.attr("value", "")
             }
         }
-    }).blur(function() {
+    }).on("blur", function() {
         var $this = $(this)
         if ($this.is("textarea")) {
             if (!$this.html()) {
@@ -30,22 +30,26 @@ $(function() {
             }
         }
     });
-    $(".more-button").click(function() {
+
+    $(".more-button").on("click", function() {
         $(".extras").slideToggle();
     });
-    $(".post-title-input").blur(function() {
+
+    $(".post-title-input").on("blur", function() {
         var value = $(this).attr("value");
         value = value.replace(/[^\w\s]/g, "");
         value = value.replace(/[^\w]+/g, "-").toLowerCase()
         $("#slug").attr("value", value);
     });
+
     /* ensure the slug is populated on load if it's empty */
     $("#slug").each(function() {
         if (!$(this).attr("value").length) {
-            $(".post-title-input").blur();
+            $(".post-title-input").trigger("blur");
         }
     });
-    $(".published-toggle-button").click(function() {
+
+    $(".published-toggle-button").on("click", function() {
         var $this = $(this);
         var input = $("#published");
         if (input.attr("value") == "1") {
@@ -58,7 +62,8 @@ $(function() {
             $this.removeClass("published-0").addClass("published-1");
         }
     });
-    $(".preview-button").click(function() {
+
+    $(".preview-button").on("click", function() {
         var overlay = $("#overlay");
         var form = $(this).parents("form")
         if (overlay.length == 0) {
@@ -75,13 +80,14 @@ $(function() {
                 preview.html(data);
                 overlay.fadeIn();
                 preview.center().fadeIn();
-                overlay.click(function() { overlay.fadeOut(); preview.fadeOut(); });
+                overlay.on("click", function() { overlay.fadeOut(); preview.fadeOut(); });
             },
             error: function(xhr, status, err) {
 
             }
         });
     });
+
     if (window.location.search.length > 0) {
         var qs = window.location.search;
         $("ul.paginator a").each(function() {
@@ -90,7 +96,5 @@ $(function() {
             $this.attr("href", $this.attr("href") + qs);
         });
     }
+
 });
-
-
-

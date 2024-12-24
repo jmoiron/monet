@@ -1,5 +1,5 @@
 // Package mtr is the monet template registry.
-// Please stand back from the doors.
+// 請勿靠近車門. Please stand back from the doors.
 package mtr
 
 import (

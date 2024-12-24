@@ -49,7 +49,7 @@ blockquote {
 }
 
 .frontend form {
-  input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 16px; }
+  input,textarea { font-family: @body-font; padding: 10px; border: 0; }
   input.search { width: @site-width - 20px; color: #aaa;
     &:hover, &:active { color: #333; }
   }
@@ -64,7 +64,7 @@ h1 { text-align: center; font-size: 48px;
   border-top: 10px solid #eee;
 }
 
-.post-content, .post-content-input {
+.post-content, .post-content-input, #content-rendered {
   font-size: 18px;
   line-height: 1.6;
 }
@@ -171,7 +171,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
       &:hover input:focus { color: #000; }
     }
     .list-new { font-size: 18px; color: #999; }
-    input,textarea { font-family: @body-font; padding: 10px; border: 0; font-size: 18px; line-height: 1.6; }
+    input,textarea { font-family: @body-font; padding: 10px; border: 0; line-height: 1.6; box-sizing: border-box; }
   // form styles
 }
 
@@ -207,7 +207,8 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   }
 }
 .admin {
-  .buttons { float: right; }
+  #title { margin-bottom: 5px; }
+  .buttons { float: right; input { font-size: 16px; }}
   .extras { display: none; }
   .more-button { .color-button(#4DBCE9, #fff); }
   .preview-button { .color-button(#FE4365, #fff); }
@@ -221,7 +222,12 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 
 .posts-form {
   .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
-  .post-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
+  .post-content-input {
+    height: @site-width - 100px;
+    width: 100%; // @site-width - 20px;
+    box-sizing: border-box;
+    color: #444;
+  }
   .post-slug-input { width: @site-width - 100px; }
   .published {
     float: left;
@@ -333,3 +339,31 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 
 .right { float: right; }
 h2 .small { font-size: 14px; }
+
+.content-edit-grid {
+    width: 1200px;
+}
+
+#content-rendered {
+  margin: 0;
+  padding: 0 10px;
+  border: 1px dashed #ddd;
+  height: @site-width - 100;
+  overflow-y: scroll;
+  background-color: #fbfbfb;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 7px 1fr;
+}
+
+.gutter-col {
+    grid-row: 1/-1;
+    cursor: col-resize;
+    background-color: #eee;
+}
+
+.gutter-col-1 {
+    grid-column: 2;
+}

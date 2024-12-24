@@ -1,3 +1,16 @@
+<script src="/static/js/wasm_exec.js"></script>
+<script src="/static/js/goldmark.js"></script>
+<script>
+    $(".container").css("width", "1200px");
+    $(function() {
+      window.Split({
+        columnGutters: [{
+            track: 1,
+            element: document.querySelector('.gutter-col-1'),
+        }],
+      });
+    });
+</script>
 
 <form method="POST" action="" class="posts-form">
     {{if .post.ID}}<input type="hidden" name="id" id="id" value="{{.post.ID}}" />{{end}}
@@ -5,10 +18,16 @@
         <input type="text" name="title" id="title" class="post-title-input js-clear-default"
             value="{{if .post.Title}}{{ .post.Title}}{{else}}Type a new title...{{end}}" data-default="Type a new title...">
     </div>
-    <div>
-        <textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
-            if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
-        }}</textarea>
+    <div class="grid content-edit-grid">
+        <div>
+            <textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
+                if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
+            }}</textarea>
+        </div>
+        <div class="gutter-col gutter-col-1"></div>
+        <div>
+            <div id="content-rendered">(rendered content)</div>
+        </div>
     </div>
     <div class="extras">
         <div>

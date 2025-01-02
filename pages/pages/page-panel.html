@@ -1,0 +1,8 @@
+
+    <h3><a href="{{.fullUrl}}">Pages</a> <span style="float:right;"><a class="add" href="pages/add/"><i class="icon icon-plus"></i></a></span></h3>
+
+    <ul class="post-list shortlist">
+    {{range $page := .pages}}
+    <li><a href="pages/edit/{{$page.ID}}">{{$page.URL}}</a> <a class="del" href="pages/delete/{{$page.ID}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{end}}
+    </ul>

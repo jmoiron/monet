@@ -50,7 +50,10 @@ blockquote {
 
 .frontend form {
   input,textarea { font-family: @body-font; padding: 10px; border: 0; }
-  input.search { width: @site-width - 20px; color: #aaa;
+  input.search {
+    width: @site-width - 20px;
+    color: #aaa;
+    font-size: 16px;
     &:hover, &:active { color: #333; }
   }
 }
@@ -126,8 +129,8 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
       &:hover { color: @bluehover; }
     }
   }
-  .admin-controls { float: right; text-align: right; color: #aaa; font-size: 14px; }
-  .user-controls { float: left; text-align: right; color: #aaa; font-size: 14px; }
+  .admin-controls { float: right; text-align: right; color: #aaa; font-size: 16px; }
+  .user-controls { float: left; text-align: right; color: #aaa; font-size: 16px; }
 }
 
 .left-panel { float: left; width: (@site-width/2); }
@@ -167,6 +170,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
     .panel { color: #999;
       a { color: #999; &:visited { color: #999 }}
       &:hover a { color: #000; &:hover { color: @bluelink; }}
+      a.add { color: #999; &:hover { color: #a3d9a0; }}
       &:hover p { color: #222; }
       &:hover input:focus { color: #000; }
     }
@@ -220,14 +224,16 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   input.search { width: 100%; }
 }
 
-.posts-form {
-  .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
-  .post-content-input {
+.split-content-input {
     height: @site-width - 100px;
     width: 100%; // @site-width - 20px;
     box-sizing: border-box;
     color: #444;
-  }
+    font-size: 16px;
+}
+
+.posts-form {
+  .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
   .post-slug-input { width: @site-width - 100px; }
   .published {
     float: left;
@@ -249,8 +255,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .pages-form {
-  .page-url-input { font-weight: bold; size: 22px; width: @site-width - 20px; }
-  .page-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
+  .page-url-input { font-weight: bold; font-size: 22px; width: @site-width - 20px; }
 }
 
 .paginator {

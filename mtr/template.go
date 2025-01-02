@@ -20,7 +20,7 @@ import (
 	"github.com/go-sprout/sprout/registry/slices"
 	"github.com/go-sprout/sprout/registry/std"
 	"github.com/go-sprout/sprout/registry/strings"
-	"github.com/gomarkdown/markdown"
+	"github.com/yuin/goldmark"
 )
 
 type regKey struct{}
@@ -235,10 +235,6 @@ func (r *Registry) RenderWithBase(w io.Writer, base, name string, ctx Ctx) error
 
 	// make sure that this doesn't get escaped in the template
 	ctx["body"] = template.HTML(s.String())
-	if err != nil {
-		return err
-	}
-
 	return baseTpl.Execute(w, r.DefaultCtx.Union(ctx))
 }
 
@@ -254,21 +250,9 @@ func RegistryFromContext(ctx context.Context) *Registry {
 }
 
 func RenderMarkdown(source string) string {
-	out := markdown.ToHTML([]byte(source), nil, nil)
-	return string(out)
-
-	/*
-		extensions |= blackfriday.EXTENSION_NO_INTRA_EMPHASIS
-		extensions |= blackfriday.EXTENSION_TABLES
-		extensions |= blackfriday.EXTENSION_FENCED_CODE
-		extensions |= blackfriday.EXTENSION_AUTOLINK
-		extensions |= blackfriday.EXTENSION_STRIKETHROUGH
-		extensions |= blackfriday.EXTENSION_SPACE_HEADERS
-		extensions |= blackfriday.EXTENSION_HARD_LINE_BREAK
-		flags |= blackfriday.HTML_SAFELINK
-		renderer := blackfriday.HtmlRenderer(flags, "", "")
-		return string(blackfriday.Markdown([]byte(source), renderer, extensions))
-	*/
+	var buf bytes.Buffer
+	goldmark.Convert([]byte(source), &buf)
+	return buf.String()
 }
 
 // a registry is a concurrent-safe map of string->*template.Template.

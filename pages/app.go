@@ -41,7 +41,7 @@ func (a *App) Migrate() error {
 }
 
 func (a *App) GetAdmin() (app.Admin, error) {
-	return nil, nil
+	return NewPageAdmin(a.db), nil
 }
 
 func (a *App) Bind(r chi.Router) {

@@ -4,7 +4,7 @@
     <h2><a href="/blog/{{.post.Slug}}/">{{.post.Title}} <img src="/static/img/link16.png"></a></h2>
     <div class="post-content">
         {{.post.ContentRendered | safe}}
-    <div class="date">{{.post.CreatedAt | naturalTime}}</div>
+    <div class="date">{{.post.PublishedAt | naturalTime}}</div>
     </div>
     <div class="clear"></div>
 </div>

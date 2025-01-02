@@ -1,33 +1,12 @@
-<script src="/static/js/wasm_exec.js"></script>
-<script src="/static/js/goldmark.js"></script>
-<script>
-    $(".container").css("width", "1200px");
-    $(function() {
-      window.Split({
-        columnGutters: [{
-            track: 1,
-            element: document.querySelector('.gutter-col-1'),
-        }],
-      });
-    });
-</script>
-
 <form method="POST" action="" class="posts-form">
     {{if .post.ID}}<input type="hidden" name="id" id="id" value="{{.post.ID}}" />{{end}}
     <div>
         <input type="text" name="title" id="title" class="post-title-input js-clear-default"
             value="{{if .post.Title}}{{ .post.Title}}{{else}}Type a new title...{{end}}" data-default="Type a new title...">
-    </div>
-    <div class="grid content-edit-grid">
-        <div>
-            <textarea class="post-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
-                if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
-            }}</textarea>
-        </div>
-        <div class="gutter-col gutter-col-1"></div>
-        <div>
-            <div id="content-rendered">(rendered content)</div>
-        </div>
+    <div>
+        <textarea class="split-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
+            if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
+        }}</textarea>
     </div>
     <div class="extras">
         <div>
@@ -39,6 +18,12 @@
             <input type="timestamp" name="created" id="created" value="{{.post.CreatedAt}}">
             <span class="date" style="float:none;">{{.post.CreatedAt | naturalTime}}</span>
         </div>
+        <div>
+            Updated At: <span class="date" style="float:none;">{{.post.UpdatedAt | naturalTime}}</span>
+        </div>
+        <div>
+            Published At: <span class="date" style="float:none;">{{.post.PublishedAt | naturalTime}}</span>
+        </div>
     </div>
     <div class="published">
         <input type="hidden" value="{{.post.Published}}" name="published" id="published">
@@ -48,8 +33,11 @@
     </div>
     <div class="buttons">
         <input class="more-button" type="button" value="More">
-        <input class="preview-button" type="button" value="Preview" data-url="/admin/posts/preview/">
         <input class="save-button" type="submit" value="Save">
     </div>
     <div class="clear"></div>
 </form>
+
+<script src="/static/js/wasm_exec.js"></script>
+<script src="/static/js/goldmark.js"></script>
+<script>$("#content").livePreview()</script>

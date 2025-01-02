@@ -5,6 +5,34 @@ $.fn.center = function() {
     return this;
 }
 
+$.fn.livePreview = function() {
+    // adjust the width of the main container to better suit
+    // having a live preview editing widget
+    $(".container").css("width", "1200px");
+
+    // grab the textarea element we're live-editing
+    var $this = $(this);
+    var grid = $(`<div class="grid content-edit-grid">
+            <div id="content-input"></div>
+            <div class="gutter-col gutter-col-1"></div>
+            <div id="content-rendered"></div>
+        <div>`);
+    parent = $this.parent();
+    parent.remove($this);
+    parent.append(grid);
+    $(grid).find("#content-input").append($this);
+
+    // run split to get resizable content
+    window.Split({
+        columnGutters: [{
+            track: 1,
+            element: document.querySelector('.gutter-col-1'),
+        }],
+    });
+
+
+};
+
 $(function() {
     /* handle clearing default fields ... */
     $(".js-clear-default").on("focus", function() {
@@ -32,7 +60,7 @@ $(function() {
     });
 
     $(".more-button").on("click", function() {
-        $(".extras").slideToggle();
+        $(".extras").toggle();
     });
 
     $(".post-title-input").on("blur", function() {
@@ -63,35 +91,9 @@ $(function() {
         }
     });
 
-    $(".preview-button").on("click", function() {
-        var overlay = $("#overlay");
-        var form = $(this).parents("form")
-        if (overlay.length == 0) {
-            overlay = $("<div id=\"overlay\"></div>");
-            overlay.appendTo(document.body)
-        }
-        $.ajax({
-            type: "POST",
-            url: $(this).attr("data-url"),
-            data: form.serialize(),
-            success: function(data, status, xhr) {
-                var preview = $("<div id=\"preview-box\"></div>");
-                preview.appendTo(document.body);
-                preview.html(data);
-                overlay.fadeIn();
-                preview.center().fadeIn();
-                overlay.on("click", function() { overlay.fadeOut(); preview.fadeOut(); });
-            },
-            error: function(xhr, status, err) {
-
-            }
-        });
-    });
-
     if (window.location.search.length > 0) {
         var qs = window.location.search;
         $("ul.paginator a").each(function() {
-            console.log("Hiya");
             var $this = $(this);
             $this.attr("href", $this.attr("href") + qs);
         });

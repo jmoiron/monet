@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.20
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
+	github.com/yuin/goldmark v1.7.8
 	golang.org/x/crypto v0.29.0
 	labix.org/v2/mgo v0.0.0-20140701140051-000000000287
 )

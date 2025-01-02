@@ -23,6 +23,38 @@ var eventMigration = monarch.Set{
 				summary_rendered text
 			);`,
 			Down: `DROP TABLE event;`,
+		}, {
+			Up: `CREATE VIRTUAL TABLE event_fts USING fts5(
+				id, title, type, url, timestamp, data,
+				content='event',
+				content_rowid='id',
+				tokenize="trigram"
+			)`,
+			Down: `drop table event_fts;`,
+		}, {
+			Up:   `INSERT INTO event_fts SELECT id, title, type, url, timestamp, data FROM event;`,
+			Down: `DELETE FROM event_fts;`,
+		}, {
+			Up: `CREATE TRIGGER event_i AFTER INSERT ON event BEGIN
+				INSERT INTO event_fts (id, title, type, url, timestamp, data) VALUES
+					(new.id, new.title, new.type, new.url, new.timestamp, new.data);
+			 END;`,
+			Down: `DROP TRIGGER event_i;`,
+		}, {
+			Up: `CREATE TRIGGER event_d AFTER DELETE ON post BEGIN
+				INSERT INTO event_fts (event_fts, id, title, type,  url, timestamp, data) VALUES
+					('delete', old.id, old.title, old.type,  old.url, old.timestamp, old.data);
+			END`,
+			Down: `DROP TRIGGER event_d;`,
+		}, {
+			// delete + insert
+			Up: `CREATE TRIGGER event_u AFTER UPDATE ON post BEGIN
+				INSERT INTO event_fts (event_fts, id, title, type,  url, timestamp, data) VALUES
+					('delete', old.id, old.title, old.type,  old.url, old.timestamp, old.data);
+				INSERT INTO event_fts (id, title, type,  url, timestamp, data) VALUES
+					(new.id, new.title, new.type,  new.url, new.timestamp, new.data);
+			END`,
+			Down: `DROP TRIGGER event_u;`,
 		},
 	},
 }

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
@@ -129,6 +130,11 @@ func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
 
 	serv := NewPostService(a.db)
 	posts, err := serv.Select(q)
+	if err != nil {
+		slog.Error("looking up post", "error", err)
+		app.Http404(w)
+		return
+	}
 
 	reg := mtr.RegistryFromContext(r.Context())
 	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-list.html", mtr.Ctx{
@@ -161,7 +167,6 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 	if err != nil {
 		slog.Error("rendering edit", "err", err)
 	}
-
 }
 
 func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
@@ -187,8 +192,18 @@ func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
 	p.Title = r.Form.Get("title")
 	p.Slug = r.Form.Get("slug")
 	p.Content = r.Form.Get("content")
-	// created?
-	p.Published, _ = strconv.Atoi(r.Form.Get("published"))
+
+	// if we're changing the published bit, set/unset the published at timestamp
+	formPub, _ := strconv.Atoi(r.Form.Get("published"))
+	if p.Published != formPub {
+		p.Published = formPub
+		if p.Published == 0 {
+			var t time.Time
+			p.PublishedAt = t
+		} else {
+			p.PublishedAt = time.Now()
+		}
+	}
 
 	if err := serv.Save(p); err != nil {
 		app.Http500("saving post", w, err)

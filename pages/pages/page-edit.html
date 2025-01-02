@@ -1,0 +1,18 @@
+<form method="POST" action="" class="pages-form">
+    {{if .page.ID }}<input type="hidden" name="id" id="id" value="{{.page.ID}}" />{{ end }}
+    <div>
+        <input type="text" name="url" id="url" class="page-url-input js-clear-default"
+            value="{{if .page.URL}}/{{.page.URL}}{{else}}Type a new URL...{{end}}"
+            data-default="Type a new URL..."></div>
+    <div><textarea class="split-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
+        if .page.Content}}{{.page.Content}}{{else}}Type some new content...{{end
+    }}</textarea></div>
+    <div class="buttons">
+        <input class="save-button" type="submit" value="Save">
+    </div>
+    <div class="clear"></div>
+</form>
+
+<script src="/static/js/wasm_exec.js"></script>
+<script src="/static/js/goldmark.js"></script>
+<script>$("#content").livePreview();</script>

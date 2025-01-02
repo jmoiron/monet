@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/sqlx"
 )
 
 const defaultPageSize = 25
@@ -70,6 +71,11 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) list(w http.ResponseWriter, r *http.Request) {
 	serv := NewEventService(a.db)
+	r.ParseForm()
+	if query := r.Form.Get("q"); len(query) > 0 {
+		a.search(w, r, query)
+		return
+	}
 
 	var count int
 	if err := a.db.Get(&count, "SELECT count(*) FROM event;"); err != nil {
@@ -106,4 +112,68 @@ func (a *App) list(w http.ResponseWriter, r *http.Request) {
 		"events":     events,
 		"pagination": paginator.Render(reg, page),
 	})
+}
+
+func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
+
+	// make query safe for fts5
+	query = db.SafeQuery(query)
+
+	countq := `SELECT count(*) FROM event_fts WHERE event_fts MATCH ? ORDER BY rank`
+	var count int
+	if err := a.db.Get(&count, countq, query); err != nil {
+		app.Http500("counting results", w, err)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(r.Context())
+
+	if count == 0 {
+		reg.RenderWithBase(w, "base", "stream/index.html", mtr.Ctx{
+			"query": query,
+		})
+		return
+	}
+
+	pageNum := app.GetIntParam(r, "page", 1)
+	slog.Debug("loading search page", "page", pageNum)
+
+	pageBase := path.Join(a.BaseURL, "page")
+	// XXX: a link function that retains our query
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(pageBase))
+	page := paginator.Page(pageNum)
+
+	// any makes it easier to use these in sqlx.In
+	searchq := fmt.Sprintf(`select id from event_fts where event_fts
+		MATCH ? ORDER BY rank LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
+
+	var ids []any
+	if err := a.db.Select(&ids, searchq, query); err != nil {
+		app.Http500("fetching results", w, err)
+		return
+	}
+
+	q, args, err := sqlx.In(`select * from event where id in (?)`, ids)
+	if err != nil {
+		app.Http500("forming in query", w, err)
+		return
+	}
+
+	var events []Event
+	if err := a.db.Select(&events, q, args...); err != nil {
+		app.Http500("fetching events", w, err)
+		return
+	}
+	// XXX: order posts by the order of slugs
+
+	err = reg.RenderWithBase(w, "base", "stream/index.html", mtr.Ctx{
+		"query":      query,
+		"events":     events,
+		"pagination": paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering template", "err", err)
+	}
+
 }

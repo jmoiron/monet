@@ -93,8 +93,6 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 	reg := mtr.RegistryFromContext(r.Context())
 
 	err := reg.RenderWithBase(w, "admin-base", "admin/index.html", mtr.Ctx{
-		// FIXME: lets put conf in the context
-		"debug":  false,
 		"panels": panels,
 	})
 

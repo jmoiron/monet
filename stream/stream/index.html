@@ -1,7 +1,7 @@
 {{if .Search}}<h3><a href="/stream/">Full Stream</a></h3>{{end}}
 
 <form action="/stream/" method="GET">
-    <input type="text" name="Search" class="search js-clear-default" data-default="Search the stream..." value="{{if .Search}}{{.Search}}{{else}}Search the stream...{{end}}">
+    <input type="text" name="q" class="search js-clear-default" data-default="Search the stream..." value="{{if .query}}{{.query}}{{else}}Search the stream...{{end}}">
 </form>
 
 <div class="entries">

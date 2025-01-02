@@ -2,11 +2,12 @@
 @bluelink: lighten(#014ea4, 10%);
 // @bluelink: darken(#26ADE4, 10%);
 @bluehover: lighten(@bluelink, 15%);
-@site-width: 620px;
+@site-width: 720px;
 @limey: darken(#D1E751, 10%);
 @rawrind: #C4E661;
 @twitter: #00aced;
 @boring: #3465a4;
+@body-font: Lora, Georgia, serif;
 
 @import "font-awesome.less";
 @import "prettify.less";
@@ -14,10 +15,10 @@
 #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; opacity: 0.75; z-index: 100; display: none; }
 #preview-box { position: fixed; width: @site-width + 20px; height: @site-width + 20px; display: none; z-index: 110; background-color: #fff; padding: 30px; border-radius: 5px; box-shadow: 3px 3px 5px #000; overflow-y: scroll; }
 
-body { font-family: "Open Sans", helvetica, sans-serif; padding: 0; margin: 0; color: #444; }
+body { font-family: @body-font; padding: 0; margin: 0; color: #444; }
 b,strong { color: #111; }
 /*
-pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee; 
+pre { background-color: #f6f6f6; border-radius: 3px; padding: 5px 10px; border: 1px solid #eee; border-left: 10px solid #eee;
   &:hover { border-left: 10px solid @limey; background-color: #fbfbfb; }
 }*/
 abbr { border-bottom: 1px dotted #aaa; }
@@ -44,26 +45,48 @@ blockquote {
 
 .container pre {
     font-size: 14px;
-    line-height: 18px;
+    //line-height: 18px;
 }
 
 .frontend form {
-  input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
-  input.search { width: @site-width - 20px; color: #aaa;
+  input,textarea { font-family: @body-font; padding: 10px; border: 0; }
+  input.search {
+    width: @site-width - 20px;
+    color: #aaa;
+    font-size: 16px;
     &:hover, &:active { color: #333; }
   }
 }
 
-h1 { text-align: center; font-size: 48px; 
+h1 { text-align: center; font-size: 48px;
   margin-bottom: 0.75em;
-  span { display: block; margin-top: 1em; color: #ccc; font-size: 14px; font-weight: normal; }
+  span { display: block; color: #ccc; font-size: 14px; font-weight: normal; }
 }
-.content { background-color: #fff; border-top: 10px solid #eee; }
-.container { width: @site-width; margin: 0 auto;  padding: 2em 0; font-size: 16px; line-height: 26px; }
+.content {
+  background-color: #fff;
+  border-top: 10px solid #eee;
+}
+
+.post-content, .post-content-input, #content-rendered {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.page-content {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.container {
+  width: @site-width;
+  margin: 0 auto;
+  padding: 2em 0;
+}
+
 .footer { padding-bottom: 1em;}
 .clear { clear: both; }
-h1,h2,h3 { color: #000; 
-  a { color: #000; font-weight: bold; text-decoration: none; text-shadow: -1px -1px #eee; 
+h1,h2,h3 { color: #000;
+  a { color: #000; font-weight: bold; text-decoration: none; text-shadow: 1px 1px #eee;
     &:hover { text-decoration: none; }
   }
 }
@@ -75,6 +98,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 .date { color: #aaa; float: right; text-align: right;
   &:hover { color: #555; }
 }
+
 .post {
   /* show link icon when hovering on title */
   h2 a img { display: none; }
@@ -85,25 +109,28 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
     border-radius: 5px;
   }
 }
+.post-content {
+  line-height: 1.6;
+}
 
 .footer {
   .container { border-top: 1px solid #eee; padding-top: 1em; }
-  .byline { font-size: 14px; text-align: right; float: right; color: #ccc; 
+  .byline { font-size: 14px; text-align: right; float: right; color: #ccc;
     a { color: #aaa; &:hover { color: @bluehover; }}
   }
   .link-icons {
     float: left;
     a { color: #ccc; &:hover { color: @bluehover; }}
-    span.icon { font-size: 20px; color: #ccc; font-family: JustVector; 
-      text-shadow: 0 1px 1px rgba(200,200,200,0.5); 
+    span.icon { font-size: 20px; color: #ccc; font-family: JustVector;
+      text-shadow: 0 1px 1px rgba(200,200,200,0.5);
     }
     a.about { font-size: 20px; margin-left: 3px; }
-    .yc { font-family: "Open Sans"; border: 1px solid; padding: 0px 5px; font-size: 16px; line-height: 18px;
+    .yc { font-family: @body-font; border: 1px solid; padding: 0px 5px; font-size: 18px; line-height: 22px;
       &:hover { color: @bluehover; }
     }
   }
-  .admin-controls { float: right; text-align: right; color: #aaa; font-size: 14px; }
-  .user-controls { float: left; text-align: right; color: #aaa; font-size: 14px; }
+  .admin-controls { float: right; text-align: right; color: #aaa; font-size: 16px; }
+  .user-controls { float: left; text-align: right; color: #aaa; font-size: 16px; }
 }
 
 .left-panel { float: left; width: (@site-width/2); }
@@ -126,7 +153,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
         a { padding: 5px 10px; margin-left: 5px; }
         a.del { padding: 0; margin-top: -1px; display:none; position: absolute; right: 0; font-size: 22px}
         &:hover {
-          a.del { display: inline-block; color: #999; 
+          a.del { display: inline-block; color: #999;
             &:hover { color: #fa2a00; }
           }
         }
@@ -143,11 +170,12 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
     .panel { color: #999;
       a { color: #999; &:visited { color: #999 }}
       &:hover a { color: #000; &:hover { color: @bluelink; }}
+      a.add { color: #999; &:hover { color: #a3d9a0; }}
       &:hover p { color: #222; }
       &:hover input:focus { color: #000; }
     }
     .list-new { font-size: 18px; color: #999; }
-    input,textarea { font-family: "Open Sans"; padding: 10px; border: 0; font-size: 16px; line-height: 24px; }
+    input,textarea { font-family: @body-font; padding: 10px; border: 0; line-height: 1.6; box-sizing: border-box; }
   // form styles
 }
 
@@ -183,7 +211,8 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   }
 }
 .admin {
-  .buttons { float: right; }
+  #title { margin-bottom: 5px; }
+  .buttons { float: right; input { font-size: 16px; }}
   .extras { display: none; }
   .more-button { .color-button(#4DBCE9, #fff); }
   .preview-button { .color-button(#FE4365, #fff); }
@@ -195,9 +224,16 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   input.search { width: 100%; }
 }
 
+.split-content-input {
+    height: @site-width - 100px;
+    width: 100%; // @site-width - 20px;
+    box-sizing: border-box;
+    color: #444;
+    font-size: 16px;
+}
+
 .posts-form {
   .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
-  .post-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
   .post-slug-input { width: @site-width - 100px; }
   .published {
     float: left;
@@ -219,8 +255,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 }
 
 .pages-form {
-  .page-url-input { font-weight: bold; size: 22px; width: @site-width - 20px; }
-  .page-content-input { height: @site-width - 100px; width: @site-width - 20px; color: #444; }
+  .page-url-input { font-weight: bold; font-size: 22px; width: @site-width - 20px; }
 }
 
 .paginator {
@@ -252,7 +287,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   h3 { text-align: center; }
   .date { float: none; color: #ccc; font-size: 12px; }
   ul { margin: 0; padding: 0; list-style: none; }
-  li { margin-left: 0; padding: 5px 0; 
+  li { margin-left: 0; padding: 5px 0;
     a { color: #000; font-weight: normal;
         &:hover { color: @bluehover; }
     }
@@ -284,7 +319,7 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   padding: .75em 1em;
   border-bottom: 1px solid #eee;
   &:hover { color: #000; }
-  
+
   i.icon { font-size: 32px; display: inline-block; float: left; padding: 0 0.25em;  }
 
   &.github {
@@ -310,3 +345,30 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
 .right { float: right; }
 h2 .small { font-size: 14px; }
 
+.content-edit-grid {
+    width: 1200px;
+}
+
+#content-rendered {
+  margin: 0;
+  padding: 0 10px;
+  border: 1px dashed #ddd;
+  height: @site-width - 100;
+  overflow-y: scroll;
+  background-color: #fbfbfb;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 7px 1fr;
+}
+
+.gutter-col {
+    grid-row: 1/-1;
+    cursor: col-resize;
+    background-color: #eee;
+}
+
+.gutter-col-1 {
+    grid-column: 2;
+}

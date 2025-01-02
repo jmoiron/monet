@@ -1,0 +1,12 @@
+
+<ul class="paginator">
+    {{if .page.HasPrevious}}<li class="prev"><a href="{{.prevUrl}}">Prev</a></li>{{end}}
+{{range $p := .pages -}}
+    {{if $p.Url}}
+    <li class="link"><a href="{{$p.Url}}">{{$p.Text}}</a></li>
+    {{else}}
+    <li class="num {{if $p.IsEllipsis}}inter{{end}}">{{$p.Text}}</li>
+    {{end}}
+{{end}}
+    {{if .page.HasNext }}<li class="next"><a href="{{.nextUrl}}">Next</a></li>{{end}}
+</ul>

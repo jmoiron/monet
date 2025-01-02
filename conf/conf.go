@@ -1,17 +1,20 @@
 package conf
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
+	"io"
+	"net/http"
 	"os"
 )
 
-type config struct {
-	// serving options
-	Debug bool
+type configKey struct{}
 
-	WebHost string "web address"
-	WebPort int    "web port"
+// A Config holds options for the running website.
+type Config struct {
+	Debug      bool
+	ListenAddr string
 
 	SessionSecret             string
 	GoogleAnalyticsTrackingID string
@@ -20,72 +23,73 @@ type config struct {
 	TemplatePaths      []string
 	TemplatePreCompile bool
 
-	DbHost string
-	DbPort int
-	DbName string
-
-	Gallery map[string]string
-	Streams []map[string]string
+	// DatabaseURI is a connectable URI string
+	DatabaseURI string
 }
 
-var Path = "./config.json"
-var Config = new(config)
-
-func (c *config) HostString() string {
-	return fmt.Sprintf("%s:%d", c.WebHost, c.WebPort)
-}
-
-func (c *config) DbHostString() string {
-	if c.DbPort > 0 {
-		return fmt.Sprintf("mongodb://%s:%d", c.DbHost, c.DbPort)
-	}
-	return fmt.Sprintf("mongodb://%s", c.DbHost)
-}
-
-func (c *config) String() string {
-	s := "Config:"
-	s += fmt.Sprintf("   Host: %s,\n", c.HostString())
-	s += fmt.Sprintf("   DB: %s,\n", c.DbHostString())
-	s += fmt.Sprintf("   TemplatePaths: %s,\n", c.TemplatePaths)
-	s += fmt.Sprintf("   StaticPath: %s,\n", c.StaticPath)
-	s += fmt.Sprintf("   TemplatePreCompile: %v,\n", c.TemplatePreCompile)
-	s += fmt.Sprintf("   Debug: %v\n", c.Debug)
-	s += fmt.Sprintf("   Gallery: %v\n", c.Gallery)
-	s += fmt.Sprintf("   GoogleAnalyticsTrackingID: %v\n", c.GoogleAnalyticsTrackingID)
-	return s
-}
-
-func (c *config) AddTemplatePath(path string) {
-	c.TemplatePaths = append(c.TemplatePaths, path)
-}
-
-func init() {
-	// defaults
-	Config.WebHost = "0.0.0.0"
-	Config.WebPort = 7000
-	Config.DbHost = "127.0.0.1"
-	Config.DbPort = 0
-	Config.DbName = "monet"
-	Config.StaticPath = "./static"
-	Config.AddTemplatePath("./templates")
-	Config.SessionSecret = "SECRET-KEY-SET-IN-CONFIG"
-	Config.Debug = false
-	Config.TemplatePreCompile = true
-
-	if ecp := os.Getenv("MONET_CONFIG_PATH"); ecp != "" {
-		Path = ecp
-	}
-	file, err := os.Open(Path)
+// String returns the config as a string.
+func (c *Config) String() string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	err := enc.Encode(c)
 	if err != nil {
-		if len(Path) > 1 {
-			fmt.Printf("Error: could not read config file %s.\n", Path)
+		panic(err)
+	}
+	return buf.String()
+}
+
+// FromFile loads a config from path and merges it into c.
+func (c *Config) FromPath(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	return c.FromReader(f)
+}
+
+// FromReader loads a config from the reader r.
+func (c *Config) FromReader(r io.Reader) error {
+	return json.NewDecoder(r).Decode(c)
+}
+
+// AddConfigMiddleware adds this config to the request contxt.
+func (c *Config) AddConfigMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(c.WithConfig(r.Context())))
+	})
+}
+
+// WithConfig adds this config to the context. Get it back out with
+// conf.ConfigFromContext(ctx).
+func (c *Config) WithConfig(ctx context.Context) context.Context {
+	return context.WithValue(ctx, configKey{}, c)
+}
+
+// ConfigFromContext returns the config embedded within the context.
+func ConfigFromContext(ctx context.Context) *Config {
+	return ctx.Value(configKey{}).(*Config)
+}
+
+// Default returns a sensible default config with environment overrides
+// and the a config file loaded into it.
+func Default() *Config {
+	c := &Config{}
+	c.ListenAddr = "0.0.0.0:7000"
+	c.StaticPath = "./static"
+	c.TemplatePaths = []string{"./templates"}
+	c.SessionSecret = "SET-IN-CONFIG-FILE"
+	c.TemplatePreCompile = true
+
+	/*
+		if path := os.Getenv("MONET_CONFIG_PATH"); len(path) > 0 {
+			err := c.FromPath(path)
+			if err != nil {
+				fmt.Printf("Error loading config: %s\n", err)
+			}
 		}
-		return
-	}
-	decoder := json.NewDecoder(file)
-	// overwrite in-mem config with new values
-	err = decoder.Decode(Config)
-	if err != nil {
-		fmt.Printf("Error decoding file %s\n%s\n", Path, err)
-	}
+	*/
+
+	return c
 }

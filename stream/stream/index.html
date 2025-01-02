@@ -1,0 +1,15 @@
+{{if .Search}}<h3><a href="/stream/">Full Stream</a></h3>{{end}}
+
+<form action="/stream/" method="GET">
+    <input type="text" name="q" class="search js-clear-default" data-default="Search the stream..." value="{{if .query}}{{.query}}{{else}}Search the stream...{{end}}">
+</form>
+
+<div class="entries">
+    {{range $event := .events}}
+    <div class="entry-container">
+        {{$event.SummaryRendered | safe }}
+    </div>
+    {{end}}
+</div>
+
+{{.pagination}}

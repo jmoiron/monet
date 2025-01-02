@@ -1,0 +1,18 @@
+{{if .unpublished}}<h2>Unpublished</h2>{{else}}<h2>Posts</h2>{{end}}
+
+<form action="/admin/posts/" method="GET">
+    <input type="text" name="q" class="search js-clear-default" data-default="Type a search query..."
+           value="{{if .query}}{{.query}}{{else}}Type a search query...{{end}}">
+</form>
+
+<ul class="shortlist listpage">
+{{range $post := .posts}}
+    <li>
+        <a href="/admin/posts/edit/{{$post.Slug}}">{{$post.Title}}</a>
+        <a class="del" href="/admin/posts/delete/{{$post.Slug}}"><i class="icon icon-remove-sign"></i></a>
+        <span class="date">{{$post.CreatedAt | naturalTime}}</span>
+    </li>
+{{end}}
+</ul>
+
+{{.pagination}}

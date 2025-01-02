@@ -5,9 +5,37 @@ $.fn.center = function() {
     return this;
 }
 
+$.fn.livePreview = function() {
+    // adjust the width of the main container to better suit
+    // having a live preview editing widget
+    $(".container").css("width", "1200px");
+
+    // grab the textarea element we're live-editing
+    var $this = $(this);
+    var grid = $(`<div class="grid content-edit-grid">
+            <div id="content-input"></div>
+            <div class="gutter-col gutter-col-1"></div>
+            <div id="content-rendered"></div>
+        <div>`);
+    parent = $this.parent();
+    parent.remove($this);
+    parent.append(grid);
+    $(grid).find("#content-input").append($this);
+
+    // run split to get resizable content
+    window.Split({
+        columnGutters: [{
+            track: 1,
+            element: document.querySelector('.gutter-col-1'),
+        }],
+    });
+
+
+};
+
 $(function() {
     /* handle clearing default fields ... */
-    $(".js-clear-default").focus(function() {
+    $(".js-clear-default").on("focus", function() {
         var $this = $(this);
         if ($this.is("textarea")) {
             if ($this.html() == $this.attr("data-default")) {
@@ -18,7 +46,7 @@ $(function() {
                 $this.attr("value", "")
             }
         }
-    }).blur(function() {
+    }).on("blur", function() {
         var $this = $(this)
         if ($this.is("textarea")) {
             if (!$this.html()) {
@@ -30,22 +58,26 @@ $(function() {
             }
         }
     });
-    $(".more-button").click(function() {
-        $(".extras").slideToggle();
+
+    $(".more-button").on("click", function() {
+        $(".extras").toggle();
     });
-    $(".post-title-input").blur(function() {
+
+    $(".post-title-input").on("blur", function() {
         var value = $(this).attr("value");
         value = value.replace(/[^\w\s]/g, "");
         value = value.replace(/[^\w]+/g, "-").toLowerCase()
         $("#slug").attr("value", value);
     });
+
     /* ensure the slug is populated on load if it's empty */
     $("#slug").each(function() {
         if (!$(this).attr("value").length) {
-            $(".post-title-input").blur();
+            $(".post-title-input").trigger("blur");
         }
     });
-    $(".published-toggle-button").click(function() {
+
+    $(".published-toggle-button").on("click", function() {
         var $this = $(this);
         var input = $("#published");
         if (input.attr("value") == "1") {
@@ -58,39 +90,13 @@ $(function() {
             $this.removeClass("published-0").addClass("published-1");
         }
     });
-    $(".preview-button").click(function() {
-        var overlay = $("#overlay");
-        var form = $(this).parents("form")
-        if (overlay.length == 0) {
-            overlay = $("<div id=\"overlay\"></div>");
-            overlay.appendTo(document.body)
-        }
-        $.ajax({
-            type: "POST",
-            url: $(this).attr("data-url"),
-            data: form.serialize(),
-            success: function(data, status, xhr) {
-                var preview = $("<div id=\"preview-box\"></div>");
-                preview.appendTo(document.body);
-                preview.html(data);
-                overlay.fadeIn();
-                preview.center().fadeIn();
-                overlay.click(function() { overlay.fadeOut(); preview.fadeOut(); });
-            },
-            error: function(xhr, status, err) {
 
-            }
-        });
-    });
     if (window.location.search.length > 0) {
         var qs = window.location.search;
         $("ul.paginator a").each(function() {
-            console.log("Hiya");
             var $this = $(this);
             $this.attr("href", $this.attr("href") + qs);
         });
     }
+
 });
-
-
-

@@ -1,7 +1,7 @@
 
 $(function() {
     /* handle clearing default fields ... */
-    $(".js-clear-default").focus(function() {
+    $(".js-clear-default").on("focus", function() {
         var $this = $(this);
         if ($this.is("textarea")) {
             if ($this.html() == $this.attr("data-default")) {
@@ -12,7 +12,7 @@ $(function() {
                 $this.attr("value", "")
             }
         }
-    }).blur(function() {
+    }).on("blur", function() {
         var $this = $(this)
         if ($this.is("textarea")) {
             if (!$this.html()) {

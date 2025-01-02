@@ -1,34 +1,99 @@
 package blog
 
-import (
-	"encoding/json"
-	"fmt"
-	"github.com/jmoiron/monet/app"
-	"github.com/jmoiron/monet/conf"
-	"github.com/jmoiron/monet/db"
-	"github.com/jmoiron/monet/template"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"strconv"
-	"strings"
-	"time"
-)
-
-type obj map[string]interface{}
-
-// Blog Post Model
+/*
+// A Post in a blog.
 type Post struct {
-	Id              bson.ObjectId `bson:"_id,omitempty"`
+	ID              int
 	Title           string
 	Slug            string
 	Content         string
-	ContentRendered string
-	Summary         string
-	Tags            []string
-	Timestamp       uint64
+	ContentRendered string `db:content_rendered`
+	CreatedAt       uint64
+	UpdatedAt       uint64
+	PublishedAt     uint64
 	Published       int
 }
 
+type PostService struct {
+	db db.DB
+}
+
+func (s *PostService) Save(p *Post) error {
+	p.ContentRendered = mtr.RenderMarkdown(p.Content)
+	if p.ID == 0 {
+		return s.create(p)
+	}
+	return s.update(p)
+}
+
+// create post p in the database.  p's id must be invalid (zero).
+func (s *PostService) create(p *Post) error {
+	if p.ID != 0 {
+		return errors.New("cannot create post with id")
+	}
+
+	// timestamps all get set properly by default.
+	query, args, err := sqlx.Named(`
+	INSERT INTO post
+		(title, slug, content, content_rendered, published) VALUES
+		(:title, :slug, :content, :content_rendered, :published);`,
+		p)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(query, args...)
+	return err
+}
+
+// update p in the database.  p must have a valid (non-zero) id.
+func (s *PostService) update(p *Post) error {
+	if p.ID == 0 {
+		return errors.New("cannot update post without id")
+	}
+
+	// adjust UpdatedAt timestamp
+	p.UpdatedAt = uint64(time.Now().Unix())
+
+	query, args, err := sqlx.Named(`
+	UPDATE post SET
+		title=:title, slug=:slug, content=:content, content_rendered=:content_rendered,
+		updated_at=:updated_at, published=:published) WHERE id=:id;`, p)
+
+	if err != nil {
+		return err
+	}
+
+	_, err = s.db.Exec(query, args...)
+	return err
+}
+
+// ByID loads a post by ID.
+func (s *PostService) ByID(id int) (*Post, error) {
+	var p Post
+	query := `SELECT * FROM post WHERE id=?;`
+	err := s.db.Get(&p, query, id)
+	return &p, err
+}
+
+// BySlug loads a post by its slug.
+func (s *PostService) BySlug(slug string) (*Post, error) {
+	query := `SELECT * FROM post WHERE slug=?;`
+	var p Post
+	err := s.db.Get(&p, query, slug)
+	return &p, err
+}
+
+func (s *PostService) Latest() (*Post, error) {
+	query := `SELECT * FROM post ORDER BY published_at DESC LIMIT 1;`
+	var p Post
+	err := s.db.Get(&p, query)
+	return &p, err
+}
+*/
+
+/*
 // Flatpage Model
 type Page struct {
 	Id              bson.ObjectId `bson:"_id,omitempty"`
@@ -50,27 +115,6 @@ type Entry struct {
 }
 
 // Post Implementation
-
-func (p *Post) Collection() string { return "posts" }
-func (p *Post) Sorting() string    { return "-timestamp" }
-
-func (p *Post) Indexes() [][]string {
-	return [][]string{
-		[]string{"slug"},
-		[]string{"timestamp"},
-	}
-}
-
-func (p *Post) Unique() bson.M {
-	if len(p.Id) > 0 {
-		return bson.M{"_id": p.Id}
-	}
-	return bson.M{"slug": p.Slug}
-}
-
-func (p *Post) PreSave() {
-	p.ContentRendered = template.RenderMarkdown(p.Content)
-}
 
 // Instantiate a post object from POST parameters
 func (p *Post) FromParams(params map[string]string) error {
@@ -99,16 +143,6 @@ func (p *Post) NaturalTime() string {
 }
 
 // Page Implementation
-
-func (p *Page) Indexes() [][]string { return [][]string{[]string{"url"}} }
-func (p *Page) Collection() string  { return "pages" }
-
-func (p *Page) Unique() bson.M {
-	if len(p.Id) > 0 {
-		return bson.M{"_id": p.Id}
-	}
-	return bson.M{"url": p.Url}
-}
 
 func (p *Page) PreSave() {
 	p.ContentRendered = template.RenderMarkdown(p.Content)
@@ -200,35 +234,4 @@ func (e *Entry) SummaryRender() string {
 	}
 	return ret
 }
-
-// A shortcut to return the latest blog post (or nil if there aren't any)
-func LatestPost() *Post {
-	var post *Post
-	err := db.Latest(post, bson.M{}).One(&post)
-	if err != nil && err != mgo.ErrNotFound {
-		panic(err)
-	}
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	return post
-}
-
-// A shortcut to return the page for a given url (or nil if there isn't one)
-func GetPage(url string) *Page {
-	var page *Page
-	err := db.Find(page, bson.M{"url": url}).One(&page)
-	if err != nil && err != mgo.ErrNotFound {
-		panic(err)
-	}
-	if err == mgo.ErrNotFound {
-		return nil
-	}
-	return page
-}
-
-func init() {
-	db.Register(&Post{})
-	db.Register(&Page{})
-	db.Register(&Entry{})
-}
+*/

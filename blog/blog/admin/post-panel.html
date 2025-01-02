@@ -1,0 +1,15 @@
+
+    <h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
+
+    <ul class="post-list shortlist">
+        {{if .renderAdd}}
+        <li>
+            <form method="GET" action="posts/add/">
+                <input type="text" data-default="Type a new title..." value="Type a new title..." class="list-new js-clear-default" id="post-title" name="Title">
+            </form>
+        </li>
+        {{end}}
+    {{range $post := .posts}}
+    <li><a href="posts/edit/{{$post.Slug}}">{{$post.Title}}</a> <a class="del" href="posts/delete/{{$post.Slug}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{end}}
+    </ul>

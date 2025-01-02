@@ -1,0 +1,43 @@
+<form method="POST" action="" class="posts-form">
+    {{if .post.ID}}<input type="hidden" name="id" id="id" value="{{.post.ID}}" />{{end}}
+    <div>
+        <input type="text" name="title" id="title" class="post-title-input js-clear-default"
+            value="{{if .post.Title}}{{ .post.Title}}{{else}}Type a new title...{{end}}" data-default="Type a new title...">
+    <div>
+        <textarea class="split-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
+            if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
+        }}</textarea>
+    </div>
+    <div class="extras">
+        <div>
+            <label for="slug">slug</label>
+            <input type="text" name="slug" id="slug" class="post-slug-input" value="{{.post.Slug}}">
+        </div>
+        <div>
+            <label for="created">created at</label>
+            <input type="timestamp" name="created" id="created" value="{{.post.CreatedAt}}">
+            <span class="date" style="float:none;">{{.post.CreatedAt | naturalTime}}</span>
+        </div>
+        <div>
+            Updated At: <span class="date" style="float:none;">{{.post.UpdatedAt | naturalTime}}</span>
+        </div>
+        <div>
+            Published At: <span class="date" style="float:none;">{{.post.PublishedAt | naturalTime}}</span>
+        </div>
+    </div>
+    <div class="published">
+        <input type="hidden" value="{{.post.Published}}" name="published" id="published">
+        <a class="published-toggle-button published-{{.post.Published}}">Published
+            <i class="icon {{if gt .post.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
+        </a>
+    </div>
+    <div class="buttons">
+        <input class="more-button" type="button" value="More">
+        <input class="save-button" type="submit" value="Save">
+    </div>
+    <div class="clear"></div>
+</form>
+
+<script src="/static/js/wasm_exec.js"></script>
+<script src="/static/js/goldmark.js"></script>
+<script>$("#content").livePreview()</script>

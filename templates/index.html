@@ -1,0 +1,36 @@
+
+
+<div class="post">
+    <h2><a href="/blog/{{.post.Slug}}/">{{.post.Title}} <img src="/static/img/link16.png"></a></h2>
+    <div class="post-content">
+        {{.post.ContentRendered | safe}}
+    <div class="date">{{.post.PublishedAt | naturalTime}}</div>
+    </div>
+    <div class="clear"></div>
+</div>
+
+
+<div class="bottom-panel summary">
+    <div class="left-panel">
+        <h3><a href="/blog/"><i class="icon icon-book"></i> Blog</a></h3>
+        <ul>
+        {{range $post := .posts}}
+        <li>
+            <a href="/blog/{{$post.Slug}}">{{$post.Title}}</a>
+            <span class="date">{{$post.PublishedAt | naturalTime}}</span>
+        </li>
+        {{end}}
+        </ul>
+    </div>
+    <div class="right-panel">
+        <h3><a href="/stream/"><i class="icon icon-list"></i> Stream</a></h3>
+        <ul>
+        {{range $event := .events}}
+        <li>
+            {{$event.SummaryRendered |safe}}
+        </li>
+        {{end}}
+        </ul>
+    </div>
+    <div class="clear"></div>
+</div>

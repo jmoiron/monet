@@ -183,8 +183,19 @@ func main() {
 
 	reg.DefaultCtx["debug"] = config.Debug
 
-	r.Handle("/favicon.ico", http.FileServer(http.FS(swp)))
-	r.Handle("/static/*", http.FileServer(http.FS(swp)))
+	stack := []func(http.Handler) http.Handler{
+		middleware.Compress(5),
+		// add a modest cache expiry for static files
+		middleware.SetHeader("Cache-Control", "max-age=120"),
+	}
+
+	if config.Debug {
+		// do not cache when in debug mode
+		stack[1] = middleware.NoCache
+	}
+
+	r.With(stack...).Handle("/favicon.ico", http.FileServer(http.FS(swp)))
+	r.With(stack...).Handle("/static/*", http.FileServer(http.FS(swp)))
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)

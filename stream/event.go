@@ -41,14 +41,14 @@ var eventMigration = monarch.Set{
 			 END;`,
 			Down: `DROP TRIGGER event_i;`,
 		}, {
-			Up: `CREATE TRIGGER event_d AFTER DELETE ON post BEGIN
+			Up: `CREATE TRIGGER event_d AFTER DELETE ON event BEGIN
 				INSERT INTO event_fts (event_fts, id, title, type,  url, timestamp, data) VALUES
 					('delete', old.id, old.title, old.type,  old.url, old.timestamp, old.data);
 			END`,
 			Down: `DROP TRIGGER event_d;`,
 		}, {
 			// delete + insert
-			Up: `CREATE TRIGGER event_u AFTER UPDATE ON post BEGIN
+			Up: `CREATE TRIGGER event_u AFTER UPDATE ON event BEGIN
 				INSERT INTO event_fts (event_fts, id, title, type,  url, timestamp, data) VALUES
 					('delete', old.id, old.title, old.type,  old.url, old.timestamp, old.data);
 				INSERT INTO event_fts (id, title, type,  url, timestamp, data) VALUES

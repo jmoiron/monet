@@ -21,6 +21,8 @@ import (
 	"github.com/go-sprout/sprout/registry/std"
 	"github.com/go-sprout/sprout/registry/strings"
 	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 type regKey struct{}
@@ -250,8 +252,14 @@ func RegistryFromContext(ctx context.Context) *Registry {
 }
 
 func RenderMarkdown(source string) string {
+	parser := goldmark.New(
+		goldmark.WithExtensions(extension.GFM),
+		goldmark.WithRendererOptions(
+			html.WithUnsafe(),
+		),
+	)
 	var buf bytes.Buffer
-	goldmark.Convert([]byte(source), &buf)
+	parser.Convert([]byte(source), &buf)
 	return buf.String()
 }
 

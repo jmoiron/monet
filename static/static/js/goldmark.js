@@ -33,7 +33,6 @@ $(function() {
 
   const convert = function(input, output) {
     console.log("content", input, output)
-    const options = optionNames;
     const html = toHtml(input.val(), 0);
     output.html(html);
   }

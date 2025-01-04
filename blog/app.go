@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sprout/sprout"
+	"github.com/gorilla/feeds"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
@@ -100,28 +101,69 @@ func (a *App) GetAdmin() (app.Admin, error) {
 	return NewBlogAdmin(a.db), nil
 }
 
+func (a *App) feed() *feeds.Feed {
+	now := time.Now()
+	feed := &feeds.Feed{
+		Title:       "jmoiron.net blog",
+		Link:        &feeds.Link{Href: "http://jmoiron.net/blog"},
+		Description: "discussion about tech, footie, photos",
+		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
+		Created:     now,
+	}
+
+	svc := NewPostService(a.db)
+	posts, err := svc.Select("where published > 0 order by published_at desc limit 20")
+	if err != nil {
+		slog.Error("error getting posts", "err", err)
+		return feed
+	}
+
+	for _, post := range posts {
+		feed.Add(&feeds.Item{
+			Title:       post.Title,
+			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
+			Description: post.ContentRendered,
+			Created:     post.CreatedAt,
+		})
+	}
+
+	return feed
+}
+
 func (a *App) rss(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("content-type", "application/xml")
+	w.Header().Set("Content-Type", "application/rss+xml")
 
-	/*
-		feed := newFeed()
-		if feed == nil {
-			xml500(w, "empty")
-			return
-		}
-		text, err := feed.ToRss()
-		if err != nil {
-			fmt.Println(err)
-			xml500(w, err.Error())
-			return
-		}
+	feed := a.feed()
+	if feed == nil {
+		app.Http500("nothing in feed", w, fmt.Errorf("empty feed"))
+		return
+	}
 
-		w.Write([]byte(text))
-	*/
+	rss, err := feed.ToRss()
+	if err != nil {
+		app.Http500("building feed", w, err)
+		return
+	}
+
+	w.Write([]byte(rss))
 }
 
 func (a *App) atom(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "application/atom+xml")
 
+	feed := a.feed()
+	if feed == nil {
+		app.Http500("nothing in feed", w, fmt.Errorf("empty feed"))
+		return
+	}
+
+	atom, err := feed.ToAtom()
+	if err != nil {
+		app.Http500("building feed", w, err)
+		return
+	}
+
+	w.Write([]byte(atom))
 }
 
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {

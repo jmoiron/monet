@@ -6,6 +6,7 @@ require (
 	github.com/chimeracoder/anaconda v2.0.0+incompatible
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-sprout/sprout v0.6.0
+	github.com/gorilla/feeds v1.2.0
 	github.com/gorilla/sessions v1.2.1
 	github.com/hoisie/web v0.1.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e

@@ -39,8 +39,8 @@ func (a *Admin) Bind(r chi.Router) {
 
 	r.Post("/posts/add/", a.add)
 	r.Post("/posts/edit/{slug:[^/]+}", a.save)
-	r.Post("/posts/delete/{slug:[^/]+}", a.delete)
-	r.Post("/posts/preview/", a.preview)
+	r.Get("/posts/delete/{id:\\d+}", a.delete)
+	// r.Post("/posts/preview/", a.preview)
 }
 
 // Render a blog admin panel.
@@ -216,23 +216,63 @@ func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) add(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	title := r.Form.Get("Title")
 
-	reg := mtr.RegistryFromContext(r.Context())
-	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
-		"post": Post{Title: title},
-	})
-	if err != nil {
-		slog.Error("rendering add", "err", err)
+	if r.Method == http.MethodGet {
+		title := r.Form.Get("Title")
+		reg := mtr.RegistryFromContext(r.Context())
+		// redirect to edit page
+		err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
+			"post": Post{Title: title},
+		})
+		if err != nil {
+			slog.Error("rendering add", "err", err)
+		}
+		return
 	}
+
+	var p Post
+	p.Title = r.Form.Get("title")
+	p.Slug = r.Form.Get("slug")
+	p.Content = r.Form.Get("content")
+
+	// if we're changing the published bit, set/unset the published at timestamp
+	p.Published, _ = strconv.Atoi(r.Form.Get("published"))
+	if p.Published > 0 {
+		p.PublishedAt = time.Now()
+	}
+
+	err := NewPostService(a.db).Save(&p)
+	if err != nil {
+		app.Http500("saving post", w, err)
+		return
+	}
+
+	editUrl := fmt.Sprintf("../edit/%s", p.Slug)
+	http.Redirect(w, r, editUrl, http.StatusFound)
 
 }
 
 func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
 
-}
+	referer := r.Header.Get("Referer")
+	if len(referer) == 0 {
+		referer = "/admin/"
+	}
 
-func (a *Admin) preview(w http.ResponseWriter, r *http.Request) {
+	id := app.GetIntParam(r, "id", -1)
+	if id <= 0 {
+		slog.Warn("deleted non-existent post", "id", id)
+		http.Redirect(w, r, referer, http.StatusFound)
+		return
+	}
+
+	slog.Info("deleting post", "id", id)
+	_, err := a.db.Exec("DELETE FROM post WHERE id=?", id)
+	if err != nil {
+		app.Http500("deleting post", w, err)
+		return
+	}
+	http.Redirect(w, r, referer, http.StatusFound)
 
 }
 

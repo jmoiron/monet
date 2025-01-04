@@ -21,8 +21,8 @@ var postMigrations = monarch.Set{
 				slug TEXT,
 				content TEXT DEFAULT '',
 				content_rendered TEXT DEFAULT '',
-				created_at datetime DEFAULT (strftime('%s', 'now')),
-				updated_at datetime DEFAULT (strftime('%s', 'now')),
+				created_at datetime DEFAULT (datetime('now')),
+				updated_at datetime DEFAULT (datetime('now')),
 				published_at datetime DEFAULT 0,
 				published INTEGER DEFAULT 0
 			);`,
@@ -322,11 +322,15 @@ func (p *Post) preSave() {
 	// create a slug
 	p.Slug = db.Slugify(p.Title)
 
-	if !p.UpdatedAt.IsZero() {
-		// allow tests to update this to verify that updates change the time
-		if p.now == nil {
-			p.now = time.Now
-		}
-		p.UpdatedAt = p.now()
+	if p.now == nil {
+		p.now = time.Now
 	}
+	now := p.now()
+
+	// FIXME: fix
+	p.UpdatedAt = now
+	if p.CreatedAt.IsZero() {
+		p.CreatedAt = now
+	}
+
 }

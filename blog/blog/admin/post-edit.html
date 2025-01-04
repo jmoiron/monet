@@ -4,7 +4,7 @@
         <input type="text" name="title" id="title" class="post-title-input js-clear-default"
             value="{{if .post.Title}}{{ .post.Title}}{{else}}Type a new title...{{end}}" data-default="Type a new title...">
     <div>
-        <textarea class="split-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
+        <textarea class="split-content-input js-clear-default" name="content" id="content" spellcheck="true" data-default="Type some new content...">{{
             if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
         }}</textarea>
     </div>

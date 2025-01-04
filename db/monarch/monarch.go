@@ -70,8 +70,8 @@ func (m *Manager) Downgrade(name string) error {
 		return err
 	}
 
-	if cur.Version == 0 {
-		return fmt.Errorf("cannot downgrade past version 0")
+	if cur.AppliedAt.IsZero() {
+		return nil
 	}
 
 	_, err := m.db.Exec(cur.Down)

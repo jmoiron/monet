@@ -67,14 +67,14 @@ h1 { text-align: center; font-size: 48px;
   border-top: 10px solid #eee;
 }
 
-.post-content, .post-content-input, #content-rendered {
+.post-content, .post-content-input, .page-content {
   font-size: 18px;
   line-height: 1.6;
 }
 
-.page-content {
-  font-size: 18px;
-  line-height: 1.6;
+#content-rendered {
+    font-size: 16px;
+    line-height: 1.6;
 }
 
 .container {
@@ -103,12 +103,16 @@ a { color: @bluelink; font-weight: bold; text-decoration: none;
   /* show link icon when hovering on title */
   h2 a img { display: none; }
   h2 a:hover { color: #000; img { display: inline; }}
-  p code {
-    background-color: #feffdd;
-    padding: 4px 5px;
-    border-radius: 5px;
-  }
 }
+
+p code {
+  background-color: #fff7f7;
+  padding: 4px 5px;
+  border-radius: 5px;
+  color: #b22222;
+  font-size: 17px;
+}
+
 .post-content {
   line-height: 1.6;
 }

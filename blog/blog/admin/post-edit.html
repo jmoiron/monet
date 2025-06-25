@@ -19,6 +19,14 @@
             <span class="date" style="float:none;">{{.post.CreatedAt | naturalTime}}</span>
         </div>
         <div>
+            <label for="ogDescription">OG Description</label>
+            <input type="text" name="ogDescription" id="ogDescription" value="{{.post.OgDescription}}">
+        </div>
+        <div>
+            <label for="ogImage">OG Image (URL)</label>
+            <input type="text" name="ogImage" id="ogImage" value="{{.post.OgImage}}">
+        </div>
+        <div>
             Updated At: <span class="date" style="float:none;">{{.post.UpdatedAt | naturalTime}}</span>
         </div>
         <div>

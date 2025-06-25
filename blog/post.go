@@ -204,7 +204,8 @@ func (s *PostService) Save(p *Post) error {
 	return db.With(s.db, func(tx *sqlx.Tx) error {
 		q := `UPDATE post SET
 		title=:title, slug=:slug, content=:content, content_rendered=:content_rendered,
-		updated_at=:updated_at, published_at=:published_at, published=:published
+		updated_at=:updated_at, published_at=:published_at, published=:published,
+		og_description=:og_description, og_image=:og_image
 	WHERE id=:id`
 		update, err := tx.PrepareNamed(q)
 		if err != nil {
@@ -233,8 +234,8 @@ func (s *PostService) Save(p *Post) error {
 // auto incremented ID provided by the database.
 func (s *PostService) Insert(p *Post) error {
 	q := `INSERT INTO post
-	(title, slug, content, content_rendered, published) VALUES
-	(:title, :slug, :content, :content_rendered, :published);`
+	(title, slug, content, content_rendered, published, og_description, og_image) VALUES
+	(:title, :slug, :content, :content_rendered, :published, :og_description, :og_image);`
 
 	p.preSave()
 
@@ -267,6 +268,9 @@ func (s *PostService) Insert(p *Post) error {
 // InsertArchive inserts a post as an archival post, skipping the pre-save
 func (s *PostService) InsertArchive(p *Post) error {
 	// if CreatedAt is set, then do a full insert
+
+	// XXX: no og_description/og_image on these because I didn't have
+	// support for them when the previous archive was created.
 	q := `INSERT INTO post
 		(title, slug, content, content_rendered, created_at, updated_at, published_at, published) values
 		(:title, :slug, :content, :content_rendered, :created_at, :updated_at, :published_at, :published);`

@@ -192,6 +192,8 @@ func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
 	p.Title = r.Form.Get("title")
 	p.Slug = r.Form.Get("slug")
 	p.Content = r.Form.Get("content")
+	p.OgDescription = r.Form.Get("ogDescription")
+	p.OgImage = r.Form.Get("ogImage")
 
 	// if we're changing the published bit, set/unset the published at timestamp
 	formPub, _ := strconv.Atoi(r.Form.Get("published"))

@@ -176,7 +176,11 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 
 	reg := mtr.RegistryFromContext(req.Context())
 	reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
-		"post": p,
+		"title":         p.Title,
+		"ogTitle":       p.Title,
+		"ogDescription": p.OgDescription,
+		"ogImage":       p.OgImage,
+		"post":          p,
 	})
 }
 

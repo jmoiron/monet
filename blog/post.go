@@ -59,6 +59,12 @@ var postMigrations = monarch.Set{
 					(new.id, new.title, new.slug, new.content, new.published);
 			END`,
 			Down: `DROP TRIGGER post_u;`,
+		}, {
+			Up:   `ALTER TABLE post ADD COLUMN og_description text default '';`,
+			Down: `ALTER TABLE post DROP COLUMN og_description;`,
+		}, {
+			Up:   `ALTER TABLE post ADD COLUMN og_image text default '';`,
+			Down: `ALTER TABLE post DROP COLUMN og_image;`,
 		},
 	},
 }
@@ -89,6 +95,9 @@ type Post struct {
 	PublishedAt     time.Time `db:"published_at"`
 	Published       int
 	Tags            []string `db:"-"`
+	// OpenGraph Tags
+	OgDescription string `db:"og_description"`
+	OgImage       string `db:"og_image"`
 	// test usage
 	now func() time.Time
 }

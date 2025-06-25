@@ -211,6 +211,10 @@ func (s *PostService) Save(p *Post) error {
 			return err
 		}
 
+		// attempt to re-build the full text search index, which seems to
+		// get corrupted by our update triggers for some reason
+		tx.Exec(`insert into post_fts(post_fts) values ('rebuild')`)
+
 		return nil
 	})
 

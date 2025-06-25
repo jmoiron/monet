@@ -1,5 +1,5 @@
 {
-    "DatabaseURI": "dev.db?cache=shared",
+    "DatabaseURI": "prod.db?cache=shared",
     "ListenAddr": "0.0.0.0:7001",
     "Debug": true
 }

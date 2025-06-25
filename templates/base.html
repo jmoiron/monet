@@ -17,9 +17,9 @@
         <script src="/static/js/cash.min.js"></script>
         <script src="/static/js/frontend.js"></script>
         <script src="/static/js/prettify.js"></script>
-        {{if .description -}}
-        <meta name="description" content="{{.description}}">
-        <meta property="og:description" content="{{.description}}">
+        {{if .ogDescription -}}
+        <meta name="description" content="{{.ogDescription}}">
+        <meta property="og:description" content="{{.ogDescription}}">
         {{end}}
         {{if .ogTitle -}}
         <meta property="og:title" content="{{.ogTitle}}">

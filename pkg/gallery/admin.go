@@ -1,13 +1,5 @@
 package gallery
 
-import (
-	"fmt"
-
-	"github.com/hoisie/web"
-	"github.com/jmoiron/monet/app"
-	"github.com/jmoiron/monet/db"
-)
-
 type M map[string]interface{}
 
 var (
@@ -16,6 +8,7 @@ var (
 	indexListSize = 6
 )
 
+/*
 func auth(f func(*web.Context) string) func(*web.Context) string {
 	ret := func(ctx *web.Context) string {
 		if app.RequireAuthentication(ctx) {
@@ -130,3 +123,4 @@ func (gp *GalleryPanel) Render() string {
 		"HasRun":        gc.LastRun > 0,
 	})
 }
+*/

@@ -10,7 +10,10 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
+
+from fontTools.ttLib import TTFont
+from fontTools.subset import Subsetter
 
 
 # CSS Constants
@@ -326,6 +329,229 @@ def generate_minimal_css(icon_infos: List[IconInfo]) -> str:
     return "\n".join(css_parts)
 
 
+def unicode_string_to_codepoint(unicode_str: str) -> int:
+    """
+    Convert a unicode escape string like '\\f09b' to a codepoint integer.
+    
+    Args:
+        unicode_str: Unicode escape string (e.g., '\\f09b')
+        
+    Returns:
+        Integer codepoint (e.g., 61595 for '\\f09b')
+    """
+    # Remove the backslashes and convert from hex
+    hex_part = unicode_str.replace('\\', '')
+    return int(hex_part, 16)
+
+
+def extract_codepoints_by_family(icon_infos: List[IconInfo]) -> Dict[str, Set[int]]:
+    """
+    Extract codepoints grouped by font family from icon information.
+    
+    Args:
+        icon_infos: List of IconInfo objects
+        
+    Returns:
+        Dictionary mapping family names to sets of codepoints
+    """
+    family_codepoints = {}
+    
+    for info in icon_infos:
+        if info.family not in family_codepoints:
+            family_codepoints[info.family] = set()
+        
+        codepoint = unicode_string_to_codepoint(info.unicode_codepoint)
+        family_codepoints[info.family].add(codepoint)
+    
+    return family_codepoints
+
+
+def subset_font_file(source_font_path: str, codepoints: Set[int], output_path: str) -> None:
+    """
+    Create a subset of a font file containing only specified codepoints.
+    
+    Args:
+        source_font_path: Path to the source WOFF2 file
+        codepoints: Set of Unicode codepoints to include
+        output_path: Path for the output subset font file
+        
+    Raises:
+        FileNotFoundError: If source font file doesn't exist
+        Exception: If font processing fails
+    """
+    source_path = Path(source_font_path)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Font file not found: {source_font_path}")
+    
+    # Load the source font
+    font = TTFont(source_font_path)
+    
+    # Create subsetter and configure options
+    subsetter = Subsetter()
+    
+    # Configure subsetting options for optimal output
+    subsetter.options.desubroutinize = True  # Remove subroutines for smaller size
+    subsetter.options.layout_features = []  # Remove layout features we don't need
+    subsetter.options.name_IDs = ['*']  # Keep all name records
+    subsetter.options.notdef_outline = True  # Keep .notdef glyph
+    
+    # Subset the font to include only the specified codepoints
+    subsetter.populate(unicodes=codepoints)
+    subsetter.subset(font)
+    
+    # Save the subset font
+    font.save(output_path)
+    font.close()
+
+
+def combine_font_subsets(family_codepoints: Dict[str, Set[int]], output_path: str) -> None:
+    """
+    Create a combined font file from multiple family subsets.
+    
+    This uses a simpler approach: find the font family with the most icons
+    and create a subset from that source font containing all required codepoints.
+    
+    Args:
+        family_codepoints: Dictionary mapping family names to sets of codepoints
+        output_path: Path for the output combined font file
+        
+    Raises:
+        FileNotFoundError: If any source font files don't exist
+        ValueError: If no families are provided
+    """
+    if not family_codepoints:
+        raise ValueError("No font families provided")
+    
+    # Map family names to their source font files
+    family_font_files = {
+        'brands': 'fa-brands-400.woff2',
+        'regular': 'fa-regular-400.woff2',
+        'solid': 'fa-solid-900.woff2'
+    }
+    
+    # Combine all codepoints from all families
+    all_codepoints = set()
+    for codepoints in family_codepoints.values():
+        all_codepoints.update(codepoints)
+    
+    # Find which source font contains the most of our required codepoints
+    best_family = None
+    best_coverage = 0
+    
+    for family in family_codepoints.keys():
+        if family not in family_font_files:
+            continue
+        
+        source_font_path = family_font_files[family]
+        if not Path(source_font_path).exists():
+            continue
+        
+        # Check coverage by loading the font and checking its cmap
+        try:
+            font = TTFont(source_font_path)
+            cmap = font['cmap'].getBestCmap()
+            
+            # Count how many of our required codepoints this font contains
+            coverage = len(all_codepoints.intersection(set(cmap.keys())))
+            
+            if coverage > best_coverage:
+                best_coverage = coverage
+                best_family = family
+            
+            font.close()
+        except Exception:
+            continue
+    
+    if not best_family:
+        raise ValueError("No suitable source font found")
+    
+    # If we can't find all codepoints in a single font, we'll create multiple subsets
+    # and merge them using the fontTools.merge module
+    if best_coverage < len(all_codepoints):
+        # Create separate subsets for each family and merge them
+        temp_files = []
+        
+        try:
+            for family, codepoints in family_codepoints.items():
+                if family not in family_font_files:
+                    continue
+                
+                source_font_path = family_font_files[family]
+                temp_subset_path = f"temp_{family}_subset.woff2"
+                
+                # Create subset of this family
+                subset_font_file(source_font_path, codepoints, temp_subset_path)
+                temp_files.append(temp_subset_path)
+            
+            if len(temp_files) == 1:
+                # Only one family - just rename the file
+                Path(temp_files[0]).rename(output_path)
+            else:
+                # Multiple families - use fontTools.merge (simpler than manual merging)
+                from fontTools.merge import Merger
+                
+                merger = Merger()
+                merged_font = merger.merge(temp_files)
+                merged_font.save(output_path)
+                merged_font.close()
+            
+        finally:
+            # Clean up temporary files
+            for temp_file in temp_files:
+                temp_path = Path(temp_file)
+                if temp_path.exists():
+                    temp_path.unlink()
+    
+    else:
+        # All codepoints can be found in the best font - create a single subset
+        source_font_path = family_font_files[best_family]
+        subset_font_file(source_font_path, all_codepoints, output_path)
+    
+    # Report what was combined
+    total_icons = len(all_codepoints)
+    families_list = list(family_codepoints.keys())
+    print(f"Combined {total_icons} icons from {len(families_list)} families: {', '.join(families_list)}")
+
+
+def generate_minimal_font(icon_infos: List[IconInfo], output_path: str) -> None:
+    """
+    Generate a minimal font file containing only the specified icons.
+    
+    Args:
+        icon_infos: List of IconInfo objects with font and codepoint data
+        output_path: Path for the output font file
+        
+    Raises:
+        ValueError: If no icons are provided
+        FileNotFoundError: If source font files are missing
+    """
+    if not icon_infos:
+        raise ValueError("No icons provided for font generation")
+    
+    # Extract codepoints by family
+    family_codepoints = extract_codepoints_by_family(icon_infos)
+    
+    # If we only have one family, create a simple subset
+    if len(family_codepoints) == 1:
+        family = next(iter(family_codepoints.keys()))
+        codepoints = family_codepoints[family]
+        
+        family_font_files = {
+            'brands': 'fa-brands-400.woff2',
+            'regular': 'fa-regular-400.woff2',
+            'solid': 'fa-solid-900.woff2'
+        }
+        
+        source_font = family_font_files.get(family)
+        if not source_font:
+            raise ValueError(f"Unknown font family: {family}")
+        
+        subset_font_file(source_font, codepoints, output_path)
+    else:
+        # Multiple families - create combined font
+        combine_font_subsets(family_codepoints, output_path)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -409,9 +635,18 @@ Examples:
             
             print(f"Generated: {css_filename}")
         
-        # Font generation placeholder
+        # Generate font file if requested
         if not args.css_only:
-            print(f"Font generation for {output_prefix}.woff2 not yet implemented")
+            if args.verbose:
+                print("Generating minimal font file...")
+                family_codepoints = extract_codepoints_by_family(icon_infos)
+                for family, codepoints in family_codepoints.items():
+                    print(f"  {family}: {len(codepoints)} icons")
+            
+            font_filename = f"{output_prefix}.woff2"
+            generate_minimal_font(icon_infos, font_filename)
+            
+            print(f"Generated: {font_filename}")
         
     except (FileNotFoundError, ValueError) as e:
         print(f"Error: {e}", file=sys.stderr)

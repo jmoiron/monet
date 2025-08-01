@@ -7,7 +7,11 @@ import pytest
 import tempfile
 import os
 from pathlib import Path
-from minimize import parse_spec_file, extract_icon_css, extract_all_icons_css, generate_minimal_css, IconInfo
+from minimize import (
+    parse_spec_file, extract_icon_css, extract_all_icons_css, generate_minimal_css, 
+    IconInfo, unicode_string_to_codepoint, extract_codepoints_by_family, 
+    subset_font_file, generate_minimal_font
+)
 
 
 class TestParseSpecFile:
@@ -395,3 +399,149 @@ class TestGenerateMinimalCSS:
         
         # Within solid section: apple should come before zebra
         assert apple_pos < zebra_pos
+
+
+class TestFontGeneration:
+    """Test cases for font generation functionality."""
+    
+    def test_unicode_string_to_codepoint(self):
+        """Test converting unicode strings to codepoints."""
+        test_cases = [
+            ('\\f09b', 61595),  # GitHub icon
+            ('\\f015', 61461),  # House icon  
+            ('\\e671', 58993),  # Bluesky icon
+            ('\\f1d4', 61908),  # Hacker News icon
+        ]
+        
+        for unicode_str, expected_codepoint in test_cases:
+            result = unicode_string_to_codepoint(unicode_str)
+            assert result == expected_codepoint
+    
+    def test_extract_codepoints_by_family(self):
+        """Test extracting codepoints grouped by family."""
+        infos = [
+            IconInfo("brands", "github", '.fa-github {\n  --fa: "\\f09b";\n}', "\\f09b"),
+            IconInfo("brands", "instagram", '.fa-instagram {\n  --fa: "\\f16d";\n}', "\\f16d"),
+            IconInfo("solid", "house", '.fa-house {\n  --fa: "\\f015";\n}', "\\f015"),
+        ]
+        
+        result = extract_codepoints_by_family(infos)
+        
+        assert "brands" in result
+        assert "solid" in result
+        assert len(result["brands"]) == 2
+        assert len(result["solid"]) == 1
+        
+        # Check actual codepoints
+        assert 61595 in result["brands"]  # GitHub (\f09b)
+        assert 61805 in result["brands"]  # Instagram (\f16d)
+        assert 61461 in result["solid"]   # House (\f015)
+    
+    def test_subset_font_file_brands(self):
+        """Test creating a font subset with brand icons."""
+        # Skip if font files don't exist
+        if not Path("fa-brands-400.woff2").exists():
+            pytest.skip("Source font files not available")
+        
+        codepoints = {61595, 61805}  # GitHub and Instagram
+        output_path = "test_brands_subset.woff2"
+        
+        try:
+            subset_font_file("fa-brands-400.woff2", codepoints, output_path)
+            
+            # Verify the output file was created and is smaller than original
+            assert Path(output_path).exists()
+            
+            original_size = Path("fa-brands-400.woff2").stat().st_size
+            subset_size = Path(output_path).stat().st_size
+            
+            assert subset_size < original_size
+            assert subset_size > 0  # Should have some content
+            
+        finally:
+            # Clean up
+            if Path(output_path).exists():
+                Path(output_path).unlink()
+    
+    def test_subset_font_file_nonexistent(self):
+        """Test that subsetting nonexistent font raises FileNotFoundError."""
+        with pytest.raises(FileNotFoundError):
+            subset_font_file("nonexistent.woff2", {61595}, "output.woff2")
+    
+    def test_generate_minimal_font_single_family(self):
+        """Test generating minimal font with single family."""
+        # Skip if font files don't exist
+        if not Path("fa-brands-400.woff2").exists():
+            pytest.skip("Source font files not available")
+        
+        infos = [
+            IconInfo("brands", "github", '.fa-github {\n  --fa: "\\f09b";\n}', "\\f09b"),
+            IconInfo("brands", "instagram", '.fa-instagram {\n  --fa: "\\f16d";\n}', "\\f16d"),
+        ]
+        
+        output_path = "test_minimal_single.woff2"
+        
+        try:
+            generate_minimal_font(infos, output_path)
+            
+            # Verify the output file was created
+            assert Path(output_path).exists()
+            
+            # Should be smaller than original
+            original_size = Path("fa-brands-400.woff2").stat().st_size
+            minimal_size = Path(output_path).stat().st_size
+            
+            assert minimal_size < original_size
+            assert minimal_size > 0
+            
+        finally:
+            # Clean up
+            if Path(output_path).exists():
+                Path(output_path).unlink()
+    
+    def test_generate_minimal_font_empty(self):
+        """Test that generating font with no icons raises ValueError."""
+        with pytest.raises(ValueError, match="No icons provided"):
+            generate_minimal_font([], "output.woff2")
+    
+    def test_generate_minimal_font_multi_family(self):
+        """Test generating minimal font with multiple families contains all icons."""
+        # Skip if font files don't exist
+        if not (Path("fa-brands-400.woff2").exists() and Path("fa-solid-900.woff2").exists()):
+            pytest.skip("Source font files not available")
+        
+        infos = [
+            IconInfo("brands", "github", '.fa-github {\n  --fa: "\\f09b";\n}', "\\f09b"),
+            IconInfo("brands", "instagram", '.fa-instagram {\n  --fa: "\\f16d";\n}', "\\f16d"),
+            IconInfo("solid", "house", '.fa-house {\n  --fa: "\\f015";\n}', "\\f015"),
+            IconInfo("solid", "users", '.fa-users {\n  --fa: "\\f0c0";\n}', "\\f0c0"),
+        ]
+        
+        output_path = "test_minimal_multi.woff2"
+        
+        try:
+            generate_minimal_font(infos, output_path)
+            
+            # Verify the output file was created
+            assert Path(output_path).exists()
+            
+            # Load the font and verify it contains all expected codepoints
+            from fontTools.ttLib import TTFont
+            font = TTFont(output_path)
+            cmap = font['cmap'].getBestCmap()
+            
+            expected_codepoints = {61595, 61805, 61461, 61632}  # github, instagram, house, users
+            found_codepoints = set(cmap.keys())
+            
+            # Check that all expected codepoints are present
+            assert expected_codepoints.issubset(found_codepoints), f"Missing codepoints: {expected_codepoints - found_codepoints}"
+            
+            # Should have exactly the expected number of icons
+            assert len(found_codepoints) >= len(expected_codepoints)
+            
+            font.close()
+            
+        finally:
+            # Clean up
+            if Path(output_path).exists():
+                Path(output_path).unlink()

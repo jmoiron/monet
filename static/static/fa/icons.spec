@@ -1,0 +1,9 @@
+fa-brands fa-hacker-news
+fa-brands fa-github
+fa-brands fa-bluesky
+fa-brands fa-linkedin
+fa-brands fa-instagram
+fa-solid fa-circle-info
+fa-solid fa-right-from-bracket
+fa-solid fa-users
+fa-solid fa-house

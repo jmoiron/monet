@@ -307,10 +307,10 @@ class TestGenerateMinimalCSS:
         assert ".fa-brands" in css
         assert "::before" in css
         
-        # Check brand-specific font face
+        # Check combined font face
         assert "@font-face" in css
-        assert "Font Awesome 7 Brands" in css
-        assert 'src: url("fa-brands-400.woff2");' in css
+        assert "Font Awesome 7 Combined" in css
+        assert 'src: url("icons.woff2");' in css
         
         # Check individual icon rules
         assert ".fa-github" in css
@@ -318,8 +318,8 @@ class TestGenerateMinimalCSS:
         assert "\\f09b" in css
         assert "\\f16d" in css
         
-        # Should not contain solid styles
-        assert "Font Awesome 7 Free" not in css
+        # Should contain the combined font
+        assert "--fa-family-combined" in css
     
     def test_generate_css_with_solid_only(self):
         """Test generating CSS with only solid icons."""
@@ -330,17 +330,17 @@ class TestGenerateMinimalCSS:
         
         css = generate_minimal_css(infos)
         
-        # Check solid-specific font face
-        assert "Font Awesome 7 Free" in css
-        assert 'src: url("fa-solid-900.woff2");' in css
-        assert "font-weight: 900;" in css
+        # Check combined font face
+        assert "Font Awesome 7 Combined" in css
+        assert 'src: url("icons.woff2");' in css
+        assert "font-weight: 400 900;" in css
         
         # Check individual icon rules
         assert ".fa-house" in css
         assert ".fa-users" in css
         
-        # Should not contain brand styles
-        assert "Font Awesome 7 Brands" not in css
+        # Should contain the combined font
+        assert "--fa-family-combined" in css
     
     def test_generate_css_with_mixed_families(self):
         """Test generating CSS with mixed icon families."""
@@ -351,11 +351,10 @@ class TestGenerateMinimalCSS:
         
         css = generate_minimal_css(infos)
         
-        # Should contain both brand and solid styles
-        assert "Font Awesome 7 Brands" in css
-        assert "Font Awesome 7 Free" in css
-        assert 'src: url("fa-brands-400.woff2");' in css
-        assert 'src: url("fa-solid-900.woff2");' in css
+        # Should contain the combined font
+        assert "Font Awesome 7 Combined" in css
+        assert 'src: url("icons.woff2");' in css
+        assert "--fa-family-combined" in css
         
         # Check that icons are grouped by family in individual definitions section
         individual_section = css.find("/* Individual icon definitions */")

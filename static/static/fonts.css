@@ -25,16 +25,3 @@
     font-weight: 400 700;
     src: url("/static/lora-italic.ttf") format("truetype");
 }
-
-@font-face {
-  font-family: 'JustVector';
-  font-style: normal;
-  font-weight: 700;
-  src: local('JustVector'),  url("/static/justvector.woff") format('woff');
-}
-@font-face {
-  font-family: 'FontAwesome';
-  font-style: normal;
-  font-weight: 700;
-  src: local('FontAwesome'),  url("/static/fontawesome-webfont.woff") format('woff');
-}

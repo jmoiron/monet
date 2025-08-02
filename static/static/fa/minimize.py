@@ -53,66 +53,20 @@ BASE_STYLES = """.fa-solid,
   content: var(--fa)/"";
 }"""
 
-BASE_BRANDS_STYLES = """/* Brand icons */
-:root, :host {
-  --fa-family-brands: "Font Awesome 7 Brands";
-  --fa-font-brands: normal 400 1em/1 var(--fa-family-brands);
-}
-
-@font-face {
-  font-family: "Font Awesome 7 Brands";
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url("fa-brands-400.woff2");
-}
-
-.fab {
-  --fa-family: var(--fa-family-brands);
-}
-
-.fa-brands {
-  --fa-family: var(--fa-family-brands);
+BASE_BRANDS_STYLES = """/* Brand icon family */
+.fab, .fa-brands {
+  --fa-family: var(--fa-family-combined);
 }"""
 
-BASE_REGULAR_STYLES = """/* Regular icons */
-@font-face {
-  font-family: "Font Awesome 7 Free";
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url("fa-regular-400.woff2");
-}
-
-.far {
-  --fa-family: var(--fa-family-classic);
-  --fa-style: 400;
-}
-
-.fa-regular {
+BASE_REGULAR_STYLES = """/* Regular icon family */
+.far, .fa-regular {
+  --fa-family: var(--fa-family-combined);
   --fa-style: 400;
 }"""
 
-BASE_SOLID_STYLES = """/* Solid icons */
-:root, :host {
-  --fa-family-classic: "Font Awesome 7 Free";
-  --fa-font-solid: normal 900 1em/1 var(--fa-family-classic);
-}
-
-@font-face {
-  font-family: "Font Awesome 7 Free";
-  font-style: normal;
-  font-weight: 900;
-  font-display: block;
-  src: url("fa-solid-900.woff2");
-}
-
-.fas {
-  --fa-family: var(--fa-family-classic);
-  --fa-style: 900;
-}
-
-.fa-solid {
+BASE_SOLID_STYLES = """/* Solid icon family */
+.fas, .fa-solid {
+  --fa-family: var(--fa-family-combined);
   --fa-style: 900;
 }"""
 
@@ -266,12 +220,14 @@ def extract_all_icons_css(spec_pairs: List[Tuple[str, str]]) -> List[IconInfo]:
     return icon_infos
 
 
-def generate_minimal_css(icon_infos: List[IconInfo]) -> str:
+def generate_minimal_css(icon_infos: List[IconInfo], font_url: str = None, output_prefix: str = "icons") -> str:
     """
     Generate minimal CSS file content from icon information.
     
     Args:
         icon_infos: List of IconInfo objects
+        font_url: Custom URL for the font file (optional)
+        output_prefix: Output file prefix for default font URL
         
     Returns:
         Complete CSS file content as string
@@ -295,19 +251,41 @@ def generate_minimal_css(icon_infos: List[IconInfo]) -> str:
     css_parts.append(" */")
     css_parts.append("")
     
+    # Determine font URL
+    if font_url is None:
+        font_url = f"{output_prefix}.woff2"
+    
+    # Add CSS variables at the top
+    css_parts.append("/* CSS Variables */")
+    css_parts.append(":root, :host {")
+    css_parts.append('  --fa-family-combined: "Font Awesome 7 Combined";')
+    css_parts.append('  --fa-font: normal 400 1em/1 var(--fa-family-combined);')
+    css_parts.append("}")
+    css_parts.append("")
+    
     # Add base FontAwesome styles
     css_parts.append(BASE_STYLES)
     css_parts.append("")
     
-    # Add family-specific styles and font-face declarations in order: brands, regular, solid
+    # Add single font-face declaration for the combined font
+    css_parts.append("@font-face {")
+    css_parts.append('  font-family: "Font Awesome 7 Combined";')
+    css_parts.append("  font-style: normal;")
+    css_parts.append("  font-weight: 400 900;")
+    css_parts.append("  font-display: block;")
+    css_parts.append(f'  src: url("{font_url}");')
+    css_parts.append("}")
+    css_parts.append("")
+    
+    # Add family-specific class definitions
     if 'brands' in families:
         css_parts.append(BASE_BRANDS_STYLES)
         css_parts.append("")
-
+    
     if 'regular' in families:
         css_parts.append(BASE_REGULAR_STYLES)
         css_parts.append("")
-
+    
     if 'solid' in families:
         css_parts.append(BASE_SOLID_STYLES)
         css_parts.append("")
@@ -561,6 +539,7 @@ def main():
 Examples:
   %(prog)s icons.spec
   %(prog)s icons.spec --output-prefix custom
+  %(prog)s icons.spec --url "/fonts/custom-icons.woff2"
   %(prog)s icons.spec --css-only
         """
     )
@@ -586,6 +565,12 @@ Examples:
         '--font-only',
         action='store_true',
         help='Generate only font file, not CSS file'
+    )
+    
+    parser.add_argument(
+        '--url',
+        default=None,
+        help='Custom URL for the font file in CSS (default: same as output prefix + .woff2)'
     )
     
     parser.add_argument(
@@ -627,7 +612,7 @@ Examples:
         
         # Generate CSS file if requested
         if not args.font_only:
-            css_content = generate_minimal_css(icon_infos)
+            css_content = generate_minimal_css(icon_infos, args.url, output_prefix)
             css_filename = f"{output_prefix}.css"
             
             with open(css_filename, 'w') as f:

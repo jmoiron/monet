@@ -4,7 +4,7 @@ go 1.23.3
 
 require (
 	github.com/chimeracoder/anaconda v2.0.0+incompatible
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/go-chi/chi/v5 v5.2.2
 	github.com/go-sprout/sprout v0.6.0
 	github.com/gorilla/feeds v1.2.0
 	github.com/gorilla/sessions v1.2.1

@@ -20,6 +20,7 @@ $.fn.livePreview = function() {
     parent = $this.parent();
     parent.remove($this);
     parent.append(grid);
+    $(grid).find("#content-rendered").append(`<div class="loader-container"><span class="loader"></span></div>`);
     $(grid).find("#content-input").append($this);
 
     // run split to get resizable content

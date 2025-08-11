@@ -3,6 +3,10 @@
     <div>
         <input type="text" name="title" id="title" class="post-title-input js-clear-default"
             value="{{if .post.Title}}{{ .post.Title}}{{else}}Type a new title...{{end}}" data-default="Type a new title...">
+        <div class="shrink-grow-buttons">
+          <i class="fa-solid fa-down-left-and-up-right-to-center shrink"></i>
+          <i class="fa-solid fa-up-right-and-down-left-from-center grow"></i>
+        </div>
     <div>
         <textarea class="split-content-input js-clear-default" name="content" id="content" spellcheck="true" data-default="Type some new content...">{{
             if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
@@ -33,17 +37,19 @@
             Published At: <span class="date" style="float:none;">{{.post.PublishedAt | naturalTime}}</span>
         </div>
     </div>
-    <div class="published">
-        <input type="hidden" value="{{.post.Published}}" name="published" id="published">
-        <a class="published-toggle-button published-{{.post.Published}}">Published
-            <i class="icon {{if gt .post.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
-        </a>
+    <div class="button-group">
+      <div class="published">
+          <input type="hidden" value="{{.post.Published}}" name="published" id="published">
+          <a class="published-toggle-button published-{{.post.Published}}">Published
+              <i class="icon {{if gt .post.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
+          </a>
+      </div>
+      <div class="buttons">
+          <input class="more-button" type="button" value="More">
+          <input class="save-button" type="submit" value="Save">
+      </div>
+      <div class="clear"></div>
     </div>
-    <div class="buttons">
-        <input class="more-button" type="button" value="More">
-        <input class="save-button" type="submit" value="Save">
-    </div>
-    <div class="clear"></div>
 </form>
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>

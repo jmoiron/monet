@@ -7,3 +7,5 @@ fa-solid fa-circle-info
 fa-solid fa-right-from-bracket
 fa-solid fa-users
 fa-solid fa-house
+fa-solid fa-down-left-and-up-right-to-center
+fa-solid fa-up-right-and-down-left-from-center

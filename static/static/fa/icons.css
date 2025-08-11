@@ -86,11 +86,17 @@
 .fa-circle-info {
   --fa: "\f05a";
 }
+.fa-down-left-and-up-right-to-center {
+  --fa: "\f422";
+}
 .fa-house {
   --fa: "\f015";
 }
 .fa-right-from-bracket {
   --fa: "\f2f5";
+}
+.fa-up-right-and-down-left-from-center {
+  --fa: "\f424";
 }
 .fa-users {
   --fa: "\f0c0";

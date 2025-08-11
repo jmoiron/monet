@@ -100,4 +100,18 @@ $(function() {
         });
     }
 
+    $(".shrink").on("click", () => {
+      let current = $(".container").width();
+      if (current > 1200) {
+        $(".container").css("width", current-100);
+      }
+    });
+
+    $(".grow").on("click", () => {
+      let current = $(".container").width();
+      if (current < 2400) {
+        $(".container").css("width", current+100);
+      }
+    });
+
 });

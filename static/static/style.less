@@ -233,9 +233,22 @@ p code {
     font-size: 16px;
 }
 
+.shrink-grow-buttons {
+  float: right;
+  padding: 1em;
+
+  .shrink, .grow {
+    &:hover {
+      cursor: pointer;
+      color: @bluelink;
+    }
+  }
+}
+
 .posts-form {
   .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
   .post-slug-input { width: @site-width - 100px; }
+  .button-group { margin-top: 0.5em; }
   .published {
     float: left;
     a.published-toggle-button {
@@ -387,7 +400,7 @@ p code {
 h2 .small { font-size: 14px; }
 
 .content-edit-grid {
-    width: 1200px;
+    // width: 1200px;
 }
 
 #content-input {

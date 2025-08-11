@@ -71,10 +71,6 @@ h1 { text-align: center; font-size: 48px;
   line-height: 1.6;
 }
 
-#content-rendered {
-    font-size: 16px;
-    line-height: 1.6;
-}
 
 .container {
   width: @site-width;
@@ -228,7 +224,9 @@ p code {
 }
 
 .split-content-input {
-    height: @site-width - 100px;
+    height: @site-width - 60;
+    min-height: @site-width - 60;
+    resize: vertical;
     width: 100%; // @site-width - 20px;
     box-sizing: border-box;
     color: #444;
@@ -392,11 +390,17 @@ h2 .small { font-size: 14px; }
     width: 1200px;
 }
 
+#content-input {
+  border: 1px dashed #ddd;
+}
 #content-rendered {
+  font-size: 16px;
+  line-height: 1.6;
   margin: 0;
   padding: 0 10px;
   border: 1px dashed #ddd;
-  height: @site-width - 100;
+  height: @site-width - 60;
+  min-height: 100%;
   overflow-y: scroll;
   background-color: #fbfbfb;
 }

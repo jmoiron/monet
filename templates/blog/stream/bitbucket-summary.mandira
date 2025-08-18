@@ -1,6 +1,0 @@
-
-{{#Entry}}
-    <div class="entry bitbucket"><a href="{{Url}}"><i class="icon icon-globe"></i></a>
-        <a href="{{Url}}">{{#Update}}#{{revision}}</a> to {{#repository}}<a href="{{url}}">{{name}}</a>{{/repository}} {{message}}{{/Update}}
-    </div>
-{{/Entry}}

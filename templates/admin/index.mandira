@@ -1,8 +1,0 @@
-
-{{range $panel := .Panels}}
-    <div class="{{?if .index|divisibleby(2)}}left{{?else}}right{{/if}}-panel panel">
-        {{{Render}}}
-    </div>
-    {{?if not .index|divisibleby(2)}}<div class="clear panel-sep"></div>{{/if}}
-{{/Panels}}
-<div class="clear"></div>

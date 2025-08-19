@@ -1,0 +1,55 @@
+<form method="POST" action="" class="bookmarks-form">
+    {{if .bookmark.ID}}<input type="hidden" name="id" id="id" value="{{.bookmark.ID}}" />{{end}}
+    <div>
+        <input type="text" name="title" id="title" class="bookmark-title-input js-clear-default"
+            value="{{if .bookmark.Title}}{{ .bookmark.Title}}{{else}}Bookmark title...{{end}}" data-default="Bookmark title...">
+        <div class="shrink-grow-buttons">
+          <i class="fa-solid fa-down-left-and-up-right-to-center shrink"></i>
+          <i class="fa-solid fa-up-right-and-down-left-from-center grow"></i>
+        </div>
+    </div>
+    <div class="bookmark-url-input-container">
+        <i class="fa-solid fa-camera-retro"></i>
+        <input type="url" name="url" id="url" class="bookmark-url-input js-clear-default"
+            value="{{if .bookmark.URL}}{{ .bookmark.URL}}{{else}}https://...{{end}}" data-default="https://...">
+    </div>
+    <div>
+        <textarea class="split-content-input js-clear-default" name="description" id="description" spellcheck="true" data-default="Optional description...">{{
+            if .bookmark.Description}}{{.bookmark.Description}}{{else}}Optional description...{{end
+        }}</textarea>
+    </div>
+    <div class="extras">
+        <div>
+            <label for="created">created at</label>
+            <input type="timestamp" name="created" id="created" value="{{.bookmark.CreatedAt}}">
+            <span class="date" style="float:none;">{{.bookmark.CreatedAt | naturalTime}}</span>
+        </div>
+        <div>
+            <label for="screenshot_path">Screenshot Path</label>
+            <input type="text" name="screenshot_path" id="screenshot_path" value="{{.bookmark.ScreenshotPath}}">
+        </div>
+        <div>
+            Updated At: <span class="date" style="float:none;">{{.bookmark.UpdatedAt | naturalTime}}</span>
+        </div>
+        <div>
+            Published At: <span class="date" style="float:none;">{{.bookmark.PublishedAt | naturalTime}}</span>
+        </div>
+    </div>
+    <div class="button-group">
+      <div class="published">
+          <input type="hidden" value="{{.bookmark.Published}}" name="published" id="published">
+          <a class="published-toggle-button published-{{.bookmark.Published}}">Published
+              <i class="icon {{if gt .bookmark.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
+          </a>
+      </div>
+      <div class="buttons">
+          <input class="more-button" type="button" value="More">
+          <input class="save-button" type="submit" value="Save">
+      </div>
+      <div class="clear"></div>
+    </div>
+</form>
+
+<script src="/static/js/wasm_exec_1.23.4.js"></script>
+<script src="/static/js/goldmark.js"></script>
+<script>$(() => {$("#description").livePreview()});</script>

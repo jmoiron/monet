@@ -32,17 +32,23 @@ $(function() {
   */
 
   const convert = function(input, output) {
-    console.log("content", input, output)
     const html = toHtml(input.val(), 0);
     output.html(html);
   }
 
+  // markdown live markup
+  $.fn.markdown = function(to) {
+    $(this).on("change keyup page", () => { convert($(this), to) });
+  }
+
+  /*
   $("#content").on("change keyup page", function() {
     convert(
       $("#content"),
       $("#content-rendered")
     );
   })
+  */
 
   const go = new Go();
   const WASM_URL = '/static/js/goldmark.wasm';

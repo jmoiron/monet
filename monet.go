@@ -18,6 +18,7 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/auth"
 	"github.com/jmoiron/monet/blog"
+	"github.com/jmoiron/monet/bookmarks"
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
@@ -119,15 +120,16 @@ func main() {
 	// the authApp is sort of special;  we want its session middleware to be at the top
 	// of our stack, so we want to keep a handle on it
 	var (
-		authApp   = auth.NewApp(config, dbh)
-		adminApp  = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
-		blogApp   = blog.NewApp(dbh).WithBaseURL("/blog/")
-		streamApp = stream.NewApp(dbh).WithBaseURL("/stream/")
-		pagesApp  = pages.NewApp(dbh)
+		authApp      = auth.NewApp(config, dbh)
+		adminApp     = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
+		blogApp      = blog.NewApp(dbh).WithBaseURL("/blog/")
+		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/")
+		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
+		pagesApp     = pages.NewApp(dbh)
 	)
 
 	// pages should be last as it binds to /*
-	apps := []app.App{authApp, adminApp, blogApp, streamApp, pagesApp}
+	apps := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)

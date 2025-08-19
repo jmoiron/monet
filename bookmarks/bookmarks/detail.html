@@ -1,0 +1,20 @@
+<article class="bookmark-detail">
+    <h1>{{.bookmark.Title}}</h1>
+    
+    <div class="bookmark-meta">
+        <a href="{{.bookmark.URL}}" target="_blank" class="bookmark-url">{{.bookmark.URL}}</a>
+        <span class="date">{{.bookmark.CreatedAt | naturalTime}}</span>
+    </div>
+
+    {{if .bookmark.ScreenshotPath}}
+    <div class="bookmark-screenshot">
+        <img src="{{.bookmark.ScreenshotPath}}" alt="Screenshot of {{.bookmark.Title}}" />
+    </div>
+    {{end}}
+
+    {{if .bookmark.Description}}
+    <div class="bookmark-description">
+        {{.bookmark.DescriptionRendered | safe}}
+    </div>
+    {{end}}
+</article>

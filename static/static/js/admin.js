@@ -5,34 +5,37 @@ $.fn.center = function() {
     return this;
 }
 
-$.fn.livePreview = function() {
-    // adjust the width of the main container to better suit
-    // having a live preview editing widget
-    $(".container").css("width", "1200px");
+$(() => {
+  $.fn.livePreview = function() {
+      // adjust the width of the main container to better suit
+      // having a live preview editing widget
+      $(".container").css("width", "1200px");
 
-    // grab the textarea element we're live-editing
-    var $this = $(this);
-    var grid = $(`<div class="grid content-edit-grid">
-            <div id="content-input"></div>
-            <div class="gutter-col gutter-col-1"></div>
-            <div id="content-rendered"></div>
-        <div>`);
-    parent = $this.parent();
-    parent.remove($this);
-    parent.append(grid);
-    $(grid).find("#content-rendered").append(`<div class="loader-container"><span class="loader"></span></div>`);
-    $(grid).find("#content-input").append($this);
+      // grab the textarea element we're live-editing
+      var $this = $(this);
+      var grid = $(`<div class="grid content-edit-grid">
+              <div id="content-input"></div>
+              <div class="gutter-col gutter-col-1"></div>
+              <div id="content-rendered"></div>
+          <div>`);
+      parent = $this.parent();
+      parent.remove($this);
+      parent.append(grid);
+      $(grid).find("#content-rendered").append(`<div class="loader-container"><span class="loader"></span></div>`);
+      $(grid).find("#content-input").append($this);
 
-    // run split to get resizable content
-    window.Split({
-        columnGutters: [{
-            track: 1,
-            element: document.querySelector('.gutter-col-1'),
-        }],
-    });
+      // run split to get resizable content
+      window.Split({
+          columnGutters: [{
+              track: 1,
+              element: document.querySelector('.gutter-col-1'),
+          }],
+      });
 
+      $this.markdown($("#content-rendered"));
+  };
+});
 
-};
 
 $(function() {
     /* handle clearing default fields ... */

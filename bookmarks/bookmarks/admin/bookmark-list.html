@@ -1,0 +1,15 @@
+<h2>Bookmarks</h2>
+
+<ul class="shortlist listpage">
+{{range $bookmark := .bookmarks}}
+    <li>
+        <a href="/admin/bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a>
+        <a class="del" href="/admin/bookmarks/delete/{{$bookmark.ID}}"><i class="icon icon-remove-sign"></i></a>
+        <span class="url"><a href="{{$bookmark.URL}}" target="_blank">{{$bookmark.URL}}</a></span>
+        <span class="date">{{$bookmark.CreatedAt | naturalTime}}</span>
+        {{if eq $bookmark.Published 0}}<span class="status">(unpublished)</span>{{end}}
+    </li>
+{{end}}
+</ul>
+
+{{.pagination}}

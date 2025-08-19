@@ -1,0 +1,72 @@
+#content-input {
+  border: 1px dashed #ddd;
+}
+
+#content-rendered {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0 10px;
+  border: 1px dashed #ddd;
+  height: @site-width - 60;
+  min-height: 100%;
+  overflow-y: scroll;
+  background-color: #fbfbfb;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 7px 1fr;
+}
+
+.gutter-col {
+    grid-row: 1/-1;
+    cursor: col-resize;
+    background-color: #eee;
+}
+
+.gutter-col-1 {
+    grid-column: 2;
+}
+
+.admin form {
+  .published {
+    float: left;
+    a.published-toggle-button {
+      .color-button(#333, #fff);
+      display: inline-block;
+      padding-right: 10px;
+      &:hover { color: #f4f4f4; }
+      &.published-1 { background-color: @bluelink; padding-right: 8px; }
+      i { margin-left: 4px; }
+    }
+  }
+
+  .button-group { margin-top: 0.5em; }
+}
+
+.posts-form {
+  .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
+  .post-slug-input { width: @site-width - 100px; }
+}
+
+.bookmarks-form {
+  .bookmark-title-input { font-weight: bold; width: @site-width - 20px; font-size: 1.2em; }
+  .bookmark-url-input-container {
+    display: flex;
+    margin: 5px 0;
+    i {
+      font-size: 1.2em;
+      padding: 16px 5px;
+      &:hover {
+        cursor: pointer;
+        color: @bluelink;
+      }
+    }
+  }
+  .bookmark-url-input {
+    margin-left: auto;
+    flex-grow: 1;
+    font-size: 16px;
+  }
+}

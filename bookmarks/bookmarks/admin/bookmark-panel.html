@@ -1,0 +1,14 @@
+    <h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
+
+    <ul class="bookmark-list shortlist">
+        {{if .renderAdd}}
+        <li>
+            <form method="GET" action="bookmarks/add/">
+                <input type="text" data-default="Bookmark URL..." value="Bookmark URL..." class="list-new js-clear-default" id="bookmark-url" name="url">
+            </form>
+        </li>
+        {{end}}
+    {{range $bookmark := .bookmarks}}
+    <li><a href="bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a> <a class="del" href="bookmarks/delete/{{$bookmark.ID}}"><i class="icon icon-remove-sign"></i></a></li>
+    {{end}}
+    </ul>

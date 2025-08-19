@@ -10,6 +10,7 @@
 @body-font: Lora, Georgia, serif;
 
 @import "prettify.less";
+@import "admin.less";
 
 #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; opacity: 0.75; z-index: 100; display: none; }
 #preview-box { position: fixed; width: @site-width + 20px; height: @site-width + 20px; display: none; z-index: 110; background-color: #fff; padding: 30px; border-radius: 5px; box-shadow: 3px 3px 5px #000; overflow-y: scroll; }
@@ -245,23 +246,6 @@ p code {
   }
 }
 
-.posts-form {
-  .post-title-input { font-weight: bold; font-size: 22px;  width: @site-width - 20px; }
-  .post-slug-input { width: @site-width - 100px; }
-  .button-group { margin-top: 0.5em; }
-  .published {
-    float: left;
-    a.published-toggle-button {
-      .color-button(#333, #fff);
-      display: inline-block;
-      padding-right: 10px;
-      &:hover { color: #f4f4f4; }
-      &.published-1 { background-color: @bluelink; padding-right: 8px; }
-      i { margin-left: 4px; }
-    }
-  }
-}
-
 .loader-container {
     display: flex;
     height: 100%;
@@ -269,6 +253,7 @@ p code {
     justify-content: center;
     align-items: center;
 }
+
 .loader {
   width: 48px;
   height: 48px;
@@ -398,37 +383,3 @@ p code {
 
 .right { float: right; }
 h2 .small { font-size: 14px; }
-
-.content-edit-grid {
-    // width: 1200px;
-}
-
-#content-input {
-  border: 1px dashed #ddd;
-}
-#content-rendered {
-  font-size: 16px;
-  line-height: 1.6;
-  margin: 0;
-  padding: 0 10px;
-  border: 1px dashed #ddd;
-  height: @site-width - 60;
-  min-height: 100%;
-  overflow-y: scroll;
-  background-color: #fbfbfb;
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: 1fr 7px 1fr;
-}
-
-.gutter-col {
-    grid-row: 1/-1;
-    cursor: col-resize;
-    background-color: #eee;
-}
-
-.gutter-col-1 {
-    grid-column: 2;
-}

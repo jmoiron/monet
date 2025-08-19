@@ -83,6 +83,12 @@
 }
 
 /* Solid icons */
+.fa-camera-retro {
+  --fa: "\f083";
+}
+.fa-camera-rotate {
+  --fa: "\e0d8";
+}
 .fa-circle-info {
   --fa: "\f05a";
 }

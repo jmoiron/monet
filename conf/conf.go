@@ -11,6 +11,11 @@ import (
 
 type configKey struct{}
 
+type FSSConfig struct {
+	Paths map[string]string
+	URLs  map[string]string
+}
+
 // A Config holds options for the running website.
 type Config struct {
 	Debug      bool
@@ -25,6 +30,9 @@ type Config struct {
 
 	// DatabaseURI is a connectable URI string
 	DatabaseURI string
+
+	// Paths are named full paths to directories for things like media, uploads, etc
+	FSS FSSConfig
 }
 
 // String returns the config as a string.

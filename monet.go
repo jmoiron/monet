@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/mattn/go-sqlite3"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -81,6 +80,16 @@ func die[T any](v T, err error) func(string, ...any) T {
 	}
 }
 
+func try[T any](v T, err error) func(string, ...any) T {
+	return func(msg string, args ...any) T {
+		if err != nil {
+			args = append(args, "err", err)
+			slog.Error(msg, args...)
+		}
+		return v
+	}
+}
+
 func main() {
 	slog.SetDefault(slog.New(
 		slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}),
@@ -96,9 +105,19 @@ func main() {
 		return
 	}
 
-	static := die(fs.Sub(static, "static"))("initializing static fs")
-	staticAlt := os.DirFS("static")
 	config := die(loadConfig(opts.ConfigPath))("loading config")
+
+	// set up filesystems
+	fss := hotswap.NewURLMapper(config.FSS.URLs)
+	for name, path := range config.FSS.Paths {
+		if err := fss.AddPath(name, path); err != nil {
+			fmt.Printf("Error loading paths: %s", err)
+			return
+		}
+	}
+
+	static := die(fs.Sub(static, "static"))("initializing static fs")
+	staticAlt := try(fss.Get("static"))("initializing alternative static path")
 
 	if config.Debug {
 		slog.Info("debug enabled")
@@ -149,8 +168,8 @@ func main() {
 	must(reg.Build(), "could not build templates")
 
 	// set up the router
-
 	r := chi.NewRouter()
+
 	// add sessions, config, & db
 	r.Use(authApp.Sessions.AddSessionMiddleware)
 	r.Use(conf.Default().AddConfigMiddleware)
@@ -248,7 +267,7 @@ func addUser(dbh db.DB, username string) error {
 	}
 
 	if p1 != p2 {
-		return errors.New("Error: passwords do not match")
+		return errors.New("passwords do not match")
 	}
 
 	return auth.NewUserService(dbh).CreateUser(username, p1)

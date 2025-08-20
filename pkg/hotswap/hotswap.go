@@ -6,6 +6,7 @@ import (
 	"sync"
 )
 
+// A Swapper can swap among several FS implementations.
 type Swapper struct {
 	mu    sync.RWMutex
 	fs    []fs.FS

@@ -1,5 +1,16 @@
 {
     "DatabaseURI": "dev.db?cache=shared",
     "ListenAddr": "0.0.0.0:7001",
-    "Debug": true
+    "Debug": true,
+    "FSS": {
+      "Paths": {
+        "static": "./static",
+        "images": "./images",
+        "screenshots": "./images/ss/"
+      },
+      "URLs": {
+        "images": "/i/",
+        "screenshots": "/i/ss/"
+      }
+    }
 }

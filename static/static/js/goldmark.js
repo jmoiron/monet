@@ -41,15 +41,6 @@ $(function() {
     $(this).on("change keyup page", () => { convert($(this), to) });
   }
 
-  /*
-  $("#content").on("change keyup page", function() {
-    convert(
-      $("#content"),
-      $("#content-rendered")
-    );
-  })
-  */
-
   const go = new Go();
   const WASM_URL = '/static/js/goldmark.wasm';
 

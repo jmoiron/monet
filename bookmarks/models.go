@@ -40,9 +40,8 @@ var bookmarkMigrations = monarch.Set{
 		},
 		{
 			Up: `CREATE VIRTUAL TABLE bookmark_fts USING fts5(
-				id, title, url, description, published,
+				id UNINDEXED, title, url, description, published,
 				content='bookmark',
-				content_rowid='id',
 				tokenize="trigram"
 			)`,
 			Down: `DROP TABLE bookmark_fts;`,
@@ -188,6 +187,8 @@ func (s *BookmarkService) Insert(b *Bookmark) error {
 			return fmt.Errorf("insert %w", err)
 		}
 
+		tx.Exec(`insert into bookmark_fts(bookmark_fts) values ('rebuild')`)
+
 		return nil
 	})
 }
@@ -212,6 +213,11 @@ func (s *BookmarkService) Save(b *Bookmark) error {
 		}
 		defer update.Close()
 		_, err = update.Exec(b)
+
+		// attempt to re-build the full text search index, which seems to
+		// get corrupted by our update triggers for some reason
+		tx.Exec(`insert into bookmark_fts(bookmark_fts) values ('rebuild')`)
+
 		return err
 	})
 }

@@ -2,6 +2,7 @@ package monarch
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/jmoiron/monet/db"
@@ -78,6 +79,7 @@ func (m *Manager) Downgrade(name string) error {
 	if err != nil {
 		return fmt.Errorf("executing `%s` (%w)", cur.Down, err)
 	}
+	slog.Debug("downgrade", "app", name, "sql", cur.Down)
 
 	if err := m.RemoveVersion(name, cur.Version); err != nil {
 		return err

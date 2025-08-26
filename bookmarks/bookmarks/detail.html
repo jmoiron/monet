@@ -1,20 +1,28 @@
 <article class="bookmark-detail">
-    <h1>{{.bookmark.Title}}</h1>
+    <h1>
+        <a href="{{.bookmark.URL}}" target="_blank">{{.bookmark.Title}}</a>
+        <a href="{{.bookmark.URL}}" target="_blank" class="external-link">
+            <i class="fa-solid fa-link"></i>
+        </a>
+    </h1>
     
     <div class="bookmark-meta">
-        <a href="{{.bookmark.URL}}" target="_blank" class="bookmark-url">{{.bookmark.URL}}</a>
         <span class="date">{{.bookmark.CreatedAt | naturalTime}}</span>
     </div>
 
-    {{if .bookmark.ScreenshotPath}}
-    <div class="bookmark-screenshot">
-        <img src="{{.bookmark.ScreenshotPath}}" alt="Screenshot of {{.bookmark.Title}}" />
-    </div>
-    {{end}}
+    <div class="bookmark-content">
+        {{if screenshotURL .bookmark.IconPath}}
+        <div class="bookmark-screenshot">
+            <a href="{{screenshotURL .bookmark.ScreenshotPath}}" target="_blank">
+                <img src="{{screenshotURL .bookmark.IconPath}}" alt="Screenshot of {{.bookmark.Title}}" />
+            </a>
+        </div>
+        {{end}}
 
-    {{if .bookmark.Description}}
-    <div class="bookmark-description">
-        {{.bookmark.DescriptionRendered | safe}}
+        {{if .bookmark.Description}}
+        <div class="bookmark-description">
+            {{.bookmark.DescriptionRendered | safe}}
+        </div>
+        {{end}}
     </div>
-    {{end}}
 </article>

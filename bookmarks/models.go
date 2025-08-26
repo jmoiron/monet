@@ -26,16 +26,16 @@ var bookmarkMigrations = monarch.Set{
 				published integer DEFAULT 0,
 				created_at datetime DEFAULT (strftime('%s', 'now')),
 				updated_at datetime DEFAULT (strftime('%s', 'now')),
-				published_at datetime
+				published_at datetime DEFAULT 0
 			);`,
 			Down: `DROP TABLE bookmark;`,
 		},
 		{
-			Up: `CREATE INDEX IF NOT EXISTS idx_bookmark_published ON bookmark(published);`,
+			Up:   `CREATE INDEX IF NOT EXISTS idx_bookmark_published ON bookmark(published);`,
 			Down: `DROP INDEX idx_bookmark_published;`,
 		},
 		{
-			Up: `CREATE INDEX IF NOT EXISTS idx_bookmark_created_at ON bookmark(created_at);`,
+			Up:   `CREATE INDEX IF NOT EXISTS idx_bookmark_created_at ON bookmark(created_at);`,
 			Down: `DROP INDEX idx_bookmark_created_at;`,
 		},
 		{
@@ -74,6 +74,10 @@ var bookmarkMigrations = monarch.Set{
 			END`,
 			Down: `DROP TRIGGER bookmark_u;`,
 		},
+		{
+			Up:   `ALTER TABLE bookmark ADD COLUMN icon_path text DEFAULT '';`,
+			Down: `ALTER TABLE bookmark DROP COLUMN icon_path;`,
+		},
 	},
 }
 
@@ -82,8 +86,9 @@ type Bookmark struct {
 	URL                 string
 	Title               string
 	Description         string
-	DescriptionRendered string    `db:"description_rendered"`
-	ScreenshotPath      string    `db:"screenshot_path"`
+	DescriptionRendered string `db:"description_rendered"`
+	ScreenshotPath      string `db:"screenshot_path"`
+	IconPath            string `db:"icon_path"`
 	Published           int
 	CreatedAt           time.Time `db:"created_at"`
 	UpdatedAt           time.Time `db:"updated_at"`
@@ -102,11 +107,35 @@ func (b *Bookmark) preSave() {
 }
 
 type BookmarkService struct {
-	db db.DB
+	db                db.DB
+	screenshotService *ScreenshotService
 }
 
 func NewBookmarkService(db db.DB) *BookmarkService {
 	return &BookmarkService{db: db}
+}
+
+func (s *BookmarkService) SetScreenshotService(ss *ScreenshotService) {
+	s.screenshotService = ss
+}
+
+// createIconIfNeeded creates an icon for a bookmark if it has a screenshot but no icon
+func (s *BookmarkService) createIconIfNeeded(b *Bookmark) {
+	if s.screenshotService == nil || b.ScreenshotPath == "" || b.IconPath != "" {
+		return
+	}
+
+	// Generate icon path based on screenshot path
+	iconPath := strings.TrimSuffix(b.ScreenshotPath, ".jpg") + "-256x160.jpg"
+
+	// Try to create the icon
+	if err := s.screenshotService.ResizeScreenshot(b.ScreenshotPath, iconPath, 256, 160); err != nil {
+		// Log the error but don't fail the save operation
+		return
+	}
+
+	// Set the icon path if creation was successful
+	b.IconPath = iconPath
 }
 
 func (s *BookmarkService) DeleteByID(id string) error {
@@ -117,6 +146,14 @@ func (s *BookmarkService) DeleteByID(id string) error {
 func (s *BookmarkService) GetByID(id string) (*Bookmark, error) {
 	var b Bookmark
 	if err := s.db.Get(&b, `SELECT * FROM bookmark WHERE id=?`, id); err != nil {
+		return nil, err
+	}
+	return &b, nil
+}
+
+func (s *BookmarkService) GetByURL(url string) (*Bookmark, error) {
+	var b Bookmark
+	if err := s.db.Get(&b, `SELECT * FROM bookmark WHERE url=?`, url); err != nil {
 		return nil, err
 	}
 	return &b, nil
@@ -133,10 +170,11 @@ func (s *BookmarkService) Select(query string, args ...interface{}) ([]Bookmark,
 
 func (s *BookmarkService) Insert(b *Bookmark) error {
 	q := `INSERT INTO bookmark
-		(id, url, title, description, description_rendered, screenshot_path, published) VALUES
-		(:id, :url, :title, :description, :description_rendered, :screenshot_path, :published);
+		(id, url, title, description, description_rendered, screenshot_path, icon_path, published) VALUES
+		(:id, :url, :title, :description, :description_rendered, :screenshot_path, :icon_path, :published);
 	`
 	b.preSave()
+	s.createIconIfNeeded(b)
 
 	return db.With(s.db, func(tx *sqlx.Tx) error {
 		stmt, err := tx.PrepareNamed(q)
@@ -160,11 +198,12 @@ func (s *BookmarkService) Save(b *Bookmark) error {
 	}
 
 	b.preSave()
+	s.createIconIfNeeded(b)
 
 	return db.With(s.db, func(tx *sqlx.Tx) error {
 		q := `UPDATE bookmark SET
 			url=:url, title=:title, description=:description, description_rendered=:description_rendered,
-			screenshot_path=:screenshot_path, published=:published, updated_at=:updated_at,
+			screenshot_path=:screenshot_path, icon_path=:icon_path, published=:published, updated_at=:updated_at,
 			published_at=:published_at
 		WHERE id=:id`
 		update, err := tx.PrepareNamed(q)
@@ -179,7 +218,7 @@ func (s *BookmarkService) Save(b *Bookmark) error {
 
 func (s *BookmarkService) Search(query string, pageSize, offset int) ([]Bookmark, error) {
 	var ids []string
-	searchq := fmt.Sprintf(`SELECT id FROM bookmark_fts WHERE published > 0 AND bookmark_fts 
+	searchq := fmt.Sprintf(`SELECT id FROM bookmark_fts WHERE published > 0 AND bookmark_fts
 		MATCH ? ORDER BY rank LIMIT %d OFFSET %d`, pageSize, offset)
 
 	if err := s.db.Select(&ids, searchq, query); err != nil {

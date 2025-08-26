@@ -59,6 +59,9 @@ func PageNumber(page string) int {
 
 // Format a timestamp into a simple date
 func FmtTimestamp(ts int64) string {
+	if ts == 0 {
+		return "never"
+	}
 	now := time.Now()
 	ut := time.Unix(ts, 0)
 	if now.Year() == ut.Year() {

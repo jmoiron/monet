@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/hotswap"
 )
 
 //go:embed bookmarks/*
@@ -26,6 +27,7 @@ const defaultPageSize = 20
 type App struct {
 	db               db.DB
 	screenshotService *ScreenshotService
+	fss              hotswap.URLMapper
 
 	BaseURL  string
 	PageSize int
@@ -37,6 +39,11 @@ func NewApp(db db.DB) *App {
 
 func (a *App) WithScreenshotService(service *ScreenshotService) *App {
 	a.screenshotService = service
+	return a
+}
+
+func (a *App) WithFSS(fss hotswap.URLMapper) *App {
+	a.fss = fss
 	return a
 }
 
@@ -65,6 +72,28 @@ func (a *App) Register(reg *mtr.Registry) {
 			"naturalTime": func(t time.Time) string {
 				return app.FmtTimestamp(t.Unix())
 			},
+			"screenshotURL": func(screenshotPath string) string {
+				slog.Debug("screenshotURL: called", "path", screenshotPath, "fss", a.fss != nil)
+				if a.fss == nil {
+					slog.Debug("screenshotURL: no fss")
+					return ""
+				}
+				if screenshotPath == "" {
+					slog.Debug("screenshotURL: empty path")
+					return ""
+				}
+				// Extract filename from the screenshot path
+				filename := path.Base(screenshotPath)
+				slog.Debug("screenshotURL: processing", "path", screenshotPath, "filename", filename)
+				// Get the URL for the specific screenshot file
+				screenshotURL, err := a.fss.GetURL("screenshots", filename)
+				if err != nil {
+					slog.Debug("screenshotURL: GetURL failed", "error", err)
+					return ""
+				}
+				slog.Debug("screenshotURL: success", "url", screenshotURL)
+				return screenshotURL
+			},
 		}),
 	)
 
@@ -85,7 +114,7 @@ func (a *App) Migrate() error {
 }
 
 func (a *App) GetAdmin() (app.Admin, error) {
-	return NewBookmarkAdmin(a.db), nil
+	return NewBookmarkAdmin(a.db, a.fss), nil
 }
 
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {

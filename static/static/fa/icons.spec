@@ -11,3 +11,4 @@ fa-solid fa-down-left-and-up-right-to-center
 fa-solid fa-up-right-and-down-left-from-center
 fa-solid fa-camera-retro
 fa-solid fa-camera-rotate
+fa-solid fa-link

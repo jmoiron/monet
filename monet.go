@@ -142,7 +142,7 @@ func main() {
 		authApp      = auth.NewApp(config, dbh)
 		adminApp     = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
 		blogApp      = blog.NewApp(dbh).WithBaseURL("/blog/")
-		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/")
+		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/").WithFSS(fss)
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
 		pagesApp     = pages.NewApp(dbh)
 	)
@@ -217,6 +217,21 @@ func main() {
 
 	r.With(stack...).Handle("/favicon.ico", http.FileServer(http.FS(swp)))
 	r.With(stack...).Handle("/static/*", http.FileServer(http.FS(swp)))
+
+	// Serve FSS paths when in debug mode
+	if config.Debug {
+		allPaths := fss.All()
+		for name, path := range allPaths {
+			fsys, err := fss.Get(name)
+			if err != nil {
+				slog.Warn("failed to get filesystem for debug serving", "name", name, "error", err)
+				continue
+			}
+			pattern := fmt.Sprintf("/%s/*", strings.Trim(path, "/"))
+			slog.Info("serving debug filesystem", "name", name, "path", path, "pattern", pattern)
+			r.With(stack...).Handle(pattern, http.StripPrefix(path, http.FileServer(http.FS(fsys))))
+		}
+	}
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)

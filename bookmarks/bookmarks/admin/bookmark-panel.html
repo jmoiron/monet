@@ -3,7 +3,7 @@
     <ul class="bookmark-list shortlist">
         {{if .renderAdd}}
         <li>
-            <form method="GET" action="bookmarks/add/">
+            <form method="POST" action="bookmarks/create/">
                 <input type="text" data-default="Bookmark URL..." value="Bookmark URL..." class="list-new js-clear-default" id="bookmark-url" name="url">
             </form>
         </li>

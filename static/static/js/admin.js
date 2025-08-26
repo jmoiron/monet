@@ -117,4 +117,59 @@ $(function() {
       }
     });
 
+    $("#take-snapshot").on("click", (e) => {
+        // swap the camera out with a small spinner
+        // load the image
+        // show the camera green if success, red if fail
+        var $this = $(e.target);
+        var id = $("#id").val();
+        var container = $this.parent();
+        var spinner = $(`<span class="loader-small"></span>`);
+        console.log($this);
+        container.html("");
+        // container.remove($this);
+        container.append(spinner);
+        console.log(container);
+
+        // Make fetch call to screenshot API
+        fetch(`/admin/bookmarks/ss/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log("Screenshot response:", data);
+                if (data.success) {
+                    // Update title if provided
+                    if (data.title.length > 0) {
+                        $("#title").val(data.title);
+                    }
+                }
+                // Restore the camera icon
+                container.html("");
+                container.append($this);
+            })
+            .catch(error => {
+                console.error("Screenshot failed:", error);
+                // Restore the camera icon even on error
+                container.html("");
+                container.append($this);
+            });
+    });
+
+    // Clear default values before form submission
+    $("form").on("submit", function() {
+        $(".js-clear-default", this).each(function() {
+            var $this = $(this);
+            var defaultValue = $this.attr("data-default");
+            
+            if ($this.is("textarea")) {
+                if ($this.val() === defaultValue) {
+                    $this.val("");
+                }
+            } else {
+                if ($this.val() === defaultValue) {
+                    $this.val("");
+                }
+            }
+        });
+    });
+
 });

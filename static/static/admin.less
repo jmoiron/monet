@@ -63,10 +63,31 @@
         color: @bluelink;
       }
     }
+    .loader-small {
+        margin: 15px 9px 15px 9px;
+    }
   }
+
   .bookmark-url-input {
     margin-left: auto;
     flex-grow: 1;
     font-size: 16px;
+  }
+  .bookmark-content-grid {
+    display: grid;
+    grid-template-columns: 256px 1fr;
+    gap: 20px;
+    margin: 10px 0;
+  }
+  
+  .bookmark-icon-preview {
+    border: 1px solid #ddd;
+    padding: 5px;
+    width: 256px;
+    img { 
+      width: 100%; 
+      height: auto;
+      max-width: 256px;
+    }
   }
 }

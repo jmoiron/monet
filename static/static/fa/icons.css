@@ -98,6 +98,9 @@
 .fa-house {
   --fa: "\f015";
 }
+.fa-link {
+  --fa: "\f0c1";
+}
 .fa-right-from-bracket {
   --fa: "\f2f5";
 }

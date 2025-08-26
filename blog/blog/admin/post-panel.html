@@ -10,6 +10,6 @@
         </li>
         {{end}}
     {{range $post := .posts}}
-    <li><a href="posts/edit/{{$post.Slug}}">{{$post.Title}}</a> <a class="del" href="posts/delete/{{$post.Slug}}"><i class="icon icon-remove-sign"></i></a></li>
+    <li><a href="posts/edit/{{$post.Slug}}">{{$post.Title}}</a> <a class="del" href="posts/delete/{{$post.Slug}}"><i class="fa-solid fa-circle-xmark"></i></a></li>
     {{end}}
     </ul>

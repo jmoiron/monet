@@ -2,12 +2,26 @@
 
 <ul class="shortlist listpage">
 {{range $bookmark := .bookmarks}}
-    <li>
-        <a href="/admin/bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a>
-        <a class="del" href="/admin/bookmarks/delete/{{$bookmark.ID}}"><i class="icon icon-remove-sign"></i></a>
-        <span class="url"><a href="{{$bookmark.URL}}" target="_blank">{{$bookmark.URL}}</a></span>
-        <span class="date">{{$bookmark.CreatedAt | naturalTime}}</span>
-        {{if eq $bookmark.Published 0}}<span class="status">(unpublished)</span>{{end}}
+    <li class="bookmark-item admin-bookmark-item">
+        {{if screenshotURL $bookmark.IconPath}}
+        <div class="bookmark-icon">
+            <img src="{{screenshotURL $bookmark.IconPath}}" alt="Screenshot of {{$bookmark.Title}}">
+        </div>
+        {{end}}
+        <div class="bookmark-content">
+            <div class="bookmark-title-line">
+                <a href="/admin/bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a>
+                <a href="{{$bookmark.URL}}" target="_blank" class="external-link">
+                    <i class="fa-solid fa-link"></i>
+                </a>
+                <a class="del" href="/admin/bookmarks/delete/{{$bookmark.ID}}"><i class="fa-solid fa-circle-xmark"></i></a>
+            </div>
+            <span class="date">{{$bookmark.CreatedAt | naturalTime}}</span>
+            {{if eq $bookmark.Published 0}}<span class="status">(unpublished)</span>{{end}}
+            {{if $bookmark.Description}}
+            <div class="description">{{$bookmark.DescriptionRendered | safe}}</div>
+            {{end}}
+        </div>
     </li>
 {{end}}
 </ul>

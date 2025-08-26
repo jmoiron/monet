@@ -3,6 +3,6 @@
 
     <ul class="post-list shortlist">
     {{range $page := .pages}}
-    <li><a href="pages/edit/{{$page.ID}}">{{$page.URL}}</a> <a class="del" href="pages/delete/{{$page.ID}}"><i class="icon icon-remove-sign"></i></a></li>
+    <li><a href="pages/edit/{{$page.ID}}">{{$page.URL}}</a> <a class="del" href="pages/delete/{{$page.ID}}"><i class="fa-solid fa-circle-xmark"></i></a></li>
     {{end}}
     </ul>

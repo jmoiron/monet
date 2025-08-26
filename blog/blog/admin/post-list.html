@@ -9,7 +9,7 @@
 {{range $post := .posts}}
     <li>
         <a href="/admin/posts/edit/{{$post.Slug}}">{{$post.Title}}</a>
-        <a class="del" href="/admin/posts/delete/{{$post.ID}}"><i class="icon icon-remove-sign"></i></a>
+        <a class="del" href="/admin/posts/delete/{{$post.ID}}"><i class="fa-solid fa-circle-xmark"></i></a>
         <span class="date">{{$post.CreatedAt | naturalTime}}</span>
     </li>
 {{end}}

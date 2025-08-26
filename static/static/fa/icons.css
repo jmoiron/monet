@@ -92,6 +92,9 @@
 .fa-circle-info {
   --fa: "\f05a";
 }
+.fa-circle-xmark {
+  --fa: "\f057";
+}
 .fa-down-left-and-up-right-to-center {
   --fa: "\f422";
 }

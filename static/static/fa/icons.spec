@@ -12,3 +12,4 @@ fa-solid fa-up-right-and-down-left-from-center
 fa-solid fa-camera-retro
 fa-solid fa-camera-rotate
 fa-solid fa-link
+fa-solid fa-circle-xmark

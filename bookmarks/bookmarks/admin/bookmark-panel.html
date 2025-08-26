@@ -9,6 +9,6 @@
         </li>
         {{end}}
     {{range $bookmark := .bookmarks}}
-    <li><a href="bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a> <a class="del" href="bookmarks/delete/{{$bookmark.ID}}"><i class="icon icon-remove-sign"></i></a></li>
+    <li><a href="bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a> <a class="del" href="bookmarks/delete/{{$bookmark.ID}}"><i class="fa-solid fa-circle-xmark"></i></a></li>
     {{end}}
     </ul>

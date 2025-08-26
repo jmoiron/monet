@@ -147,7 +147,7 @@ p code {
           color: @bluelink;
         }
       }
-      
+
       .external-link {
         color: #999;
         font-size: 0.6em;
@@ -158,7 +158,7 @@ p code {
         }
       }
     }
-    
+
     .bookmark-meta {
       margin-bottom: 20px;
       .date {
@@ -166,12 +166,12 @@ p code {
         color: #999;
       }
     }
-    
+
     .bookmark-content {
       .bookmark-screenshot {
         float: left;
         margin: 0 20px 10px 0;
-        
+
         img {
           border: 1px solid #ddd;
           border-radius: 3px;
@@ -180,10 +180,10 @@ p code {
           object-fit: cover;
         }
       }
-      
+
       .bookmark-description {
         line-height: 1.6;
-        
+
         // Clear float after description if needed
         &::after {
           content: "";
@@ -193,7 +193,7 @@ p code {
       }
     }
   }
-  
+
   ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
     li { padding: 5px;
       a { color: #000; padding: 5px 10px; margin-left: 5px;
@@ -260,11 +260,92 @@ p code {
     ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
       li { padding: 5px; position: relative;
         a { padding: 5px 10px; margin-left: 5px; }
-        a.del { padding: 0; margin-top: -1px; display:none; position: absolute; right: 0; font-size: 22px}
+        a.del { padding: 0; margin-top: -3px; display:none; position: absolute; right: 0; font-size: 22px}
         &:hover {
           a.del { display: inline-block; color: #999;
             &:hover { color: #fa2a00; }
           }
+        }
+      }
+
+      // Admin bookmark-specific layout (similar to frontend)
+      li.admin-bookmark-item {
+        display: flex;
+        gap: 15px;
+        align-items: flex-start;
+        border-bottom: 1px solid #eee;
+        position: relative;
+
+        .bookmark-icon {
+          flex-shrink: 0;
+          width: 200px;
+          img {
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            width: 200px;
+            height: 125px;
+            object-fit: cover;
+          }
+        }
+
+        .bookmark-content {
+          flex: 1;
+          min-width: 0;
+
+          .bookmark-title-line {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            > a:first-child {
+              margin-left: 0;
+              padding: 0;
+              font-weight: bold;
+            }
+
+            .external-link {
+              color: #999;
+              font-size: 1em;
+              text-decoration: none;
+              &:hover {
+                color: @bluelink;
+              }
+            }
+          }
+
+          .date {
+            display: block;
+            margin-top: 5px;
+            font-size: 0.8em;
+            color: #999;
+          }
+
+          .status {
+            display: inline;
+            margin-left: 10px;
+            font-style: italic;
+            color: #666;
+          }
+
+          .description {
+            margin-top: 10px;
+            line-height: 1.4;
+            font-size: 0.9em;
+          }
+        }
+
+        // Override the delete button positioning for this layout
+        a.del {
+          position: static;
+          margin: 0;
+          margin-left: auto;
+          font-size: 18px;
+        }
+
+        &:hover a.del {
+          display: inline-block;
+          color: #999;
+          &:hover { color: #fa2a00; }
         }
       }
     }
@@ -272,7 +353,7 @@ p code {
       a { color: #000; &:hover { color: @bluelink; }}
       li {
         span.date { margin-right: 32px; }
-        &:hover { span.date { margin-right: 0; }}
+        &:hover { span.date { margin-right: 32px; }}
       }
     }
     .panel-sep { height: 1em; border-bottom: 1px solid #fbfbfb; margin-bottom: 1em; }

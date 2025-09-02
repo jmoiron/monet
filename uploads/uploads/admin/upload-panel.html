@@ -1,0 +1,13 @@
+<h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
+
+<ul class="upload-list shortlist">
+{{range $upload := .uploads}}
+<li>
+    <div class="upload-item">
+        <a href="{{$upload.FileURL}}" target="_blank" class="filename">{{$upload.Filename}}</a>
+        <span class="filesystem">{{$upload.FilesystemName}}</span>
+        <span class="size">{{$upload.SizeHuman}}</span>
+    </div>
+</li>
+{{end}}
+</ul>

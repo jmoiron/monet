@@ -1,0 +1,208 @@
+<h2>{{.title}}</h2>
+
+<div class="uploads-toggle-container">
+    <div class="right">
+        <label class="toggle-switch">
+        <input type="checkbox" name="p">
+          <div class="toggle-switch-background">
+              <div class="toggle-switch-handle"></div>
+          </div>
+        </label>
+        <span style="display: inline-block; margin-left: 5px; vertical-align: middle; margin-top: -10px"><i title="show image previews" class="fa-solid fa-images"></i></span>
+    </div>
+    <div class="clear"></div>
+</div>
+
+{{if .uploads}}
+<div class="uploads-grid regular">
+    <div class="upload-header">
+        <div class="col-filesystem">Filesystem</div>
+        <div class="col-filename">Filename</div>
+        <div class="col-size">Size</div>
+        <div class="col-created">Created</div>
+        <div class="col-preview"></div>
+        <div class="col-actions"></div>
+    </div>
+
+    {{range $upload := .uploads}}
+    <div class="upload-row">
+        <div class="col-filesystem">
+            <a href="{{$upload.FilesystemURL}}">{{$upload.FilesystemName}}</a>
+        </div>
+        <div class="col-filename">
+            <a href="{{$upload.FileURL}}" target="_blank" class="file-link">
+                {{$upload.Filename}}
+            </a>
+        </div>
+        <div class="col-size">{{$upload.SizeHuman}}</div>
+        <div class="col-created"><span title="{{$upload.CreatedAt}}">{{$upload.CreatedAt | naturalTime}}</span></div>
+        <div class="col-preview">
+            {{if $upload.IsImage}}
+                <img src="{{$upload.FileURL}}">
+            {{end}}
+        </div>
+        <div class="col-actions">
+            <a class="rename" href="#" data-upload-id="{{$upload.ID}}" data-filename="{{$upload.Filename}}">
+                <i class="fa-solid fa-file-signature"></i>
+            </a>
+            <a class="del" href="/admin/uploads/delete/{{$upload.ID}}">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </a>
+        </div>
+    </div>
+    {{end}}
+</div>
+
+{{.pagination}}
+
+{{else}}
+<div class="no-uploads">
+    <p>No uploads found{{if .filesystem}} for filesystem "{{.filesystem}}"{{end}}.</p>
+    {{if .filesystem}}
+        <a href="/admin/uploads/">View all uploads</a>
+    {{end}}
+</div>
+{{end}}
+
+<div id="upload-area"></div>
+
+<!-- Rename Modal -->
+<div id="rename-modal" class="rename-modal">
+    <div class="modal-content">
+        <h3>Rename File</h3>
+        <form id="rename-form">
+            <input type="hidden" id="rename-upload-id">
+            <div class="form-group">
+                <label for="rename-filename">Filename:</label>
+                <input type="text" id="rename-filename">
+            </div>
+            <div class="modal-buttons">
+                <button type="button" id="rename-cancel">Cancel</button>
+                <button type="submit" id="rename-submit">Rename</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="/static/upload.js"></script>
+<script>
+$(() => {
+    const fs = "{{default "uploads" .filesystem}}";
+
+    $('#upload-area').upload({
+        url: '/admin/uploads/upload',
+        text: {
+            dropZone: 'Drag & drop files here or click to upload',
+            hint: `upload to "${fs}"`
+        },
+        onSuccess: function(response, filename) {
+            console.log('Successfully uploaded:', filename);
+        },
+        onError: function(error, filename) {
+            console.error('Failed to upload:', filename, error);
+        },
+        onComplete: function(successful, failed) {
+            if (successful > 0) {
+                // Refresh the page after a short delay to show new uploads
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            }
+        }
+    });
+
+    let toggleOn = () => {
+        $('.uploads-grid').removeClass("regular").addClass("preview");
+        sessionStorage.setItem("upload-preview-toggle", "true");
+        // $(".container").addClass("wide");
+    };
+
+    let toggleOff = () => {
+        $('.uploads-grid').removeClass("preview").addClass("regular");
+        sessionStorage.setItem("upload-preview-toggle", "false");
+        // $(".container").removeClass("wide");
+    }
+
+    // Check sessionStorage for toggle state on page load
+    const previewToggleState = sessionStorage.getItem('upload-preview-toggle');
+
+    // set toggled on load
+    if (previewToggleState === 'true') {
+        toggleOn();
+    }
+
+    // Toggle preview column visibility
+    $('.toggle-switch input[type="checkbox"]').on('change', function() {
+        if ($(this).is(':checked')) {
+            toggleOn();
+        } else {
+            toggleOff();
+        }
+    });
+
+    // Rename functionality
+    $('.rename').on('click', function(e) {
+        e.preventDefault();
+        const uploadId = $(this).data('upload-id');
+        const filename = $(this).data('filename');
+
+        $('#rename-upload-id').val(uploadId);
+        $('#rename-filename').val(filename);
+        $('#rename-modal').show();
+        var elem = $('#rename-filename').get(0);
+        elem.focus()
+        elem.select();
+    });
+
+    $("#rename-modal").on("mousedown", function(e) {
+        if (e.target === this) {
+            $('#rename-modal').hide();
+        }
+    });
+
+    $('#rename-cancel').on('click', function(e) {
+        if (e.target === this) {
+            $('#rename-modal').hide();
+        }
+    });
+
+    // Close modal on escape key
+    $(document).on('keydown', function(e) {
+        if (e.key === 'Escape' && $('#rename-modal').css("display") != "none") {
+            $('#rename-modal').hide();
+        }
+    });
+
+    $('#rename-form').on('submit', function(e) {
+        e.preventDefault();
+        const uploadId = $('#rename-upload-id').val();
+        const newFilename = $('#rename-filename').val().trim();
+
+        if (!newFilename) {
+            alert('Filename cannot be empty');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('filename', newFilename);
+
+        fetch(`/admin/uploads/rename/${uploadId}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                $('#rename-modal').hide();
+                window.location.reload();
+            } else {
+                return response.text().then(text => {
+                    throw new Error(text || 'Unknown error');
+                });
+            }
+        })
+        .catch(error => {
+            alert('Failed to rename file: ' + error.message);
+        });
+    });
+});
+</script>

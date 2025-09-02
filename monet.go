@@ -26,7 +26,9 @@ import (
 	"github.com/jmoiron/monet/pages"
 	"github.com/jmoiron/monet/pkg/hotswap"
 	"github.com/jmoiron/monet/pkg/passwd"
+	"github.com/jmoiron/monet/pkg/vfs"
 	"github.com/jmoiron/monet/stream"
+	"github.com/jmoiron/monet/uploads"
 	"github.com/jmoiron/sqlx"
 	"github.com/spf13/pflag"
 
@@ -108,7 +110,7 @@ func main() {
 	config := die(loadConfig(opts.ConfigPath))("loading config")
 
 	// set up filesystems
-	fss := hotswap.NewURLMapper(config.FSS.URLs)
+	fss := vfs.NewRegistry(vfs.NewURLMapper(config.FSS.URLs))
 	for name, path := range config.FSS.Paths {
 		if err := fss.AddPath(name, path); err != nil {
 			fmt.Printf("Error loading paths: %s", err)
@@ -141,14 +143,15 @@ func main() {
 	var (
 		authApp      = auth.NewApp(config, dbh)
 		adminApp     = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
-		blogApp      = blog.NewApp(dbh).WithBaseURL("/blog/")
+		blogApp      = blog.NewApp(dbh, fss).WithBaseURL("/blog/")
 		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/").WithFSS(fss)
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
 		pagesApp     = pages.NewApp(dbh)
+		uploadApp    = uploads.NewApp(dbh, fss)
 	)
 
 	// pages should be last as it binds to /*
-	apps := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp}
+	apps := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp, uploadApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)
@@ -220,7 +223,7 @@ func main() {
 
 	// Serve FSS paths when in debug mode
 	if config.Debug {
-		allPaths := fss.All()
+		allPaths := fss.Mapper().GetMap()
 		for name, path := range allPaths {
 			fsys, err := fss.Get(name)
 			if err != nil {

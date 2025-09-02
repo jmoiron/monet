@@ -49,7 +49,7 @@ func (c Ctx) Union(o Ctx) Ctx {
 }
 
 // A Registry manages a set of templates from various apps, providing a way
-// for them to share features with eachother.
+// for them to share features with each other.
 //
 // Create an empty registry with NewRegistry, and then use the Add/AddBase*
 // functions to add named templates to the registry. Once all of the templates
@@ -159,6 +159,7 @@ func (r *Registry) Build() error {
 			errs = append(errs, err)
 			continue
 		}
+
 		// a note about tmpl.Templates()[1] ...
 		//
 		// The {text,html}/template.Template type is meant to manage a set of templates,

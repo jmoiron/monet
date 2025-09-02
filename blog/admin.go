@@ -2,9 +2,13 @@ package blog
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -12,6 +16,8 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/vfs"
+	"github.com/jmoiron/monet/uploads"
 )
 
 const (
@@ -20,12 +26,13 @@ const (
 )
 
 type Admin struct {
-	db      db.DB
-	BaseURL string
+	db       db.DB
+	BaseURL  string
+	registry vfs.Registry
 }
 
-func NewBlogAdmin(db db.DB) *Admin {
-	return &Admin{db: db}
+func NewBlogAdmin(db db.DB, registry vfs.Registry) *Admin {
+	return &Admin{db: db, registry: registry}
 }
 
 func (a *Admin) Bind(r chi.Router) {
@@ -40,6 +47,10 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/posts/add/", a.add)
 	r.Post("/posts/edit/{slug:[^/]+}", a.save)
 	r.Get("/posts/delete/{id:\\d+}", a.delete)
+	
+	// File attachment endpoints
+	r.Post("/posts/{postId:\\d+}/upload", a.uploadFile)
+	r.Delete("/posts/{postId:\\d+}/files/{uploadId:\\d+}", a.deleteAttachedFile)
 	// r.Post("/posts/preview/", a.preview)
 }
 
@@ -160,9 +171,31 @@ func (a *Admin) edit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
+	serv := NewPostService(a.db)
+	
+	// Get attached files for this post
+	var attachedFiles []*uploads.Upload
+	if p.ID > 0 {
+		var err error
+		attachedFiles, err = serv.GetAttachedFiles(p.ID)
+		if err != nil {
+			slog.Error("failed to get attached files", "post_id", p.ID, "err", err)
+			attachedFiles = []*uploads.Upload{} // fallback to empty list
+		}
+		
+		// Add file URLs to attached files
+		mapper := a.registry.Mapper()
+		for _, file := range attachedFiles {
+			if urlPath, err := mapper.GetURL(file.FilesystemName, file.Filename); err == nil {
+				file.URL = urlPath
+			}
+		}
+	}
+
 	reg := mtr.RegistryFromContext(r.Context())
 	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
-		"post": p,
+		"post":          p,
+		"attachedFiles": attachedFiles,
 	})
 	if err != nil {
 		slog.Error("rendering edit", "err", err)
@@ -511,3 +544,180 @@ func (pp *PagesPanel) Render() string {
 }
 
 */
+
+// uploadFile handles file uploads for blog posts
+func (a *Admin) uploadFile(w http.ResponseWriter, r *http.Request) {
+	postIdStr := chi.URLParam(r, "postId")
+	postId, err := strconv.ParseUint(postIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Use uploads package as library with "blog-files" filesystem
+	upload, err := a.handleFileUpload(r, "blog-files")
+	if err != nil {
+		slog.Error("Failed to upload file", "err", err)
+		http.Error(w, "Failed to upload file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Attach file to post
+	postService := NewPostService(a.db)
+	if err := postService.AttachFile(postId, upload.ID); err != nil {
+		slog.Error("Failed to attach file to post", "post_id", postId, "upload_id", upload.ID, "err", err)
+		http.Error(w, "Failed to attach file to post", http.StatusInternalServerError)
+		return
+	}
+
+	// Get file URL for response
+	mapper := a.registry.Mapper()
+	fileURL := ""
+	if urlPath, err := mapper.GetURL("blog-files", upload.Filename); err == nil {
+		fileURL = urlPath
+	}
+
+	// Return success with the file info
+	response := map[string]interface{}{
+		"success":    true,
+		"id":         upload.ID,
+		"filename":   upload.Filename,
+		"size":       upload.Size,
+		"created_at": upload.CreatedAt,
+		"url":        fileURL,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleFileUpload processes a file upload using uploads package as a library
+func (a *Admin) handleFileUpload(r *http.Request, filesystemName string) (*uploads.Upload, error) {
+	// Parse the multipart form
+	err := r.ParseMultipartForm(64 << 20) // 64MiB max
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse form: %w", err)
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get file from form: %w", err)
+	}
+	defer file.Close()
+
+	// Clean the filename
+	filename := filepath.Base(header.Filename)
+	if filename == "" || filename == "." {
+		return nil, fmt.Errorf("invalid filename")
+	}
+
+	// Get the filesystem
+	fs, err := a.registry.Get(filesystemName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filesystem: %w", err)
+	}
+
+	// Get the base path - the fs.FS type is read-only, to be writable, it needs to be a PathFS
+	var basePath string
+	if pfs, ok := fs.(vfs.PathFS); ok {
+		basePath = pfs.Path()
+	} else {
+		return nil, fmt.Errorf("filesystem %s is not writable", filesystemName)
+	}
+
+	// Create the full path for the new file
+	destPath := filepath.Join(basePath, filename)
+
+	// Create the destination file
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+	defer destFile.Close()
+
+	// Copy the uploaded file to the destination and track size
+	bytesWritten, err := io.Copy(destFile, file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save file: %w", err)
+	}
+
+	// Create database record with file size using uploads service
+	uploadService := uploads.NewUploadService(a.db)
+	upload, err := uploadService.Create(filesystemName, filename, bytesWritten)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create upload record: %w", err)
+	}
+
+	return upload, nil
+}
+
+// deleteAttachedFile removes a file attachment from a blog post
+func (a *Admin) deleteAttachedFile(w http.ResponseWriter, r *http.Request) {
+	postIdStr := chi.URLParam(r, "postId")
+	uploadIdStr := chi.URLParam(r, "uploadId")
+	
+	postId, err := strconv.ParseUint(postIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+	
+	uploadId, err := strconv.ParseUint(uploadIdStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid upload ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get upload info first for file deletion
+	uploadService := uploads.NewUploadService(a.db)
+	upload, err := uploadService.GetByID(uploadId)
+	if err != nil {
+		slog.Error("Failed to get upload record", "upload_id", uploadId, "err", err)
+		http.Error(w, "Upload not found", http.StatusNotFound)
+		return
+	}
+
+	// Detach file from post first
+	postService := NewPostService(a.db)
+	if err := postService.DetachFile(postId, uploadId); err != nil {
+		slog.Error("Failed to detach file from post", "post_id", postId, "upload_id", uploadId, "err", err)
+		http.Error(w, "Failed to detach file", http.StatusInternalServerError)
+		return
+	}
+
+	// Delete the actual file from filesystem
+	if err := a.deleteFile(upload.FilesystemName, upload.Filename); err != nil {
+		slog.Warn("Failed to delete file from filesystem", "filesystem", upload.FilesystemName, "filename", upload.Filename, "err", err)
+		// Don't fail the request - the detachment succeeded
+	}
+
+	// Delete the upload record
+	if err := uploadService.Delete(uploadId); err != nil {
+		slog.Warn("Failed to delete upload record", "upload_id", uploadId, "err", err)
+		// Don't fail the request - the detachment succeeded
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// deleteFile removes a file from the specified filesystem
+func (a *Admin) deleteFile(filesystemName, filename string) error {
+	// Get the filesystem
+	fs, err := a.registry.Get(filesystemName)
+	if err != nil {
+		return fmt.Errorf("failed to get filesystem: %w", err)
+	}
+
+	// Get the base path
+	var basePath string
+	if pfs, ok := fs.(vfs.PathFS); ok {
+		basePath = pfs.Path()
+	} else {
+		return fmt.Errorf("filesystem %s is not writable", filesystemName)
+	}
+
+	// Delete the file
+	filePath := filepath.Join(basePath, filename)
+	return os.Remove(filePath)
+}

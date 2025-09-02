@@ -4,11 +4,15 @@
     "Debug": true,
     "FSS": {
       "Paths": {
+        "blog-files": "./images",
+        "uploads": "./images",
         "static": "./static",
         "images": "./images",
         "screenshots": "./images/ss/"
       },
       "URLs": {
+        "blog-files": "/i/",
+        "uploads": "/i/",
         "images": "/i/",
         "screenshots": "/i/ss/"
       }

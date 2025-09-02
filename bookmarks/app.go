@@ -16,7 +16,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
-	"github.com/jmoiron/monet/pkg/hotswap"
+	"github.com/jmoiron/monet/pkg/vfs"
 )
 
 //go:embed bookmarks/*
@@ -25,9 +25,9 @@ var bookmarkTemplates embed.FS
 const defaultPageSize = 20
 
 type App struct {
-	db               db.DB
+	db                db.DB
 	screenshotService *ScreenshotService
-	fss              hotswap.URLMapper
+	fss               vfs.Registry
 
 	BaseURL  string
 	PageSize int
@@ -42,7 +42,7 @@ func (a *App) WithScreenshotService(service *ScreenshotService) *App {
 	return a
 }
 
-func (a *App) WithFSS(fss hotswap.URLMapper) *App {
+func (a *App) WithFSS(fss vfs.Registry) *App {
 	a.fss = fss
 	return a
 }
@@ -86,7 +86,7 @@ func (a *App) Register(reg *mtr.Registry) {
 				filename := path.Base(screenshotPath)
 				slog.Debug("screenshotURL: processing", "path", screenshotPath, "filename", filename)
 				// Get the URL for the specific screenshot file
-				screenshotURL, err := a.fss.GetURL("screenshots", filename)
+				screenshotURL, err := a.fss.Mapper().GetURL("screenshots", filename)
 				if err != nil {
 					slog.Debug("screenshotURL: GetURL failed", "error", err)
 					return ""
@@ -120,7 +120,7 @@ func (a *App) GetAdmin() (app.Admin, error) {
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 	slog.Debug("bookmark detail", "id", id)
-	
+
 	b, err := NewBookmarkService(a.db).GetByID(id)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)

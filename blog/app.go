@@ -7,8 +7,11 @@ import (
 	"log/slog"
 	"net/http"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-sprout/sprout"
@@ -17,6 +20,8 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/vfs"
+	"github.com/jmoiron/monet/uploads"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -26,7 +31,8 @@ var blogTemplates embed.FS
 const defaultPageSize = 15
 
 type App struct {
-	db db.DB
+	db  db.DB
+	fss vfs.Registry
 
 	BaseURL     string
 	FeedRSSURL  string
@@ -36,8 +42,8 @@ type App struct {
 }
 
 // NewApp instantiates a new blog app.
-func NewApp(db db.DB) *App {
-	return &App{db: db, PageSize: defaultPageSize}
+func NewApp(db db.DB, fss vfs.Registry) *App {
+	return &App{db: db, fss: fss, PageSize: defaultPageSize}
 }
 
 func (a *App) WithBaseURL(url string) *App {
@@ -73,6 +79,16 @@ func (a *App) Register(reg *mtr.Registry) {
 			"naturalTime": func(t time.Time) string {
 				return app.FmtTimestamp(t.Unix())
 			},
+			"humanizeBytes": func(size int64) string {
+				return humanize.Bytes(uint64(size))
+			},
+			"fileExt": func(filename string) string {
+				ext := strings.ToLower(filepath.Ext(filename))
+				if ext != "" && ext[0] == '.' {
+					return ext[1:] // Remove the leading dot
+				}
+				return ext
+			},
 		}),
 	)
 
@@ -86,7 +102,7 @@ func (a *App) Migrate() error {
 		return nil
 	}
 
-	for _, m := range []monarch.Set{postMigrations, postTagMigrations} {
+	for _, m := range []monarch.Set{postMigrations, postTagMigrations, postFileMigrations} {
 		if err := manager.Upgrade(m); err != nil {
 			return fmt.Errorf("error running %s migration: %w", m.Name, err)
 		}
@@ -98,7 +114,7 @@ func (a *App) Migrate() error {
 // Return an Admin object that can render admin homepage panels
 // and register all of the administrative pages.
 func (a *App) GetAdmin() (app.Admin, error) {
-	return NewBlogAdmin(a.db), nil
+	return NewBlogAdmin(a.db, a.fss), nil
 }
 
 func (a *App) feed() *feeds.Feed {
@@ -168,10 +184,26 @@ func (a *App) atom(w http.ResponseWriter, req *http.Request) {
 
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	slog.Debug("blog detail", "slug", chi.URLParam(req, "slug"))
-	p, err := NewPostService(a.db).GetSlug(chi.URLParam(req, "slug"))
+	postService := NewPostService(a.db)
+	p, err := postService.GetSlug(chi.URLParam(req, "slug"))
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
+	}
+
+	// Load attached files for this post
+	attachedFiles, err := postService.GetAttachedFiles(p.ID)
+	if err != nil {
+		slog.Error("Failed to load attached files", "post_id", p.ID, "err", err)
+		attachedFiles = []*uploads.Upload{} // Continue with empty list
+	}
+
+	// Add file URLs to attached files
+	mapper := a.fss.Mapper()
+	for _, file := range attachedFiles {
+		if urlPath, err := mapper.GetURL(file.FilesystemName, file.Filename); err == nil {
+			file.URL = urlPath
+		}
 	}
 
 	reg := mtr.RegistryFromContext(req.Context())
@@ -181,6 +213,7 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		"ogDescription": p.OgDescription,
 		"ogImage":       p.OgImage,
 		"post":          p,
+		"attachedFiles": attachedFiles,
 	})
 }
 

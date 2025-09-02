@@ -95,11 +95,20 @@
 .fa-circle-xmark {
   --fa: "\f057";
 }
+.fa-cloud-arrow-up {
+  --fa: "\f0ee";
+}
 .fa-down-left-and-up-right-to-center {
   --fa: "\f422";
 }
+.fa-file-signature {
+  --fa: "\f573";
+}
 .fa-house {
   --fa: "\f015";
+}
+.fa-images {
+  --fa: "\f302";
 }
 .fa-link {
   --fa: "\f0c1";

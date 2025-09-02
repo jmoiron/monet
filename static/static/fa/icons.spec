@@ -13,3 +13,6 @@ fa-solid fa-camera-retro
 fa-solid fa-camera-rotate
 fa-solid fa-link
 fa-solid fa-circle-xmark
+fa-solid fa-file-signature
+fa-solid fa-cloud-arrow-up
+fa-solid fa-images

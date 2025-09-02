@@ -36,6 +36,32 @@
         <div>
             Published At: <span class="date" style="float:none;">{{.post.PublishedAt | naturalTime}}</span>
         </div>
+
+        {{if .post.ID}}
+        <div class="attached-files-section">
+            <label>Attached Files</label>
+
+            <!-- Existing attached files -->
+            {{if .attachedFiles}}
+            <div class="attached-files-list">
+                {{range $file := .attachedFiles}}
+                <div class="file-item" data-upload-id="{{$file.ID}}">
+                    <div class="file-info">
+                        <a href="{{$file.URL}}" target="_blank" class="filename">{{$file.Filename}}</a>
+                        <span class="file-meta">{{$file.Size | humanizeBytes}} • {{$file.CreatedAt | naturalTime}}</span>
+                    </div>
+                    <a class="del" href="#" onclick="deleteAttachedFile({{$file.ID}}); return false;">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </a>
+                </div>
+                {{end}}
+            </div>
+            {{end}}
+
+            <!-- Upload zone using plugin -->
+            <div id="post-upload-area"></div>
+        </div>
+        {{end}}
     </div>
     <div class="button-group">
       <div class="published">
@@ -55,3 +81,131 @@
 <script src="/static/js/wasm_exec_1.23.4.js"></script>
 <script src="/static/js/goldmark.js"></script>
 <script>$(() => {$("#content").livePreview();});</script>
+
+{{if .post.ID}}
+<script src="/static/upload.js"></script>
+<script>
+// File upload functionality for blog posts using the upload plugin
+const postId = {{.post.ID}};
+
+$(() => {
+    // Initialize upload plugin
+    $('#post-upload-area').upload({
+        url: `/admin/posts/${postId}/upload`,
+        text: {
+            dropZone: 'Drag & drop files here or click to upload',
+            hint: 'Upload files to attach to this blog post'
+        },
+        onSuccess: function(response, filename) {
+            console.log('Successfully uploaded:', filename);
+            // Add the new file to the existing files list
+            addFileToList(response);
+        },
+        onError: function(error, filename) {
+            console.error('Failed to upload:', filename, error);
+        },
+        onComplete: function(successful, failed) {
+            if (successful > 0) {
+                console.log(`${successful} files uploaded successfully`);
+            }
+        }
+    });
+});
+
+// Add uploaded file to the existing files list
+function addFileToList(fileData) {
+    let filesList = document.querySelector('.attached-files-list');
+
+    // Create the files list if it doesn't exist
+    if (!filesList) {
+        filesList = document.createElement('div');
+        filesList.className = 'attached-files-list';
+        document.querySelector('.attached-files-section').insertBefore(
+            filesList,
+            document.querySelector('#post-upload-area')
+        );
+    }
+
+    const fileItem = document.createElement('div');
+    fileItem.className = 'file-item';
+    fileItem.setAttribute('data-upload-id', fileData.id);
+
+    fileItem.innerHTML = `
+        <div class="file-info">
+            <a href="${fileData.url}" target="_blank" class="filename">${fileData.filename}</a>
+            <span class="file-meta">${$.fn.upload.humanizeBytes(fileData.size)} • just now</span>
+        </div>
+        <a class="del" href="#" onclick="deleteAttachedFile(${fileData.id}); return false;">
+            <i class="fa-solid fa-circle-xmark"></i>
+        </a>
+    `;
+
+    filesList.appendChild(fileItem);
+}
+
+// Delete attached file (keep existing functionality)
+function deleteAttachedFile(uploadId) {
+    fetch(`/admin/posts/${postId}/files/${uploadId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const fileItem = document.querySelector(`[data-upload-id="${uploadId}"]`);
+            if (fileItem) fileItem.remove();
+        } else {
+            alert('Failed to delete file');
+        }
+    })
+    .catch(error => {
+        console.error('Delete error:', error);
+        alert('Failed to delete file');
+    });
+}
+</script>
+
+<style>
+.attached-files-section {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.attached-files-list {
+    margin-bottom: 15px;
+}
+
+.file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.file-item:last-child {
+    border-bottom: none;
+}
+
+.file-info {
+    flex: 1;
+}
+
+.filename {
+    font-weight: 500;
+    display: block;
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.filename:hover {
+    text-decoration: underline;
+}
+
+.file-meta {
+    font-size: 0.85em;
+    color: #666;
+}
+
+</style>
+{{end}}

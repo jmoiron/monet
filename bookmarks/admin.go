@@ -14,7 +14,7 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
-	"github.com/jmoiron/monet/pkg/hotswap"
+	"github.com/jmoiron/monet/pkg/vfs"
 )
 
 const (
@@ -24,11 +24,11 @@ const (
 
 type Admin struct {
 	db      db.DB
-	fss     hotswap.URLMapper
+	fss     vfs.Registry
 	BaseURL string
 }
 
-func NewBookmarkAdmin(db db.DB, fss hotswap.URLMapper) *Admin {
+func NewBookmarkAdmin(db db.DB, fss vfs.Registry) *Admin {
 	return &Admin{db: db, fss: fss}
 }
 

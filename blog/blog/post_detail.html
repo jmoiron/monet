@@ -5,5 +5,57 @@
         {{.post.ContentRendered | safe}}
     <div class="date">{{.post.CreatedAt | naturalTime}}</div>
     </div>
+    
+    {{if .attachedFiles}}
+    <div class="attached-files">
+        <h3>Attached Files</h3>
+        <div class="file-list">
+            {{range $file := .attachedFiles}}
+            <div class="file-item">
+                {{$ext := $file.Filename | fileExt}}
+                {{if or (eq $ext "jpg") (eq $ext "jpeg") (eq $ext "png") (eq $ext "gif")}}
+                <div class="file-preview">
+                    <a href="{{$file.URL}}" target="_blank">
+                        <img src="{{$file.URL}}" alt="{{$file.Filename}}" style="max-height: 100px; max-width: 100px; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px;">
+                    </a>
+                </div>
+                {{end}}
+                <div class="file-info">
+                    <a href="{{$file.URL}}" target="_blank" class="filename" style="font-weight: bold; text-decoration: none; color: #0066cc;">{{$file.Filename}}</a>
+                    <span class="file-meta" style="color: #666; font-size: 0.9em;"> ({{$file.Size | humanizeBytes}} • {{$file.CreatedAt | naturalTime}})</span>
+                </div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+    
+    <style>
+    .attached-files {
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+    }
+    .attached-files h3 {
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 1.1em;
+    }
+    .file-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 8px;
+        background: #f9f9f9;
+        border-radius: 4px;
+    }
+    .file-preview {
+        margin-right: 10px;
+    }
+    .filename:hover {
+        text-decoration: underline !important;
+    }
+    </style>
+    {{end}}
+    
     <div class="clear"></div>
 </div>

@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/uploads"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -79,6 +80,28 @@ var postTagMigrations = monarch.Set{
 				FOREIGN KEY (post_id) REFERENCES post(id)
 			);`,
 			Down: `DROP TABLE post_tag;`,
+		},
+	},
+}
+
+var postFileMigrations = monarch.Set{
+	Name: "post_file",
+	Migrations: []monarch.Migration{
+		{
+			Up: `CREATE TABLE IF NOT EXISTS post_file (
+				post_id INTEGER NOT NULL,
+				upload_id INTEGER NOT NULL,
+				created_at datetime DEFAULT (datetime('now')),
+				PRIMARY KEY (post_id, upload_id),
+				FOREIGN KEY (post_id) REFERENCES post(id) ON DELETE CASCADE,
+				FOREIGN KEY (upload_id) REFERENCES upload(id) ON DELETE CASCADE
+			);`,
+			Down: `DROP TABLE post_file;`,
+		}, {
+			Up: `CREATE TRIGGER post_file_cleanup_upload AFTER DELETE ON upload BEGIN
+				DELETE FROM post_file WHERE upload_id = old.id;
+			END;`,
+			Down: `DROP TRIGGER post_file_cleanup_upload;`,
 		},
 	},
 }
@@ -350,4 +373,51 @@ func (p *Post) preSave() {
 		p.CreatedAt = now
 	}
 
+}
+
+// GetAttachedFiles returns all uploads attached to this post
+func (s *PostService) GetAttachedFiles(postID uint64) ([]*uploads.Upload, error) {
+	var uploadList []*uploads.Upload
+	query := `SELECT u.id, u.filesystem_name, u.filename, u.size, u.created_at 
+			  FROM upload u
+			  JOIN post_file pf ON u.id = pf.upload_id
+			  WHERE pf.post_id = ?
+			  ORDER BY pf.created_at DESC`
+	
+	err := s.db.Select(&uploadList, query, postID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get attached files for post %d: %w", postID, err)
+	}
+	
+	return uploadList, nil
+}
+
+// AttachFile associates an upload with a post
+func (s *PostService) AttachFile(postID, uploadID uint64) error {
+	query := `INSERT INTO post_file (post_id, upload_id) VALUES (?, ?)`
+	_, err := s.db.Exec(query, postID, uploadID)
+	if err != nil {
+		return fmt.Errorf("failed to attach file %d to post %d: %w", uploadID, postID, err)
+	}
+	return nil
+}
+
+// DetachFile removes the association between an upload and a post
+func (s *PostService) DetachFile(postID, uploadID uint64) error {
+	query := `DELETE FROM post_file WHERE post_id = ? AND upload_id = ?`
+	result, err := s.db.Exec(query, postID, uploadID)
+	if err != nil {
+		return fmt.Errorf("failed to detach file %d from post %d: %w", uploadID, postID, err)
+	}
+	
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check rows affected: %w", err)
+	}
+	
+	if rowsAffected == 0 {
+		return fmt.Errorf("no attachment found between post %d and upload %d", postID, uploadID)
+	}
+	
+	return nil
 }

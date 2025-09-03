@@ -16,3 +16,4 @@ fa-solid fa-circle-xmark
 fa-solid fa-file-signature
 fa-solid fa-cloud-arrow-up
 fa-solid fa-images
+fa-solid fa-bars

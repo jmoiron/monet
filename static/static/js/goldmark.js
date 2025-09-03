@@ -36,9 +36,12 @@ $(function() {
     output.html(html);
   }
 
+  var handlers = [];
+
   // markdown live markup
   $.fn.markdown = function(to) {
     $(this).on("change keyup page", () => { convert($(this), to) });
+    handlers.push(() => convert($(this), to));
   }
 
   const go = new Go();
@@ -49,7 +52,7 @@ $(function() {
   const onload = function(obj) {
     wasm = obj.instance;
     go.run(wasm);
-    convert($("#content"), $("#content-rendered"));
+    handlers.forEach((h) => { h(); });
   };
 
   if ('instantiateStreaming' in WebAssembly) {

@@ -112,10 +112,7 @@ func main() {
 	// set up filesystems
 	fss := vfs.NewRegistry(vfs.NewURLMapper(config.FSS.URLs))
 	for name, path := range config.FSS.Paths {
-		if err := fss.AddPath(name, path); err != nil {
-			fmt.Printf("Error loading paths: %s", err)
-			return
-		}
+		must(fss.AddPath(name, path), "loading paths")
 	}
 
 	static := die(fs.Sub(static, "static"))("initializing static fs")
@@ -151,7 +148,12 @@ func main() {
 	)
 
 	// pages should be last as it binds to /*
-	apps := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp, uploadApp}
+
+	// order here matters because apps like auth and uploads need to
+	// be migrated before some of the other apps. It would be an
+	// interesting challenge for this to be determined automatically
+	// but probably not necessary
+	apps := []app.App{authApp, adminApp, uploadApp, blogApp, bookmarksApp, streamApp, pagesApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)

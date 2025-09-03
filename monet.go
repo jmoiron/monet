@@ -154,6 +154,7 @@ func main() {
 	// interesting challenge for this to be determined automatically
 	// but probably not necessary
 	apps := []app.App{authApp, adminApp, uploadApp, blogApp, bookmarksApp, streamApp, pagesApp}
+	registerOrder := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp, uploadApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)
@@ -161,6 +162,9 @@ func main() {
 
 	for _, app := range apps {
 		must(app.Migrate(), "could not migrate app", "name", app.Name())
+	}
+
+	for _, app := range registerOrder {
 		app.Register(reg)
 	}
 

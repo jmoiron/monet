@@ -138,13 +138,22 @@ $(function() {
                 console.log("Screenshot response:", data);
                 if (data.success) {
                     // Update title if provided
-                    if (data.title.length > 0) {
+                    if (data.title && data.title.length > 0) {
                         $("#title").val(data.title);
                     }
+                    // Update description if provided
+                    if (data.description && data.description.length > 0) {
+                        $("#description").val(data.description);
+                    }
+                    
+                    // Refresh the page to show the screenshot and updated fields
+                    window.location.reload();
+                } else {
+                    // Show error and restore camera icon
+                    console.error("Screenshot failed:", data.error);
+                    container.html("");
+                    container.append($this);
                 }
-                // Restore the camera icon
-                container.html("");
-                container.append($this);
             })
             .catch(error => {
                 console.error("Screenshot failed:", error);

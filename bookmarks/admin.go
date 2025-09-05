@@ -239,10 +239,11 @@ func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
 }
 
 type ScreenshotResponse struct {
-	Success  bool   `json:"success"`
-	Filename string `json:"filename,omitempty"`
-	Title    string `json:"title,omitempty"`
-	Error    string `json:"error,omitempty"`
+	Success     bool   `json:"success"`
+	Filename    string `json:"filename,omitempty"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Error       string `json:"error,omitempty"`
 }
 
 func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
@@ -315,6 +316,18 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 		bookmark.Title = result.Title
 	}
 
+	// If description is empty, try to extract it from the screenshot's JSON file
+	var extractedDescription string
+	if bookmark.Description == "" {
+		if desc, err := serv.GetDescription(bookmark); err != nil {
+			slog.Warn("failed to extract meta description", "error", err)
+		} else if desc != "" {
+			bookmark.Description = desc
+			extractedDescription = desc
+			slog.Info("auto-filled description from meta tag", "bookmark_id", bookmark.ID, "description", desc)
+		}
+	}
+
 	if err := serv.Save(bookmark); err != nil {
 		slog.Error("failed to save bookmark with screenshot info", "error", err)
 		// Continue anyway, screenshot was taken successfully
@@ -322,9 +335,10 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	response := ScreenshotResponse{
-		Success:  true,
-		Filename: result.Filename,
-		Title:    result.Title,
+		Success:     true,
+		Filename:    result.Filename,
+		Title:       result.Title,
+		Description: extractedDescription,
 	}
 	json.NewEncoder(w).Encode(response)
 }

@@ -101,6 +101,9 @@ func (s *ScreenshotService) TakeScreenshot(url, bookmarkID string) (*ScreenshotR
 		"--chrome-window-x", "1280",
 		"--chrome-window-y", "939", // this is how we get 800px height unfortunately
 		"--javascript-file", "./bookmarks/accept.js",
+		// without this some scanning errors will be completely silent
+		// we aren't making the output of this command available but maybe we should
+		"--log-scan-errors",
 		"--write-jsonl",
 		"--write-jsonl-file", finalJSONPath)
 

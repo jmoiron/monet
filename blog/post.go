@@ -106,6 +106,13 @@ var postFileMigrations = monarch.Set{
 	},
 }
 
+// Query filter constants for search functionality
+const (
+	QueryAll         = -1 // Search all posts regardless of published status
+	QueryUnpublished = 0  // Search unpublished posts only
+	QueryPublished   = 1  // Search published posts only
+)
+
 // A Post is an entry in a blog
 type Post struct {
 	ID              uint64
@@ -181,6 +188,101 @@ func (s *PostService) Select(where string, args ...interface{}) ([]*Post, error)
 	}
 
 	return posts, nil
+}
+
+// Search performs a full-text search on posts with ternary published filter.
+// publishedFilter: QueryAll, QueryUnpublished, or QueryPublished
+func (s *PostService) Search(query string, publishedFilter int, limit int, offset int) ([]*Post, error) {
+	if strings.TrimSpace(query) == "" {
+		// If no search query, use regular select with appropriate WHERE clause
+		var where string
+		if publishedFilter == QueryAll {
+			where = fmt.Sprintf("ORDER BY created_at DESC LIMIT %d OFFSET %d", limit, offset)
+		} else {
+			where = fmt.Sprintf("WHERE published = %d ORDER BY created_at DESC LIMIT %d OFFSET %d", publishedFilter, limit, offset)
+		}
+		return s.Select(where)
+	}
+
+	// Make query safe for fts5
+	query = db.SafeQuery(query)
+
+	// Build the FTS query with appropriate published filter
+	var searchQuery string
+	var args []interface{}
+
+	if publishedFilter == QueryAll {
+		// Search all posts regardless of published status
+		searchQuery = `SELECT slug FROM post_fts WHERE post_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?`
+		args = []interface{}{query, limit, offset}
+	} else {
+		// Search posts with specific published status
+		searchQuery = `SELECT slug FROM post_fts WHERE published = ? AND post_fts MATCH ? ORDER BY rank LIMIT ? OFFSET ?`
+		args = []interface{}{publishedFilter, query, limit, offset}
+	}
+
+	var slugs []interface{}
+	if err := s.db.Select(&slugs, searchQuery, args...); err != nil {
+		return nil, err
+	}
+
+	if len(slugs) == 0 {
+		return []*Post{}, nil
+	}
+
+	// Get posts by slugs, maintaining rank order
+	q, args, err := sqlx.In(`SELECT * FROM post WHERE slug IN (?)`, slugs)
+	if err != nil {
+		return nil, err
+	}
+
+	var posts []*Post
+	if err := s.db.Select(&posts, q, args...); err != nil {
+		return nil, err
+	}
+
+	if err = s.loadTags(posts...); err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
+
+// SearchCount returns the count of posts matching the search query.
+// publishedFilter: QueryAll, QueryUnpublished, or QueryPublished
+func (s *PostService) SearchCount(query string, publishedFilter int) (int, error) {
+	if strings.TrimSpace(query) == "" {
+		// If no search query, use regular count
+		var count int
+		var err error
+		if publishedFilter == QueryAll {
+			err = s.db.Get(&count, "SELECT count(*) FROM post")
+		} else {
+			err = s.db.Get(&count, "SELECT count(*) FROM post WHERE published = ?", publishedFilter)
+		}
+		return count, err
+	}
+
+	// Make query safe for fts5
+	query = db.SafeQuery(query)
+
+	// Use FTS for search count
+	var count int
+	var countQuery string
+	var args []interface{}
+
+	if publishedFilter == QueryAll {
+		countQuery = `SELECT count(*) FROM post_fts WHERE post_fts MATCH ?`
+		args = []interface{}{query}
+	} else {
+		countQuery = `SELECT count(*) FROM post_fts WHERE published = ? AND post_fts MATCH ?`
+		args = []interface{}{publishedFilter, query}
+	}
+
+	if err := s.db.Get(&count, countQuery, args...); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // loadTags fetches tags for each post and sets them to that post.
@@ -378,17 +480,17 @@ func (p *Post) preSave() {
 // GetAttachedFiles returns all uploads attached to this post
 func (s *PostService) GetAttachedFiles(postID uint64) ([]*uploads.Upload, error) {
 	var uploadList []*uploads.Upload
-	query := `SELECT u.id, u.filesystem_name, u.filename, u.size, u.created_at 
+	query := `SELECT u.id, u.filesystem_name, u.filename, u.size, u.created_at
 			  FROM upload u
 			  JOIN post_file pf ON u.id = pf.upload_id
 			  WHERE pf.post_id = ?
 			  ORDER BY pf.created_at DESC`
-	
+
 	err := s.db.Select(&uploadList, query, postID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get attached files for post %d: %w", postID, err)
 	}
-	
+
 	return uploadList, nil
 }
 
@@ -409,15 +511,15 @@ func (s *PostService) DetachFile(postID, uploadID uint64) error {
 	if err != nil {
 		return fmt.Errorf("failed to detach file %d from post %d: %w", uploadID, postID, err)
 	}
-	
+
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
 		return fmt.Errorf("failed to check rows affected: %w", err)
 	}
-	
+
 	if rowsAffected == 0 {
 		return fmt.Errorf("no attachment found between post %d and upload %d", postID, uploadID)
 	}
-	
+
 	return nil
 }

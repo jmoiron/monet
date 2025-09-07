@@ -47,7 +47,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/posts/add/", a.add)
 	r.Post("/posts/edit/{slug:[^/]+}", a.save)
 	r.Get("/posts/delete/{id:\\d+}", a.delete)
-	
+
 	// File attachment endpoints
 	r.Post("/posts/{postId:\\d+}/upload", a.uploadFile)
 	r.Delete("/posts/{postId:\\d+}/files/{uploadId:\\d+}", a.deleteAttachedFile)
@@ -98,8 +98,17 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 }
 
 func (a *Admin) unpublishedList(w http.ResponseWriter, r *http.Request) {
-	var count int
-	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published = 0;"); err != nil {
+	// Parse form to get search query
+	if err := r.ParseForm(); err != nil {
+		slog.Error("parsing form", "err", err)
+	}
+
+	query := r.Form.Get("q")
+	serv := NewPostService(a.db)
+
+	// Get count using search functionality
+	count, err := serv.SearchCount(query, QueryUnpublished)
+	if err != nil {
 		app.Http500("getting count", w, err)
 		return
 	}
@@ -107,28 +116,39 @@ func (a *Admin) unpublishedList(w http.ResponseWriter, r *http.Request) {
 	paginator := mtr.NewPaginator(adminPageSize, count)
 	page := paginator.Page(app.GetIntParam(r, "page", 1))
 
-	// select the posts for the page we're trying to render
-	q := fmt.Sprintf(`WHERE published = 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, adminPageSize, page.StartOffset)
-
-	serv := NewPostService(a.db)
-	unpublished, err := serv.Select(q)
+	// Get posts using search functionality
+	unpublished, err := serv.Search(query, QueryUnpublished, adminPageSize, page.StartOffset)
+	if err != nil {
+		slog.Error("searching unpublished posts", "error", err)
+		app.Http404(w)
+		return
+	}
 
 	reg := mtr.RegistryFromContext(r.Context())
 	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-list.html", mtr.Ctx{
 		"unpublished": true,
 		"posts":       unpublished,
+		"query":       query,
 		"pagination":  paginator.Render(reg, page),
 	})
 
 	if err != nil {
 		slog.Error("rendering list", "err", err)
 	}
-
 }
 
 func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
-	var count int
-	if err := a.db.Get(&count, "SELECT count(*) FROM post WHERE published > 0;"); err != nil {
+	// Parse form to get search query
+	if err := r.ParseForm(); err != nil {
+		slog.Error("parsing form", "err", err)
+	}
+
+	query := r.Form.Get("q")
+	serv := NewPostService(a.db)
+
+	// Get count using search functionality
+	count, err := serv.SearchCount(query, QueryPublished)
+	if err != nil {
 		app.Http500("getting count", w, err)
 		return
 	}
@@ -136,13 +156,10 @@ func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
 	paginator := mtr.NewPaginator(adminPageSize, count)
 	page := paginator.Page(app.GetIntParam(r, "page", 1))
 
-	// select the posts for the page we're trying to render
-	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, adminPageSize, page.StartOffset)
-
-	serv := NewPostService(a.db)
-	posts, err := serv.Select(q)
+	// Get posts using search functionality
+	posts, err := serv.Search(query, QueryPublished, adminPageSize, page.StartOffset)
 	if err != nil {
-		slog.Error("looking up post", "error", err)
+		slog.Error("searching posts", "error", err)
 		app.Http404(w)
 		return
 	}
@@ -150,6 +167,7 @@ func (a *Admin) postList(w http.ResponseWriter, r *http.Request) {
 	reg := mtr.RegistryFromContext(r.Context())
 	err = reg.RenderWithBase(w, "admin-base", "blog/admin/post-list.html", mtr.Ctx{
 		"posts":      posts,
+		"query":      query,
 		"pagination": paginator.Render(reg, page),
 	})
 
@@ -172,7 +190,7 @@ func (a *Admin) edit(w http.ResponseWriter, r *http.Request) {
 
 func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 	serv := NewPostService(a.db)
-	
+
 	// Get attached files for this post
 	var attachedFiles []*uploads.Upload
 	if p.ID > 0 {
@@ -182,7 +200,7 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 			slog.Error("failed to get attached files", "post_id", p.ID, "err", err)
 			attachedFiles = []*uploads.Upload{} // fallback to empty list
 		}
-		
+
 		// Add file URLs to attached files
 		mapper := a.registry.Mapper()
 		for _, file := range attachedFiles {
@@ -655,13 +673,13 @@ func (a *Admin) handleFileUpload(r *http.Request, filesystemName string) (*uploa
 func (a *Admin) deleteAttachedFile(w http.ResponseWriter, r *http.Request) {
 	postIdStr := chi.URLParam(r, "postId")
 	uploadIdStr := chi.URLParam(r, "uploadId")
-	
+
 	postId, err := strconv.ParseUint(postIdStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid post ID", http.StatusBadRequest)
 		return
 	}
-	
+
 	uploadId, err := strconv.ParseUint(uploadIdStr, 10, 64)
 	if err != nil {
 		http.Error(w, "Invalid upload ID", http.StatusBadRequest)

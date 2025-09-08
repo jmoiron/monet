@@ -21,7 +21,6 @@ import (
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pkg/vfs"
-	"github.com/jmoiron/monet/uploads"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -191,21 +190,6 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Load attached files for this post
-	attachedFiles, err := postService.GetAttachedFiles(p.ID)
-	if err != nil {
-		slog.Error("Failed to load attached files", "post_id", p.ID, "err", err)
-		attachedFiles = []*uploads.Upload{} // Continue with empty list
-	}
-
-	// Add file URLs to attached files
-	mapper := a.fss.Mapper()
-	for _, file := range attachedFiles {
-		if urlPath, err := mapper.GetURL(file.FilesystemName, file.Filename); err == nil {
-			file.URL = urlPath
-		}
-	}
-
 	reg := mtr.RegistryFromContext(req.Context())
 	reg.RenderWithBase(w, "base", "blog/post_detail.html", mtr.Ctx{
 		"title":         p.Title,
@@ -213,7 +197,6 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		"ogDescription": p.OgDescription,
 		"ogImage":       p.OgImage,
 		"post":          p,
-		"attachedFiles": attachedFiles,
 	})
 }
 

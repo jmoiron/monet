@@ -23,6 +23,7 @@ func NewPageAdmin(db db.DB) *Admin {
 }
 func (a *Admin) Bind(r chi.Router) {
 	r.Get("/pages/", a.list)
+	r.Get("/pages/{page:[0-9]+}", a.list)
 	r.Get("/pages/add/", a.add)
 	r.Get("/pages/edit/{id:\\d+}", a.edit)
 	r.Get("/pages/delete/{id:\\d+}", a.del)
@@ -48,9 +49,10 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 	var b bytes.Buffer
 
 	err = reg.Render(&b, "pages/page-panel.html", mtr.Ctx{
-		"fullUrl": "pages/",
-		"title":   "Pages",
-		"pages":   pages,
+		"fullUrl":   "pages/",
+		"title":     "Pages",
+		"renderAdd": true,
+		"pages":     pages,
 	})
 	if err != nil {
 		return nil, err
@@ -63,7 +65,33 @@ func (a *Admin) Panels(r *http.Request) ([]string, error) {
 }
 
 func (a *Admin) list(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("hello"))
+	var count int
+	if err := a.db.Get(&count, "SELECT count(*) FROM page;"); err != nil {
+		app.Http500("getting count", w, err)
+		return
+	}
+
+	const adminPageSize = 20
+	paginator := mtr.NewPaginator(adminPageSize, count)
+	page := paginator.Page(app.GetIntParam(r, "page", 1))
+
+	var pages []Page
+	err := a.db.Select(&pages, `SELECT * FROM page ORDER BY updated_at DESC LIMIT ? OFFSET ?`, adminPageSize, page.StartOffset)
+	if err != nil {
+		slog.Error("looking up pages", "error", err)
+		app.Http404(w)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.RenderWithBase(w, "admin-base", "pages/admin/page-list.html", mtr.Ctx{
+		"pages":      pages,
+		"pagination": paginator.Render(reg, page),
+	})
+
+	if err != nil {
+		slog.Error("rendering list", "err", err)
+	}
 }
 
 func (a *Admin) del(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +136,12 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Page) {
 func (a *Admin) add(w http.ResponseWriter, r *http.Request) {
 	// if post, insert a new page
 	if r.Method == http.MethodGet {
-		a.showEdit(w, r, &Page{})
+		page := &Page{}
+		// Pre-populate URL if provided as query parameter
+		if url := r.URL.Query().Get("url"); url != "" {
+			page.URL = url
+		}
+		a.showEdit(w, r, page)
 		return
 
 	}

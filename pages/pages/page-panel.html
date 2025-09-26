@@ -1,7 +1,14 @@
 
-    <h3><a href="{{.fullUrl}}">Pages</a> <span style="float:right;"><a class="add" href="pages/add/"><i class="icon icon-plus"></i></a></span></h3>
+    <h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
 
-    <ul class="post-list shortlist">
+    <ul class="page-list shortlist">
+        {{if .renderAdd}}
+        <li>
+            <form method="GET" action="pages/add/">
+                <input type="text" data-default="Page URL..." value="Page URL..." class="list-new js-clear-default" id="page-url" name="url">
+            </form>
+        </li>
+        {{end}}
     {{range $page := .pages}}
     <li><a href="pages/edit/{{$page.ID}}">{{$page.URL}}</a> <a class="del" href="pages/delete/{{$page.ID}}"><i class="fa-solid fa-circle-xmark"></i></a></li>
     {{end}}

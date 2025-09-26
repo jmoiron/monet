@@ -1,0 +1,20 @@
+<h2>Pages</h2>
+
+<ul class="shortlist listpage">
+{{range $page := .pages}}
+    <li class="page-item admin-page-item">
+        <div class="page-content">
+            <div class="page-title-line">
+                <a href="/admin/pages/edit/{{$page.ID}}">{{$page.URL}}</a>
+                <a href="{{$page.URL}}" target="_blank" class="external-link">
+                    <i class="fa-solid fa-link"></i>
+                </a>
+                <a class="del" href="/admin/pages/delete/{{$page.ID}}"><i class="fa-solid fa-circle-xmark"></i></a>
+            </div>
+            <span class="date">{{$page.UpdatedAt | naturalTime}}</span>
+        </div>
+    </li>
+{{end}}
+</ul>
+
+{{.pagination}}

@@ -3,13 +3,14 @@ package gallery
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jmoiron/jsonq"
-	"github.com/jmoiron/monet/db"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jmoiron/jsonq"
+	"github.com/jmoiron/monet/db"
 )
 
 type WaitGroupErr struct {
@@ -43,7 +44,7 @@ func UrlJoin(strs ...string) string {
 
 var Client = &http.Client{
 	// keep user-agent:
-	// https://groups.google.com/forum/?fromgroups#!topic/golang-nuts/OwGvopYXpwE%5B1-25%5D	
+	// https://groups.google.com/forum/?fromgroups#!topic/golang-nuts/OwGvopYXpwE%5B1-25%5D
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		old := via[0]
 		req.Header.Set("User-Agent", old.UserAgent())
@@ -95,7 +96,8 @@ func HttpGetJson(url string) (map[string]interface{}, error) {
 
 // Taken a timestamp in the picasa format, which seems like the standard
 // iso format time, return a int64 timestamp, ex:
-//    2009-04-27T07:18:46.000Z -> 
+//
+//	2009-04-27T07:18:46.000Z ->
 func ParsePicasaTime(timestamp string) int64 {
 	t, err := time.Parse("2006-01-02T15:04:05.000Z", timestamp)
 	if err != nil {

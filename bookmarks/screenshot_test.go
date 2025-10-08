@@ -13,7 +13,7 @@ func TestResizeScreenshot(t *testing.T) {
 	// Create paths for test files
 	sourcePath := filepath.Join("/tmp", "test_source.jpg")
 	destPath := filepath.Join("/tmp", "test_resized.jpg")
-	
+
 	// Ensure cleanup happens regardless of test outcome
 	defer func() {
 		os.Remove(sourcePath)
@@ -22,7 +22,7 @@ func TestResizeScreenshot(t *testing.T) {
 
 	// Create a 100x100 test image
 	sourceImg := image.NewRGBA(image.Rect(0, 0, 100, 100))
-	
+
 	// Fill with a simple pattern (alternating colors)
 	for y := 0; y < 100; y++ {
 		for x := 0; x < 100; x++ {

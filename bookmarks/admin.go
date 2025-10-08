@@ -35,18 +35,18 @@ func NewBookmarkAdmin(db db.DB, fss vfs.Registry) *Admin {
 // newBookmarkServiceWithScreenshots creates a BookmarkService with screenshot capabilities
 func (a *Admin) newBookmarkServiceWithScreenshots() *BookmarkService {
 	serv := NewBookmarkService(a.db)
-	
+
 	// Get screenshots directory path from FSS
 	screenshotsPath, err := a.fss.GetPath("screenshots")
 	if err != nil {
 		// Return service without screenshot support if path is not available
 		return serv
 	}
-	
+
 	// Create and set screenshot service
 	screenshotService := NewScreenshotService(screenshotsPath, "gowitness", true)
 	serv.SetScreenshotService(screenshotService)
-	
+
 	return serv
 }
 
@@ -342,4 +342,3 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewEncoder(w).Encode(response)
 }
-

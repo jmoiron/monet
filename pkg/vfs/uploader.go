@@ -20,14 +20,14 @@ type Uploader struct {
 // NewUploader creates a new uploader with the given filesystem and URL prefix
 func NewUploader(filesystem fs.FS, urlPrefix string) (*Uploader, error) {
 	var basePath string
-	
+
 	// Try to get the base path if this is a PathFS
 	if pfs, ok := filesystem.(PathFS); ok {
 		basePath = pfs.Path()
 	} else {
 		return nil, fmt.Errorf("uploader requires a PathFS to write files")
 	}
-	
+
 	return &Uploader{
 		fs:        filesystem,
 		urlPrefix: strings.TrimSuffix(urlPrefix, "/"),
@@ -72,15 +72,15 @@ func (u *Uploader) handleGet(w http.ResponseWriter, r *http.Request) {
 	// Strip the URL prefix to get the file path
 	path := strings.TrimPrefix(r.URL.Path, u.urlPrefix)
 	path = strings.TrimPrefix(path, "/")
-	
+
 	if path == "" {
 		http.Error(w, "File not specified", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Serve the file using http.FileServer
 	fileServer := http.FileServer(http.FS(u.fs))
-	
+
 	// Create a new request with the stripped path
 	r.URL.Path = "/" + path
 	fileServer.ServeHTTP(w, r)
@@ -93,24 +93,24 @@ func (u *Uploader) handlePost(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to parse form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	
+
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Failed to get file from form: "+err.Error(), http.StatusBadRequest)
 		return
 	}
 	defer file.Close()
-	
+
 	// Clean the filename
 	filename := filepath.Base(header.Filename)
 	if filename == "" || filename == "." {
 		http.Error(w, "Invalid filename", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Create the full path for the new file
 	destPath := filepath.Join(u.basePath, filename)
-	
+
 	// Create the destination file
 	destFile, err := os.Create(destPath)
 	if err != nil {
@@ -118,14 +118,14 @@ func (u *Uploader) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer destFile.Close()
-	
+
 	// Copy the uploaded file to the destination
 	_, err = io.Copy(destFile, file)
 	if err != nil {
 		http.Error(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Return success with the file URL
 	fileURL := fmt.Sprintf("%s/%s", u.urlPrefix, filename)
 	w.Header().Set("Content-Type", "application/json")
@@ -144,7 +144,7 @@ func (u *Uploader) DeleteFile(filename string) error {
 	if filename == "" || filename == "." {
 		return fmt.Errorf("invalid filename")
 	}
-	
+
 	filePath := filepath.Join(u.basePath, filename)
 	return os.Remove(filePath)
 }

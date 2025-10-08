@@ -59,6 +59,14 @@ func (s *PageService) DeleteByID(id int) error {
 	return err
 }
 
+func (s *PageService) GetAll() ([]Page, error) {
+	var pages []Page
+	if err := s.db.Select(&pages, `SELECT * FROM page ORDER BY url`); err != nil {
+		return nil, err
+	}
+	return pages, nil
+}
+
 func (s *PageService) GetByURL(url string) (*Page, error) {
 	var p Page
 	if err := s.db.Get(&p, `SELECT * FROM page WHERE url=?`, url); err != nil {

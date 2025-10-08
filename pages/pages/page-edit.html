@@ -7,10 +7,12 @@
     <div><textarea class="split-content-input js-clear-default" name="content" id="content" data-default="Type some new content...">{{
         if .page.Content}}{{.page.Content}}{{else}}Type some new content...{{end
     }}</textarea></div>
-    <div class="buttons">
-        <input class="save-button" type="submit" value="Save">
+    <div class="button-group">
+        <div class="buttons">
+            <input class="save-button" type="submit" value="Save">
+        </div>
+        <div class="clear"></div>
     </div>
-    <div class="clear"></div>
 </form>
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>

@@ -10,3 +10,5 @@ reload:
 	./monet --load-stream backup/stream.json
 	./monet --load-pages backup/pages.json
 
+fmt:
+	goimports -w $(shell git ls-files '*.go')

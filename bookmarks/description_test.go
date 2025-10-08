@@ -71,7 +71,7 @@ func TestGetDescriptionFromReader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := bytes.NewBufferString(tt.jsonContent)
-			
+
 			result, err := GetDescriptionFromReader(reader)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetDescriptionFromReader() error = %v, wantErr %v", err, tt.wantErr)
@@ -88,7 +88,7 @@ func TestGetDescriptionFromReader(t *testing.T) {
 func TestGetDescriptionFromPath_NonexistentFile(t *testing.T) {
 	// Test with a nonexistent file
 	jsonPath := "/tmp/nonexistent-test-file.json"
-	
+
 	description, err := GetDescriptionFromPath(jsonPath)
 	if err != nil {
 		t.Fatalf("GetDescriptionFromPath should not error on nonexistent file: %v", err)

@@ -45,15 +45,35 @@ func (a *App) GetAdmin() (app.Admin, error) {
 }
 
 func (a *App) Bind(r chi.Router) {
-	r.Get("/*", a.index)
+	// Dynamic paths that check the database on each request
+	r.Get("/notes/*", a.page)
+	r.Get("/essays/*", a.page)
+
+	// Register static routes for pages outside dynamic paths
+	serv := NewPageService(a.db)
+	pages, err := serv.GetAll()
+	if err != nil {
+		slog.Error("failed to load pages for routing", "err", err)
+		return
+	}
+
+	for _, p := range pages {
+		url := "/" + p.URL
+		// Skip pages in dynamic paths
+		if strings.HasPrefix(url, "/notes/") || strings.HasPrefix(url, "/essays/") {
+			continue
+		}
+		// Register static route for this page
+		r.Get(url, a.page)
+	}
 }
 
-func (a *App) index(w http.ResponseWriter, r *http.Request) {
+// dynamicPage handles requests to /notes/* and /essays/* by checking the database
+func (a *App) page(w http.ResponseWriter, r *http.Request) {
 	url := strings.TrimLeft(r.URL.Path, "/")
 	serv := NewPageService(a.db)
 
 	p, err := serv.GetByURL(url)
-	fmt.Println("getting url", url)
 	if err != nil {
 		app.Http404(w)
 		return
@@ -68,5 +88,4 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("rendering template", "err", err)
 	}
-
 }

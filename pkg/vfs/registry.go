@@ -22,7 +22,7 @@ type Registry interface {
 	Remove(name string) error
 
 	Mapper() URLMapper
-	
+
 	// Uploader creates an uploader for the named filesystem
 	CreateUploader(name string) (*Uploader, error)
 }
@@ -111,16 +111,16 @@ func (r *registry) CreateUploader(name string) (*Uploader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("CreateUploader: %w", err)
 	}
-	
+
 	if r.m == nil {
 		return nil, fmt.Errorf("CreateUploader: no URL mapper available")
 	}
-	
+
 	urlPrefix, err := r.m.GetURL(name, "")
 	if err != nil {
 		return nil, fmt.Errorf("CreateUploader: failed to get URL prefix: %w", err)
 	}
-	
+
 	return NewUploader(fs, urlPrefix)
 }
 

@@ -21,7 +21,7 @@ import (
 
 const (
 	panelListSize = 5
-	adminPageSize = 50
+	adminPageSize = 20
 )
 
 var imageFileRegex = regexp.MustCompile(`\.(jpg|jpeg|gif|png)$`)

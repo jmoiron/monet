@@ -12,3 +12,8 @@ reload:
 
 fmt:
 	goimports -w $(shell git ls-files '*.go')
+
+run:
+	reflex -g '*.go' -s -- sh -c "GO_FLAGS=$CGO_FLAGS go build --tags=fts5 && ./monet --config=dev.cfg.json"
+
+

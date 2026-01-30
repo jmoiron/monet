@@ -58,7 +58,7 @@ $(function() {
 
   // markdown live markup
   $.fn.markdown = function(to) {
-    const throttledConvert = throttle(() => convert($(this), to), 1000);
+    const throttledConvert = throttle(() => convert($(this), to), 500);
     $(this).on("change keyup page", throttledConvert);
     handlers.push(() => convert($(this), to));
   }

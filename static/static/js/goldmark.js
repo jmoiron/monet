@@ -36,11 +36,30 @@ $(function() {
     output.html(html);
   }
 
+  // Throttle function to limit conversion to at most once per second
+  const throttle = function(func, delay) {
+    let timeoutId = null;
+
+    return function(...args) {
+      // If there's already a timeout active, do nothing
+      if (timeoutId) {
+        return;
+      }
+
+      // Schedule execution after delay
+      timeoutId = setTimeout(() => {
+        timeoutId = null;  // Clear first so keypresses during WASM execution can schedule next update
+        func.apply(this, args);
+      }, delay);
+    };
+  };
+
   var handlers = [];
 
   // markdown live markup
   $.fn.markdown = function(to) {
-    $(this).on("change keyup page", () => { convert($(this), to) });
+    const throttledConvert = throttle(() => convert($(this), to), 1000);
+    $(this).on("change keyup page", throttledConvert);
     handlers.push(() => convert($(this), to));
   }
 

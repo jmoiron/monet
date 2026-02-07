@@ -71,12 +71,37 @@
           </a>
       </div>
       <div class="buttons">
+          {{if .post.ID}}<input class="autosave-button" type="button" value="Autosaves">{{end}}
           <input class="more-button" type="button" value="More">
           <input class="save-button" type="submit" value="Save">
       </div>
       <div class="clear"></div>
     </div>
 </form>
+
+{{if .post.ID}}
+<!-- Autosave Viewer Modal -->
+<div id="autosave-modal" class="autosave-modal">
+    <div class="autosave-modal-content">
+        <div class="autosave-modal-header">
+            <h3>Autosaved Versions</h3>
+            <button class="autosave-modal-close">&times;</button>
+        </div>
+        <div class="autosave-modal-body">
+            <div id="autosave-list" class="autosave-list">
+                <p>Loading autosaves...</p>
+            </div>
+            <div id="autosave-diff" class="autosave-diff" style="display: none;">
+                <div class="autosave-diff-header">
+                    <button id="back-to-list">&larr; Back to list</button>
+                    <button id="restore-autosave" class="restore-button">Restore this version</button>
+                </div>
+                <div id="diff-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+{{end}}
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>
 <script src="/static/js/goldmark.js"></script>
@@ -162,6 +187,269 @@ function deleteAttachedFile(uploadId) {
         alert('Failed to delete file');
     });
 }
+
+// Autosave functionality
+$(() => {
+    let contentChanged = false;
+    let titleChanged = false;
+    const autosaveInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+    // Track content changes
+    $('#content').on('input', () => {
+        contentChanged = true;
+    });
+
+    $('#title').on('input', () => {
+        titleChanged = true;
+    });
+
+    // Autosave function
+    function performAutosave() {
+        if (!contentChanged && !titleChanged) {
+            return; // Nothing changed, skip autosave
+        }
+
+        const formData = new FormData();
+        formData.append('content', $('#content').val());
+        formData.append('title', $('#title').val());
+
+        // Show autosaving indicator
+        showAutosaveStatus('Autosaving...');
+
+        fetch(`/admin/posts/${postId}/autosave`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                contentChanged = false;
+                titleChanged = false;
+                showAutosaveStatus('Autosaved', true);
+            } else {
+                showAutosaveStatus('Autosave failed', false);
+            }
+        })
+        .catch(error => {
+            console.error('Autosave error:', error);
+            showAutosaveStatus('Autosave failed', false);
+        });
+    }
+
+    // Show autosave status message
+    function showAutosaveStatus(message, success = null) {
+        let statusEl = $('#autosave-status');
+
+        if (statusEl.length === 0) {
+            statusEl = $('<div id="autosave-status"></div>');
+            $('.button-group').prepend(statusEl);
+        }
+
+        statusEl.text(message);
+        statusEl.removeClass('success error');
+
+        if (success === true) {
+            statusEl.addClass('success');
+            setTimeout(() => statusEl.fadeOut(), 2000);
+        } else if (success === false) {
+            statusEl.addClass('error');
+        } else {
+            statusEl.show();
+        }
+    }
+
+    // Set up autosave interval
+    setInterval(performAutosave, autosaveInterval);
+
+    // Autosave viewer functionality
+    let currentAutosaves = [];
+    let selectedAutosave = null;
+
+    // Open autosave modal
+    $('.autosave-button').on('click', (e) => {
+        e.preventDefault();
+        loadAutosaves();
+        $('#autosave-modal').show();
+    });
+
+    // Close modal
+    $('.autosave-modal-close').on('click', () => {
+        $('#autosave-modal').hide();
+    });
+
+    // Click outside modal to close
+    $('#autosave-modal').on('click', (e) => {
+        if (e.target.id === 'autosave-modal') {
+            $('#autosave-modal').hide();
+        }
+    });
+
+    // Load autosaves list
+    function loadAutosaves() {
+        $('#autosave-list').html('<p>Loading autosaves...</p>');
+        $('#autosave-diff').hide();
+        $('#autosave-list').show();
+
+        fetch(`/admin/posts/${postId}/autosaves`)
+            .then(response => response.json())
+            .then(autosaves => {
+                currentAutosaves = autosaves;
+                if (autosaves.length === 0) {
+                    $('#autosave-list').html('<p>No autosaves found.</p>');
+                } else {
+                    displayAutosaveList(autosaves);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load autosaves:', error);
+                $('#autosave-list').html('<p>Failed to load autosaves.</p>');
+            });
+    }
+
+    // Display list of autosaves
+    function displayAutosaveList(autosaves) {
+        let html = '<div class="autosave-items">';
+        autosaves.forEach(autosave => {
+            const date = new Date(autosave.created_at);
+            const timeAgo = getTimeAgo(date);
+            html += `
+                <div class="autosave-item" data-autosave-id="${autosave.id}">
+                    <div class="autosave-time">${timeAgo}</div>
+                    <div class="autosave-preview">${escapeHtml(autosave.title || 'Untitled')}</div>
+                    <button class="view-diff-btn" data-autosave-id="${autosave.id}">View Diff</button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        $('#autosave-list').html(html);
+
+        // Attach click handlers
+        $('.view-diff-btn').on('click', function() {
+            const autosaveId = $(this).data('autosave-id');
+            viewDiff(autosaveId);
+        });
+    }
+
+    // View diff for a specific autosave
+    function viewDiff(autosaveId) {
+        const autosave = currentAutosaves.find(a => a.id === autosaveId);
+        if (!autosave) return;
+
+        selectedAutosave = autosave;
+        const currentContent = $('#content').val();
+        const autosaveContent = autosave.content;
+
+        const diff = createDiff(currentContent, autosaveContent);
+        $('#diff-content').html(diff);
+        $('#autosave-list').hide();
+        $('#autosave-diff').show();
+    }
+
+    // Back to list
+    $('#back-to-list').on('click', () => {
+        $('#autosave-diff').hide();
+        $('#autosave-list').show();
+        selectedAutosave = null;
+    });
+
+    // Restore autosave
+    $('#restore-autosave').on('click', () => {
+        if (!selectedAutosave) return;
+
+        if (!confirm('Are you sure you want to restore this version? Your current unsaved changes will be lost.')) {
+            return;
+        }
+
+        fetch(`/admin/posts/${postId}/restore/${selectedAutosave.id}`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Reload the page to show the restored content
+                location.reload();
+            } else {
+                alert('Failed to restore autosave');
+            }
+        })
+        .catch(error => {
+            console.error('Restore error:', error);
+            alert('Failed to restore autosave');
+        });
+    });
+
+    // Simple line-by-line diff
+    function createDiff(current, autosaved) {
+        const currentLines = current.split('\n');
+        const autosaveLines = autosaved.split('\n');
+
+        let html = '<div class="diff-view"><div class="diff-legend">';
+        html += '<span class="diff-legend-item"><span class="diff-removed-marker"></span> Current Version</span>';
+        html += '<span class="diff-legend-item"><span class="diff-added-marker"></span> Autosaved Version</span>';
+        html += '</div><table class="diff-table">';
+
+        const maxLines = Math.max(currentLines.length, autosaveLines.length);
+        for (let i = 0; i < maxLines; i++) {
+            const currentLine = currentLines[i] || '';
+            const autosaveLine = autosaveLines[i] || '';
+
+            if (currentLine === autosaveLine) {
+                html += `<tr class="diff-unchanged">
+                    <td class="diff-line-number">${i + 1}</td>
+                    <td class="diff-line-content">${escapeHtml(currentLine) || '&nbsp;'}</td>
+                </tr>`;
+            } else {
+                if (currentLine) {
+                    html += `<tr class="diff-removed">
+                        <td class="diff-line-number">${i + 1}</td>
+                        <td class="diff-line-content">- ${escapeHtml(currentLine)}</td>
+                    </tr>`;
+                }
+                if (autosaveLine) {
+                    html += `<tr class="diff-added">
+                        <td class="diff-line-number">${i + 1}</td>
+                        <td class="diff-line-content">+ ${escapeHtml(autosaveLine)}</td>
+                    </tr>`;
+                }
+            }
+        }
+        html += '</table></div>';
+        return html;
+    }
+
+    // Helper functions
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + ' years ago';
+
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + ' months ago';
+
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + ' days ago';
+
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + ' hours ago';
+
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + ' minutes ago';
+
+        return Math.floor(seconds) + ' seconds ago';
+    }
+});
 </script>
 
 <style>

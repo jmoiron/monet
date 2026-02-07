@@ -20,6 +20,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/autosave"
 	"github.com/jmoiron/monet/pkg/vfs"
 	"github.com/jmoiron/sqlx"
 )
@@ -101,7 +102,7 @@ func (a *App) Migrate() error {
 		return nil
 	}
 
-	for _, m := range []monarch.Set{postMigrations, postTagMigrations, postFileMigrations} {
+	for _, m := range []monarch.Set{postMigrations, postTagMigrations, postFileMigrations, autosave.Migrations()} {
 		if err := manager.Upgrade(m); err != nil {
 			return fmt.Errorf("error running %s migration: %w", m.Name, err)
 		}

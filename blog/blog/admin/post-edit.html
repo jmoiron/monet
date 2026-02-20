@@ -71,7 +71,7 @@
           </a>
       </div>
       <div class="buttons">
-          {{if .post.ID}}<input class="autosave-button" type="button" value="Autosaves">{{end}}
+          {{if .post.ID}}{{if .debug}}<a class="debug-autosave-button" title="Force autosave">+</a>{{end}}<a class="autosave-button{{if eq .numAutosaves 0}} inactive{{end}}"><i class="fa-solid fa-code-branch"></i> Autosaves</a>{{end}}
           <input class="more-button" type="button" value="More">
           <input class="save-button" type="submit" value="Save">
       </div>
@@ -226,6 +226,8 @@ $(() => {
                 contentChanged = false;
                 titleChanged = false;
                 showAutosaveStatus('Autosaved', true);
+                // Enable the autosave button if it was inactive
+                $('.autosave-button').removeClass('inactive');
             } else {
                 showAutosaveStatus('Autosave failed', false);
             }
@@ -265,11 +267,19 @@ $(() => {
     let currentAutosaves = [];
     let selectedAutosave = null;
 
-    // Open autosave modal
+    // Open autosave modal (only if not inactive)
     $('.autosave-button').on('click', (e) => {
         e.preventDefault();
+        if ($(e.currentTarget).hasClass('inactive')) return;
         loadAutosaves();
         $('#autosave-modal').show();
+    });
+
+    // Debug: force autosave button
+    $('.debug-autosave-button').on('click', (e) => {
+        e.preventDefault();
+        contentChanged = true;
+        performAutosave();
     });
 
     // Close modal

@@ -83,6 +83,9 @@
 }
 
 /* Solid icons */
+.fa-bars {
+  --fa: "\f0c9";
+}
 .fa-camera-retro {
   --fa: "\f083";
 }
@@ -97,6 +100,15 @@
 }
 .fa-cloud-arrow-up {
   --fa: "\f0ee";
+}
+.fa-code-branch {
+  --fa: "\f126";
+}
+.fa-code-compare {
+  --fa: "\e13a";
+}
+.fa-code-merge {
+  --fa: "\f387";
 }
 .fa-down-left-and-up-right-to-center {
   --fa: "\f422";

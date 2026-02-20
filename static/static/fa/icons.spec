@@ -17,3 +17,6 @@ fa-solid fa-file-signature
 fa-solid fa-cloud-arrow-up
 fa-solid fa-images
 fa-solid fa-bars
+fa-solid fa-code-branch
+fa-solid fa-code-merge
+fa-solid fa-code-compare

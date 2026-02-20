@@ -217,10 +217,23 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 		}
 	}
 
+	// Get autosave count for this post
+	var numAutosaves int
+	if p.ID > 0 {
+		autosaveService := autosave.NewService(a.db)
+		autosaves, err := autosaveService.List("blog_post", int(p.ID))
+		if err != nil {
+			slog.Error("failed to get autosave count", "post_id", p.ID, "err", err)
+		} else {
+			numAutosaves = len(autosaves)
+		}
+	}
+
 	reg := mtr.RegistryFromContext(r.Context())
 	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
 		"post":          p,
 		"attachedFiles": attachedFiles,
+		"numAutosaves":  numAutosaves,
 	})
 	if err != nil {
 		slog.Error("rendering edit", "err", err)

@@ -407,6 +407,26 @@ p code {
   #title { margin-bottom: 5px; }
   .buttons { float: right; input { font-size: 16px; }}
   .extras { display: none; }
+  .autosave-button {
+    .color-button(#8E6BBE, #fff);
+    display: inline-block;
+    font-size: 16px;
+    i { margin-right: 4px; }
+    &.inactive {
+      background-color: #bbb;
+      text-shadow: 1px 1px 1px #888;
+      cursor: default;
+      box-shadow: none;
+      &:hover { background-color: #bbb; }
+      &:active { background-color: #bbb; }
+    }
+  }
+  .debug-autosave-button {
+    .color-button(#999, #fff);
+    display: inline-block;
+    font-size: 16px;
+    margin-right: 4px;
+  }
   .more-button { .color-button(#4DBCE9, #fff); }
   .preview-button { .color-button(#FE4365, #fff); }
   .save-button { .color-button(darken(@rawrind, 15%), #fff); }

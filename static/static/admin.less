@@ -1,3 +1,4 @@
+
 #content-input {
   border: 1px dashed #ddd;
 }
@@ -27,6 +28,20 @@
 
 .gutter-col-1 {
     grid-column: 2;
+}
+
+.color-button (@bg, @color) {
+  padding: 3px 6px;
+  border: 2px solid #fff;
+  color: @color;
+  background-color: @bg;
+  cursor: pointer;
+  text-shadow: 1px 1px 1px darken(@bg, 30%);
+  font-weight: bold;
+  border-radius: 3px;
+  box-shadow: 2px 2px 3px #ccc;
+  &:hover { background-color: lighten(@bg, 10%); }
+  &:active { background-color: darken(@bg, 5%); }
 }
 
 .admin form {
@@ -473,6 +488,40 @@
   transition: transform @toggle-speed ease-in-out;
 }
 
+// Autosave button
+.admin {
+  .autosave-button {
+    .color-button(#8E6BBE, #fff);
+    display: inline-block;
+    font-size: 16px;
+    line-height: 1.6;
+
+    .autosave-countdown {
+      font-size: 0.85em;
+      margin-left: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .autosave-count {
+      margin-left: 2px;
+      font-size: 0.85em;
+    }
+    &.inactive {
+      background-color: #bbb;
+      text-shadow: 1px 1px 1px #888;
+      cursor: default;
+      &:hover { background-color: #bbb; }
+      &:active { background-color: #bbb; }
+    }
+  }
+  .debug-autosave-button {
+    .color-button(#999, #fff);
+    line-height: 1.6;
+    display: inline-block;
+    font-size: 16px;
+    margin-right: 4px;
+  }
+}
+
 // Autosave status indicator
 #autosave-status {
   padding: 8px 12px;
@@ -565,9 +614,17 @@
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #f9f9f9;
+}
 
-  &:hover {
-    background-color: #f0f0f0;
+.autosave-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  cursor: pointer;
+
+  &:hover .autosave-time,
+  &:hover .autosave-preview {
+    color: @bluelink;
   }
 }
 
@@ -583,17 +640,12 @@
   color: #333;
 }
 
-.view-diff-btn {
-  padding: 6px 12px;
-  background-color: @bluelink;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-
-  &:hover {
-    background-color: darken(@bluelink, 10%);
-  }
+.autosave-item a.del {
+  font-size: 1.2em;
+  margin-left: 8px;
+  color: #999;
+  text-decoration: none;
+  &:hover { color: #fa2a00; }
 }
 
 .autosave-diff-header {
@@ -629,82 +681,46 @@
   }
 }
 
-.diff-view {
+.unified-diff {
   font-family: monospace;
   font-size: 13px;
-}
-
-.diff-legend {
-  margin-bottom: 10px;
-  padding: 10px;
-  background-color: #f5f5f5;
-  border-radius: 4px;
-  display: flex;
-  gap: 20px;
-}
-
-.diff-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.diff-removed-marker,
-.diff-added-marker {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border-radius: 3px;
-}
-
-.diff-removed-marker {
-  background-color: #ffeef0;
-  border: 1px solid #fdb8c0;
-}
-
-.diff-added-marker {
-  background-color: #e6ffed;
-  border: 1px solid #9be9a8;
-}
-
-.diff-table {
-  width: 100%;
-  border-collapse: collapse;
+  line-height: 1.4;
   border: 1px solid #ddd;
-}
+  border-radius: 4px;
+  overflow-x: auto;
 
-.diff-line-number {
-  width: 50px;
-  padding: 2px 8px;
-  text-align: right;
-  background-color: #f5f5f5;
-  border-right: 1px solid #ddd;
-  color: #666;
-  user-select: none;
-}
-
-.diff-line-content {
-  padding: 2px 8px;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.diff-unchanged {
-  background-color: white;
-}
-
-.diff-removed {
-  background-color: #ffeef0;
-
-  .diff-line-content {
-    color: #d73a49;
+  div {
+    white-space: pre-wrap;
+    padding: 1px 8px;
+    word-break: break-all;
   }
-}
 
-.diff-added {
-  background-color: #e6ffed;
+  .diff-file-header {
+    background-color: #f5f5f5;
+    color: #666;
+    padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+  }
 
-  .diff-line-content {
+  .diff-hunk-header {
+    background-color: #f1f8ff;
+    color: #0366d6;
+    border-top: 1px solid #c8e1ff;
+    border-bottom: 1px solid #c8e1ff;
+  }
+
+  .diff-removed {
+    background-color: #ffeef0;
+    color: #b31d28;
+  }
+
+  .diff-added {
+    background-color: #e6ffed;
     color: #22863a;
+  }
+
+  .diff-context {
+    background-color: #fff;
+    color: #24292e;
   }
 }

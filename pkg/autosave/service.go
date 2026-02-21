@@ -1,8 +1,12 @@
 package autosave
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/hexops/gotextdiff"
+	"github.com/hexops/gotextdiff/myers"
+	"github.com/hexops/gotextdiff/span"
 	"github.com/jmoiron/monet/db"
 )
 
@@ -19,11 +23,10 @@ func NewService(database db.DB) *Service {
 // Save creates a new autosave and removes old versions if necessary
 func (s *Service) Save(contentType string, contentID int, content, title string) error {
 	// Insert the new autosave
-	now := time.Now()
 	_, err := s.db.Exec(`
 		INSERT INTO autosaves (content_type, content_id, content, title, created_at)
 		VALUES (?, ?, ?, ?, ?)`,
-		contentType, contentID, content, title, now.Unix())
+		contentType, contentID, content, title, time.Now())
 	if err != nil {
 		return err
 	}
@@ -56,6 +59,30 @@ func (s *Service) Get(id int) (*Autosave, error) {
 		return nil, err
 	}
 	return &autosave, nil
+}
+
+// LoadWithDiffs returns all autosaves for a piece of content with a unified diff
+// pre-computed for each against savedContent (the current saved state of the parent).
+func (s *Service) LoadWithDiffs(contentType string, contentID int, savedContent string) ([]AutosaveWithDiff, error) {
+	autosaves, err := s.List(contentType, contentID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]AutosaveWithDiff, len(autosaves))
+	for i, as := range autosaves {
+		edits := myers.ComputeEdits(span.URIFromPath("saved"), savedContent, as.Content)
+		result[i] = AutosaveWithDiff{
+			Autosave: as,
+			Diff:     fmt.Sprint(gotextdiff.ToUnified("saved", "autosave", savedContent, edits)),
+		}
+	}
+	return result, nil
+}
+
+// Delete removes a single autosave by ID.
+func (s *Service) Delete(id int) error {
+	_, err := s.db.Exec(`DELETE FROM autosaves WHERE id = ?`, id)
+	return err
 }
 
 // DeleteOldVersions removes old autosaves, keeping only the most recent keepCount versions

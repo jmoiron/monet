@@ -11,3 +11,10 @@ type Autosave struct {
 	Title       string    `db:"title" json:"title"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 }
+
+// AutosaveWithDiff is an Autosave with a unified diff pre-computed against
+// the current saved content of the parent object.
+type AutosaveWithDiff struct {
+	Autosave
+	Diff string `json:"diff"`
+}

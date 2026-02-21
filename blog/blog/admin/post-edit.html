@@ -7,6 +7,7 @@
           <i class="fa-solid fa-down-left-and-up-right-to-center shrink"></i>
           <i class="fa-solid fa-up-right-and-down-left-from-center grow"></i>
         </div>
+    </div>
     <div>
         <textarea class="split-content-input js-clear-default" name="content" id="content" spellcheck="true" data-default="Type some new content...">{{
             if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
@@ -71,7 +72,7 @@
           </a>
       </div>
       <div class="buttons">
-          {{if .post.ID}}{{if .debug}}<a class="debug-autosave-button" title="Force autosave">+</a>{{end}}<a class="autosave-button{{if eq .numAutosaves 0}} inactive{{end}}"><i class="fa-solid fa-code-branch"></i> Autosaves</a>{{end}}
+          {{if .post.ID}}{{if .debug}}<a class="debug-autosave-button" title="Force autosave">+</a>{{end}}<a class="autosave-button{{if eq .numAutosaves 0}} inactive{{end}}"><i class="fa-solid fa-code-branch"></i><span class="autosave-countdown"></span><span class="autosave-count">{{if gt .numAutosaves 0}} [{{.numAutosaves}}]{{end}}</span></a>{{end}}
           <input class="more-button" type="button" value="More">
           <input class="save-button" type="submit" value="Save">
       </div>
@@ -85,7 +86,7 @@
     <div class="autosave-modal-content">
         <div class="autosave-modal-header">
             <h3>Autosaved Versions</h3>
-            <button class="autosave-modal-close">&times;</button>
+            <button type="button" class="autosave-modal-close">&times;</button>
         </div>
         <div class="autosave-modal-body">
             <div id="autosave-list" class="autosave-list">
@@ -93,8 +94,8 @@
             </div>
             <div id="autosave-diff" class="autosave-diff" style="display: none;">
                 <div class="autosave-diff-header">
-                    <button id="back-to-list">&larr; Back to list</button>
-                    <button id="restore-autosave" class="restore-button">Restore this version</button>
+                    <button type="button" id="back-to-list">&larr; Back to list</button>
+                    <button type="button" id="restore-autosave" class="restore-button">Restore this version</button>
                 </div>
                 <div id="diff-content"></div>
             </div>
@@ -192,15 +193,52 @@ function deleteAttachedFile(uploadId) {
 $(() => {
     let contentChanged = false;
     let titleChanged = false;
-    const autosaveInterval = 5 * 60 * 1000; // 5 minutes in milliseconds
+    let autosaveCount = {{.numAutosaves}};
+
+    let autosaveTimer = null;
+    let countdownInterval = null;
+    let countdownSeconds = 0;
+    const AUTOSAVE_DELAY = 5 * 60; // 5 minutes in seconds
+
+    function updateCountdownDisplay() {
+        const mins = Math.floor(countdownSeconds / 60);
+        const secs = countdownSeconds % 60;
+        $('.autosave-countdown').text(` ${mins}:${secs.toString().padStart(2, '0')}`);
+    }
+
+    function clearCountdown() {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        $('.autosave-countdown').text('');
+    }
+
+    function startAutosaveCountdown() {
+        clearTimeout(autosaveTimer);
+        clearInterval(countdownInterval);
+
+        countdownSeconds = AUTOSAVE_DELAY;
+        updateCountdownDisplay();
+
+        countdownInterval = setInterval(() => {
+            countdownSeconds = Math.max(0, countdownSeconds - 1);
+            updateCountdownDisplay();
+        }, 1000);
+
+        autosaveTimer = setTimeout(() => {
+            clearCountdown();
+            performAutosave();
+        }, AUTOSAVE_DELAY * 1000);
+    }
 
     // Track content changes
     $('#content').on('input', () => {
         contentChanged = true;
+        startAutosaveCountdown();
     });
 
     $('#title').on('input', () => {
         titleChanged = true;
+        startAutosaveCountdown();
     });
 
     // Autosave function
@@ -226,8 +264,9 @@ $(() => {
                 contentChanged = false;
                 titleChanged = false;
                 showAutosaveStatus('Autosaved', true);
-                // Enable the autosave button if it was inactive
                 $('.autosave-button').removeClass('inactive');
+                if (autosaveCount < 10) autosaveCount++;
+                $('.autosave-count').text(` [${autosaveCount}]`);
             } else {
                 showAutosaveStatus('Autosave failed', false);
             }
@@ -259,9 +298,6 @@ $(() => {
             statusEl.show();
         }
     }
-
-    // Set up autosave interval
-    setInterval(performAutosave, autosaveInterval);
 
     // Autosave viewer functionality
     let currentAutosaves = [];
@@ -324,19 +360,56 @@ $(() => {
             const timeAgo = getTimeAgo(date);
             html += `
                 <div class="autosave-item" data-autosave-id="${autosave.id}">
-                    <div class="autosave-time">${timeAgo}</div>
-                    <div class="autosave-preview">${escapeHtml(autosave.title || 'Untitled')}</div>
-                    <button class="view-diff-btn" data-autosave-id="${autosave.id}">View Diff</button>
+                    <div class="autosave-info" data-autosave-id="${autosave.id}">
+                        <div class="autosave-time">${timeAgo}</div>
+                        <div class="autosave-preview">${escapeHtml(autosave.title || 'Untitled')}</div>
+                    </div>
+                    <a class="del delete-autosave-btn" href="#" data-autosave-id="${autosave.id}"><i class="fa-solid fa-circle-xmark"></i></a>
                 </div>
             `;
         });
         html += '</div>';
         $('#autosave-list').html(html);
 
-        // Attach click handlers
-        $('.view-diff-btn').on('click', function() {
-            const autosaveId = $(this).data('autosave-id');
+        // Click the info area to view diff
+        $('.autosave-info').on('click', function() {
+            const autosaveId = parseInt($(this).data('autosave-id'));
             viewDiff(autosaveId);
+        });
+
+        // Delete button handler
+        $('.delete-autosave-btn').on('click', function(e) {
+            e.preventDefault();
+            const autosaveId = parseInt($(this).data('autosave-id'));
+            deleteAutosave(autosaveId);
+        });
+    }
+
+    // Delete an autosave without page reload
+    function deleteAutosave(autosaveId) {
+        fetch(`/admin/autosave/${autosaveId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentAutosaves = currentAutosaves.filter(a => a.id !== autosaveId);
+                $(`.autosave-item[data-autosave-id="${autosaveId}"]`).remove();
+                autosaveCount = Math.max(0, autosaveCount - 1);
+                if (autosaveCount === 0) {
+                    $('.autosave-button').addClass('inactive');
+                    $('.autosave-count').text('');
+                    $('#autosave-list').html('<p>No autosaves found.</p>');
+                } else {
+                    $('.autosave-count').text(` [${autosaveCount}]`);
+                }
+            } else {
+                alert('Failed to delete autosave');
+            }
+        })
+        .catch(error => {
+            console.error('Delete error:', error);
+            alert('Failed to delete autosave');
         });
     }
 
@@ -346,13 +419,30 @@ $(() => {
         if (!autosave) return;
 
         selectedAutosave = autosave;
-        const currentContent = $('#content').val();
-        const autosaveContent = autosave.content;
-
-        const diff = createDiff(currentContent, autosaveContent);
-        $('#diff-content').html(diff);
+        $('#diff-content').html(renderUnifiedDiff(autosave.diff));
         $('#autosave-list').hide();
         $('#autosave-diff').show();
+    }
+
+    function renderUnifiedDiff(diff) {
+        if (!diff) return '<p>No differences from saved content.</p>';
+        const lines = diff.split('\n');
+        let html = '<div class="unified-diff">';
+        for (const line of lines) {
+            let cls = 'diff-context';
+            if (line.startsWith('---') || line.startsWith('+++')) {
+                cls = 'diff-file-header';
+            } else if (line.startsWith('@@')) {
+                cls = 'diff-hunk-header';
+            } else if (line.startsWith('-')) {
+                cls = 'diff-removed';
+            } else if (line.startsWith('+')) {
+                cls = 'diff-added';
+            }
+            html += `<div class="${cls}">${escapeHtml(line) || ' '}</div>`;
+        }
+        html += '</div>';
+        return html;
     }
 
     // Back to list
@@ -387,45 +477,6 @@ $(() => {
             alert('Failed to restore autosave');
         });
     });
-
-    // Simple line-by-line diff
-    function createDiff(current, autosaved) {
-        const currentLines = current.split('\n');
-        const autosaveLines = autosaved.split('\n');
-
-        let html = '<div class="diff-view"><div class="diff-legend">';
-        html += '<span class="diff-legend-item"><span class="diff-removed-marker"></span> Current Version</span>';
-        html += '<span class="diff-legend-item"><span class="diff-added-marker"></span> Autosaved Version</span>';
-        html += '</div><table class="diff-table">';
-
-        const maxLines = Math.max(currentLines.length, autosaveLines.length);
-        for (let i = 0; i < maxLines; i++) {
-            const currentLine = currentLines[i] || '';
-            const autosaveLine = autosaveLines[i] || '';
-
-            if (currentLine === autosaveLine) {
-                html += `<tr class="diff-unchanged">
-                    <td class="diff-line-number">${i + 1}</td>
-                    <td class="diff-line-content">${escapeHtml(currentLine) || '&nbsp;'}</td>
-                </tr>`;
-            } else {
-                if (currentLine) {
-                    html += `<tr class="diff-removed">
-                        <td class="diff-line-number">${i + 1}</td>
-                        <td class="diff-line-content">- ${escapeHtml(currentLine)}</td>
-                    </tr>`;
-                }
-                if (autosaveLine) {
-                    html += `<tr class="diff-added">
-                        <td class="diff-line-number">${i + 1}</td>
-                        <td class="diff-line-content">+ ${escapeHtml(autosaveLine)}</td>
-                    </tr>`;
-                }
-            }
-        }
-        html += '</table></div>';
-        return html;
-    }
 
     // Helper functions
     function escapeHtml(text) {

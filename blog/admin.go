@@ -57,6 +57,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/posts/{id:\\d+}/autosave", a.saveAutosave)
 	r.Get("/posts/{id:\\d+}/autosaves", a.listAutosaves)
 	r.Get("/autosave/{id:\\d+}", a.getAutosave)
+	r.Delete("/autosave/{id:\\d+}", a.deleteAutosave)
 	r.Post("/posts/{id:\\d+}/restore/{autosaveId:\\d+}", a.restoreAutosave)
 	// r.Post("/posts/preview/", a.preview)
 }
@@ -535,13 +536,8 @@ func (a *Admin) saveAutosave(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Failed to parse form", http.StatusBadRequest)
-		return
-	}
-
-	content := r.Form.Get("content")
-	title := r.Form.Get("title")
+	content := r.FormValue("content")
+	title := r.FormValue("title")
 
 	autosaveService := autosave.NewService(a.db)
 	if err := autosaveService.Save("blog_post", postID, content, title); err != nil {
@@ -554,19 +550,25 @@ func (a *Admin) saveAutosave(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
-// listAutosaves returns all autosaves for a blog post
+// listAutosaves returns all autosaves for a blog post with pre-computed diffs
+// against the current saved content.
 func (a *Admin) listAutosaves(w http.ResponseWriter, r *http.Request) {
-	idStr := chi.URLParam(r, "id")
-	postID, err := strconv.Atoi(idStr)
+	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
 	if err != nil {
 		http.Error(w, "Invalid post ID", http.StatusBadRequest)
 		return
 	}
 
-	autosaveService := autosave.NewService(a.db)
-	autosaves, err := autosaveService.List("blog_post", postID)
+	post, err := NewPostService(a.db).Get(postID)
 	if err != nil {
-		slog.Error("Failed to list autosaves", "post_id", postID, "err", err)
+		slog.Error("Failed to get post for autosaves", "post_id", postID, "err", err)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	autosaves, err := autosave.NewService(a.db).LoadWithDiffs("blog_post", postID, post.Content)
+	if err != nil {
+		slog.Error("Failed to load autosaves", "post_id", postID, "err", err)
 		http.Error(w, "Failed to list autosaves", http.StatusInternalServerError)
 		return
 	}
@@ -594,6 +596,22 @@ func (a *Admin) getAutosave(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(autosave)
+}
+
+// deleteAutosave removes a single autosave by ID.
+func (a *Admin) deleteAutosave(w http.ResponseWriter, r *http.Request) {
+	autosaveID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid autosave ID", http.StatusBadRequest)
+		return
+	}
+	if err := autosave.NewService(a.db).Delete(autosaveID); err != nil {
+		slog.Error("Failed to delete autosave", "autosave_id", autosaveID, "err", err)
+		http.Error(w, "Failed to delete autosave", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
 
 // restoreAutosave replaces the post content with an autosaved version

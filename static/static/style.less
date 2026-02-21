@@ -381,19 +381,6 @@ p code {
     }
 }
 
-.color-button (@bg, @color) {
-  padding: 3px 6px;
-  border: 2px solid #fff;
-  color: @color;
-  background-color: @bg;
-  cursor: pointer;
-  text-shadow: 1px 1px 1px darken(@bg, 30%);
-  font-weight: bold;
-  border-radius: 3px;
-  box-shadow: 2px 2px 3px #ccc;
-    &:hover { background-color: lighten(@bg, 10%); }
-    &:active { background-color: darken(@bg, 5%); }
-}
 
 .login-form {
   width: 310px; margin: 0 auto;
@@ -407,26 +394,6 @@ p code {
   #title { margin-bottom: 5px; }
   .buttons { float: right; input { font-size: 16px; }}
   .extras { display: none; }
-  .autosave-button {
-    .color-button(#8E6BBE, #fff);
-    display: inline-block;
-    font-size: 16px;
-    i { margin-right: 4px; }
-    &.inactive {
-      background-color: #bbb;
-      text-shadow: 1px 1px 1px #888;
-      cursor: default;
-      box-shadow: none;
-      &:hover { background-color: #bbb; }
-      &:active { background-color: #bbb; }
-    }
-  }
-  .debug-autosave-button {
-    .color-button(#999, #fff);
-    display: inline-block;
-    font-size: 16px;
-    margin-right: 4px;
-  }
   .more-button { .color-button(#4DBCE9, #fff); }
   .preview-button { .color-button(#FE4365, #fff); }
   .save-button { .color-button(darken(@rawrind, 15%), #fff); }

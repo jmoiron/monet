@@ -32,6 +32,7 @@ require (
 	github.com/dustin/gojson v0.0.0-20160307161227-2e71ec9dd5ad // indirect
 	github.com/garyburd/go-oauth v0.0.0-20180319155456-bca2e7f09a17 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
+	github.com/hexops/gotextdiff v1.0.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect

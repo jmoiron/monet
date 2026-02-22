@@ -85,9 +85,9 @@ class Countdown {
 //   onSuccess  {function} optional  called with response data on successful save
 //   onError    {function} optional  called with error on failed save
 //
-// The controller object is stored on each input via .data('autosave') and exposes:
+// Returns a controller object with:
 //   save()       perform save if any input has changed
-//   forceSave()  cancel countdown and save unconditionally
+//   forceSave()  save unconditionally; cancels countdown on success
 //   cancel()     cancel the countdown
 $.fn.autosave = function(options) {
     const opts = Object.assign({ delay: 5 * 60 }, options);
@@ -127,6 +127,7 @@ $.fn.autosave = function(options) {
             .then(data => {
                 if (data.success) {
                     changed = false;
+                    if (force) cd.cancel();
                     $.flash('Autosaved');
                     if (opts.onSuccess) opts.onSuccess(data);
                 } else {
@@ -141,14 +142,11 @@ $.fn.autosave = function(options) {
             });
     }
 
-    const controller = {
+    return {
         save:      () => perform(false),
-        forceSave: () => { cd.cancel(); perform(true); },
+        forceSave: () => perform(true),
         cancel:    () => cd.cancel(),
     };
-
-    inputs.each(function() { $(this).data('autosave', controller); });
-    return this;
 };
 
 $.fn.center = function() {

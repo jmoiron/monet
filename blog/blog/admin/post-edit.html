@@ -194,7 +194,7 @@ function deleteAttachedFile(uploadId) {
 $(() => {
     let autosaveCount = {{.numAutosaves}};
 
-    $('#content, #title').autosave({
+    const autosave = $('#content, #title').autosave({
         url: `/admin/posts/${postId}/autosave`,
         countdown: '.autosave-countdown',
         onSuccess: () => {
@@ -219,7 +219,7 @@ $(() => {
     // Debug: force autosave button
     $('.debug-autosave-button').on('click', (e) => {
         e.preventDefault();
-        $('#content').data('autosave').forceSave();
+        autosave.forceSave();
     });
 
     // Close modal
@@ -382,6 +382,18 @@ $(() => {
         $('#autosave-diff').hide();
         $('#autosave-list').show();
         selectedAutosave = null;
+    });
+
+    // Esc: back to list when viewing a diff, close modal when viewing the list
+    $(document).on('keydown', (e) => {
+        if (e.key !== 'Escape' || $('#autosave-modal').css('display') === 'none') return;
+        if (selectedAutosave) {
+            $('#autosave-diff').hide();
+            $('#autosave-list').show();
+            selectedAutosave = null;
+        } else {
+            $('#autosave-modal').hide();
+        }
     });
 
     // Restore autosave

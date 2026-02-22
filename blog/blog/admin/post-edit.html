@@ -86,6 +86,7 @@
     <div class="autosave-modal-content">
         <div class="autosave-modal-header">
             <h3>Autosaved Versions</h3>
+            <button type="button" id="autoclear-autosaves">Auto-clear</button>
             <button type="button" class="autosave-modal-close">&times;</button>
         </div>
         <div class="autosave-modal-body">
@@ -191,89 +192,17 @@ function deleteAttachedFile(uploadId) {
 
 // Autosave functionality
 $(() => {
-    let contentChanged = false;
-    let titleChanged = false;
     let autosaveCount = {{.numAutosaves}};
 
-    const AUTOSAVE_DELAY = 5 * 60; // 5 minutes in seconds
-
-    const countdown = new Countdown(AUTOSAVE_DELAY)
-        .onTick(remaining => {
-            const mins = Math.floor(remaining / 60);
-            const secs = remaining % 60;
-            $('.autosave-countdown').text(` ${mins}:${secs.toString().padStart(2, '0')}`);
-        })
-        .onCancel(() => $('.autosave-countdown').text(''))
-        .onComplete(() => performAutosave());
-
-    // Track content changes
-    $('#content').on('input', () => {
-        contentChanged = true;
-        countdown.start();
+    $('#content, #title').autosave({
+        url: `/admin/posts/${postId}/autosave`,
+        countdown: '.autosave-countdown',
+        onSuccess: () => {
+            $('.autosave-button').removeClass('inactive');
+            if (autosaveCount < 10) autosaveCount++;
+            $('.autosave-count').text(` [${autosaveCount}]`);
+        }
     });
-
-    $('#title').on('input', () => {
-        titleChanged = true;
-        countdown.start();
-    });
-
-    // Autosave function
-    function performAutosave() {
-        if (!contentChanged && !titleChanged) {
-            return; // Nothing changed, skip autosave
-        }
-
-        const formData = new FormData();
-        formData.append('content', $('#content').val());
-        formData.append('title', $('#title').val());
-
-        // Show autosaving indicator
-        showAutosaveStatus('Autosaving...');
-
-        fetch(`/admin/posts/${postId}/autosave`, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                contentChanged = false;
-                titleChanged = false;
-                showAutosaveStatus('Autosaved', true);
-                $('.autosave-button').removeClass('inactive');
-                if (autosaveCount < 10) autosaveCount++;
-                $('.autosave-count').text(` [${autosaveCount}]`);
-            } else {
-                showAutosaveStatus('Autosave failed', false);
-            }
-        })
-        .catch(error => {
-            console.error('Autosave error:', error);
-            showAutosaveStatus('Autosave failed', false);
-        });
-    }
-
-    // Show autosave status message
-    function showAutosaveStatus(message, success = null) {
-        let statusEl = $('#autosave-status');
-
-        if (statusEl.length === 0) {
-            statusEl = $('<div id="autosave-status"></div>');
-            $('.button-group').prepend(statusEl);
-        }
-
-        statusEl.text(message);
-        statusEl.removeClass('success error');
-
-        if (success === true) {
-            statusEl.addClass('success');
-            setTimeout(() => statusEl.fadeOut(), 2000);
-        } else if (success === false) {
-            statusEl.addClass('error');
-        } else {
-            statusEl.show();
-        }
-    }
 
     // Autosave viewer functionality
     let currentAutosaves = [];
@@ -290,9 +219,7 @@ $(() => {
     // Debug: force autosave button
     $('.debug-autosave-button').on('click', (e) => {
         e.preventDefault();
-        countdown.cancel();
-        contentChanged = true;
-        performAutosave();
+        $('#content').data('autosave').forceSave();
     });
 
     // Close modal
@@ -306,6 +233,34 @@ $(() => {
             $('#autosave-modal').hide();
         }
     });
+
+    // Auto-clear: delete autosaves that match current saved content, then reload with modal open
+    $('#autoclear-autosaves').on('click', () => {
+        fetch(`/admin/posts/${postId}/autosaves/autoclear`, { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('autosave_modal', '1');
+                    window.location.href = url.toString();
+                } else {
+                    alert('Failed to auto-clear autosaves');
+                }
+            })
+            .catch(error => {
+                console.error('Auto-clear error:', error);
+                alert('Failed to auto-clear autosaves');
+            });
+    });
+
+    // Re-open autosave modal if redirected back after autoclear
+    if (new URLSearchParams(window.location.search).has('autosave_modal')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('autosave_modal');
+        history.replaceState(null, '', url.toString());
+        loadAutosaves();
+        $('#autosave-modal').show();
+    }
 
     // Load autosaves list
     function loadAutosaves() {

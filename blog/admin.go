@@ -59,6 +59,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Get("/autosave/{id:\\d+}", a.getAutosave)
 	r.Delete("/autosave/{id:\\d+}", a.deleteAutosave)
 	r.Post("/posts/{id:\\d+}/restore/{autosaveId:\\d+}", a.restoreAutosave)
+	r.Post("/posts/{id:\\d+}/autosaves/autoclear", a.autoclearAutosaves)
 	// r.Post("/posts/preview/", a.preview)
 }
 
@@ -668,4 +669,30 @@ func (a *Admin) restoreAutosave(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// autoclearAutosaves deletes all autosaves that do not differ from the current saved content.
+func (a *Admin) autoclearAutosaves(w http.ResponseWriter, r *http.Request) {
+	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	post, err := NewPostService(a.db).Get(postID)
+	if err != nil {
+		slog.Error("Failed to get post for autoclear", "post_id", postID, "err", err)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	deleted, err := autosave.NewService(a.db).AutoClear("blog_post", postID, post.Content)
+	if err != nil {
+		slog.Error("Failed to autoclear autosaves", "post_id", postID, "err", err)
+		http.Error(w, "Failed to autoclear autosaves", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "deleted": deleted})
 }

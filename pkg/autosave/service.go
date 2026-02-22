@@ -85,6 +85,27 @@ func (s *Service) Delete(id int) error {
 	return err
 }
 
+// AutoClear deletes all autosaves whose content does not differ from savedContent.
+// Returns the number of autosaves deleted.
+func (s *Service) AutoClear(contentType string, contentID int, savedContent string) (int, error) {
+	autosaves, err := s.List(contentType, contentID)
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for _, as := range autosaves {
+		edits := myers.ComputeEdits(span.URIFromPath("saved"), savedContent, as.Content)
+		diff := fmt.Sprint(gotextdiff.ToUnified("saved", "autosave", savedContent, edits))
+		if diff == "" {
+			if err := s.Delete(as.ID); err != nil {
+				return deleted, err
+			}
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 // DeleteOldVersions removes old autosaves, keeping only the most recent keepCount versions
 func (s *Service) DeleteOldVersions(contentType string, contentID int, keepCount int) error {
 	_, err := s.db.Exec(`

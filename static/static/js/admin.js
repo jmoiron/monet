@@ -74,6 +74,83 @@ class Countdown {
     }
 }
 
+// $.fn.autosave(options)
+// Watches the matched inputs for changes, then POSTs their values to a URL
+// after a countdown delay.
+//
+// Options:
+//   url        {string}   required  endpoint to POST form data to
+//   delay      {number}   optional  countdown seconds (default: 300)
+//   countdown  {string}   optional  selector for the countdown display element
+//   onSuccess  {function} optional  called with response data on successful save
+//   onError    {function} optional  called with error on failed save
+//
+// The controller object is stored on each input via .data('autosave') and exposes:
+//   save()       perform save if any input has changed
+//   forceSave()  cancel countdown and save unconditionally
+//   cancel()     cancel the countdown
+$.fn.autosave = function(options) {
+    const opts = Object.assign({ delay: 5 * 60 }, options);
+    const inputs = this;
+    let changed = false;
+
+    const cd = new Countdown(opts.delay)
+        .onTick(remaining => {
+            if (!opts.countdown) return;
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            $(opts.countdown).text(` ${mins}:${secs.toString().padStart(2, '0')}`);
+        })
+        .onCancel(() => {
+            if (opts.countdown) $(opts.countdown).text('');
+        })
+        .onComplete(() => perform(false));
+
+    inputs.on('input', () => {
+        changed = true;
+        cd.start();
+    });
+
+    function perform(force) {
+        if (!force && !changed) return;
+
+        const formData = new FormData();
+        inputs.each(function() {
+            const name = $(this).attr('name');
+            if (name) formData.append(name, $(this).val());
+        });
+
+        $.flash('Autosaving...');
+
+        fetch(opts.url, { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    changed = false;
+                    $.flash('Autosaved');
+                    if (opts.onSuccess) opts.onSuccess(data);
+                } else {
+                    $.flash('Autosave failed', 'error');
+                    if (opts.onError) opts.onError(data);
+                }
+            })
+            .catch(err => {
+                console.error('Autosave error:', err);
+                $.flash('Autosave failed', 'error');
+                if (opts.onError) opts.onError(err);
+            });
+    }
+
+    const controller = {
+        save:      () => perform(false),
+        forceSave: () => { cd.cancel(); perform(true); },
+        cancel:    () => cd.cancel(),
+    };
+
+    inputs.each(function() { $(this).data('autosave', controller); });
+    return this;
+};
+
 $.fn.center = function() {
     var $window = $(window);
     this.css("top", (($window.height() - this.outerHeight())/2) + "px");

@@ -44,9 +44,7 @@ class Countdown {
     onComplete(fn) { this._onComplete = fn; return this; }
 
     start() {
-        // silent reset — does NOT fire onCancel
-        clearTimeout(this._timer);
-        clearInterval(this._interval);
+        if (this._timer !== null) return this;
         this.remaining = this.seconds;
         if (this._onStart) this._onStart(this.remaining);
         this._interval = setInterval(() => this.tick(), 1000);

@@ -1,3 +1,4 @@
+
 #content-input {
   border: 1px dashed #ddd;
 }
@@ -27,6 +28,20 @@
 
 .gutter-col-1 {
     grid-column: 2;
+}
+
+.color-button (@bg, @color) {
+  padding: 3px 6px;
+  border: 2px solid #fff;
+  color: @color;
+  background-color: @bg;
+  cursor: pointer;
+  text-shadow: 1px 1px 1px darken(@bg, 30%);
+  font-weight: bold;
+  border-radius: 3px;
+  box-shadow: 2px 2px 3px #ccc;
+  &:hover { background-color: lighten(@bg, 10%); }
+  &:active { background-color: darken(@bg, 5%); }
 }
 
 .admin form {
@@ -471,4 +486,224 @@
   border-radius: 50%;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
   transition: transform @toggle-speed ease-in-out;
+}
+
+// Autosave button
+.admin {
+  .autosave-button {
+    .color-button(#8E6BBE, #fff);
+    display: inline-block;
+    font-size: 16px;
+    line-height: 1.6;
+
+    .autosave-countdown {
+      font-size: 0.85em;
+      margin-left: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+    .autosave-count {
+      margin-left: 2px;
+      font-size: 0.85em;
+    }
+    &.inactive {
+      background-color: #bbb;
+      text-shadow: 1px 1px 1px #888;
+      cursor: default;
+      &:hover { background-color: #bbb; }
+      &:active { background-color: #bbb; }
+    }
+  }
+  .debug-autosave-button {
+    .color-button(#999, #fff);
+    line-height: 1.6;
+    display: inline-block;
+    font-size: 16px;
+    margin-right: 4px;
+  }
+}
+
+@import "flash.less";
+
+// Autosave viewer modal
+.autosave-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.autosave-modal-content {
+  background-color: #fefefe;
+  margin: 5% auto;
+  padding: 0;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 1200px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.autosave-modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h3 {
+    margin: 0;
+  }
+}
+
+.autosave-modal-close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  line-height: 1;
+
+  &:hover,
+  &:focus {
+    color: #000;
+  }
+}
+
+.autosave-modal-body {
+  padding: 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.autosave-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.autosave-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.autosave-info {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  cursor: pointer;
+
+  &:hover .autosave-time,
+  &:hover .autosave-preview {
+    color: @bluelink;
+  }
+}
+
+.autosave-time {
+  font-weight: bold;
+  min-width: 150px;
+  color: #666;
+}
+
+.autosave-preview {
+  flex: 1;
+  padding: 0 15px;
+  color: #333;
+}
+
+.autosave-item a.del {
+  font-size: 1.2em;
+  margin-left: 8px;
+  color: #999;
+  text-decoration: none;
+  &:hover { color: #fa2a00; }
+}
+
+.autosave-diff-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  #back-to-list {
+    background-color: #f0f0f0;
+    color: #333;
+
+    &:hover {
+      background-color: #e0e0e0;
+    }
+  }
+
+  .restore-button {
+    background-color: #28a745;
+    color: white;
+
+    &:hover {
+      background-color: darken(#28a745, 10%);
+    }
+  }
+}
+
+.unified-diff {
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow-x: auto;
+
+  div {
+    white-space: pre-wrap;
+    padding: 1px 8px;
+    word-break: break-all;
+  }
+
+  .diff-file-header {
+    background-color: #f5f5f5;
+    color: #666;
+    padding: 4px 8px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .diff-hunk-header {
+    background-color: #f1f8ff;
+    color: #0366d6;
+    border-top: 1px solid #c8e1ff;
+    border-bottom: 1px solid #c8e1ff;
+  }
+
+  .diff-removed {
+    background-color: #ffeef0;
+    color: #b31d28;
+  }
+
+  .diff-added {
+    background-color: #e6ffed;
+    color: #22863a;
+  }
+
+  .diff-context {
+    background-color: #fff;
+    color: #24292e;
+  }
 }

@@ -7,6 +7,7 @@
           <i class="fa-solid fa-down-left-and-up-right-to-center shrink"></i>
           <i class="fa-solid fa-up-right-and-down-left-from-center grow"></i>
         </div>
+    </div>
     <div>
         <textarea class="split-content-input js-clear-default" name="content" id="content" spellcheck="true" data-default="Type some new content...">{{
             if .post.Content}}{{.post.Content}}{{else}}Type some new content...{{end
@@ -71,12 +72,14 @@
           </a>
       </div>
       <div class="buttons">
+          {{if .post.ID}}{{if .debug}}<a class="debug-autosave-button" title="Force autosave">+</a>{{end}}<a class="autosave-button{{if eq .numAutosaves 0}} inactive{{end}}"><i class="fa-solid fa-code-branch"></i><span class="autosave-countdown"></span><span class="autosave-count">{{if gt .numAutosaves 0}} [{{.numAutosaves}}]{{end}}</span></a>{{end}}
           <input class="more-button" type="button" value="More">
           <input class="save-button" type="submit" value="Save">
       </div>
       <div class="clear"></div>
     </div>
 </form>
+
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>
 <script src="/static/js/goldmark.js"></script>
@@ -162,6 +165,27 @@ function deleteAttachedFile(uploadId) {
         alert('Failed to delete file');
     });
 }
+
+$(() => {
+    const viewer = $('.autosave-button').autosaveViewer({
+        count:        {{.numAutosaves}},
+        listUrl:      `/admin/posts/${postId}/autosaves`,
+        deleteUrl:    id => `/admin/autosave/${id}`,
+        autoclearUrl: `/admin/posts/${postId}/autosaves/autoclear`,
+        restoreUrl:   id => `/admin/posts/${postId}/restore/${id}`,
+    });
+
+    const autosave = $('#content, #title').autosave({
+        url:       `/admin/posts/${postId}/autosave`,
+        countdown: '.autosave-countdown',
+        onSuccess: () => viewer.onNewSave(),
+    });
+
+    $('.debug-autosave-button').on('click', (e) => {
+        e.preventDefault();
+        autosave.forceSave();
+    });
+});
 </script>
 
 <style>

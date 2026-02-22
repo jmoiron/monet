@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/pkg/autosave"
 	"github.com/jmoiron/monet/pkg/vfs"
 	"github.com/jmoiron/monet/uploads"
 )
@@ -51,6 +52,14 @@ func (a *Admin) Bind(r chi.Router) {
 	// File attachment endpoints
 	r.Post("/posts/{postId:\\d+}/upload", a.uploadFile)
 	r.Delete("/posts/{postId:\\d+}/files/{uploadId:\\d+}", a.deleteAttachedFile)
+
+	// Autosave endpoints
+	r.Post("/posts/{id:\\d+}/autosave", a.saveAutosave)
+	r.Get("/posts/{id:\\d+}/autosaves", a.listAutosaves)
+	r.Get("/autosave/{id:\\d+}", a.getAutosave)
+	r.Delete("/autosave/{id:\\d+}", a.deleteAutosave)
+	r.Post("/posts/{id:\\d+}/restore/{autosaveId:\\d+}", a.restoreAutosave)
+	r.Post("/posts/{id:\\d+}/autosaves/autoclear", a.autoclearAutosaves)
 	// r.Post("/posts/preview/", a.preview)
 }
 
@@ -210,10 +219,23 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, p *Post) {
 		}
 	}
 
+	// Get autosave count for this post
+	var numAutosaves int
+	if p.ID > 0 {
+		autosaveService := autosave.NewService(a.db)
+		autosaves, err := autosaveService.List("blog_post", int(p.ID))
+		if err != nil {
+			slog.Error("failed to get autosave count", "post_id", p.ID, "err", err)
+		} else {
+			numAutosaves = len(autosaves)
+		}
+	}
+
 	reg := mtr.RegistryFromContext(r.Context())
 	err := reg.RenderWithBase(w, "admin-base", "blog/admin/post-edit.html", mtr.Ctx{
 		"post":          p,
 		"attachedFiles": attachedFiles,
+		"numAutosaves":  numAutosaves,
 	})
 	if err != nil {
 		slog.Error("rendering edit", "err", err)
@@ -504,4 +526,173 @@ func (a *Admin) deleteFile(filesystemName, filename string) error {
 	// Delete the file
 	filePath := filepath.Join(basePath, filename)
 	return os.Remove(filePath)
+}
+
+// saveAutosave creates an autosave for a blog post
+func (a *Admin) saveAutosave(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	postID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	content := r.FormValue("content")
+	title := r.FormValue("title")
+
+	autosaveService := autosave.NewService(a.db)
+	if err := autosaveService.Save("blog_post", postID, content, title); err != nil {
+		slog.Error("Failed to save autosave", "post_id", postID, "err", err)
+		http.Error(w, "Failed to save autosave", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// listAutosaves returns all autosaves for a blog post with pre-computed diffs
+// against the current saved content.
+func (a *Admin) listAutosaves(w http.ResponseWriter, r *http.Request) {
+	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	post, err := NewPostService(a.db).Get(postID)
+	if err != nil {
+		slog.Error("Failed to get post for autosaves", "post_id", postID, "err", err)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	autosaves, err := autosave.NewService(a.db).LoadWithDiffs("blog_post", postID, post.Content)
+	if err != nil {
+		slog.Error("Failed to load autosaves", "post_id", postID, "err", err)
+		http.Error(w, "Failed to list autosaves", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(autosaves)
+}
+
+// getAutosave returns a specific autosave
+func (a *Admin) getAutosave(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	autosaveID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid autosave ID", http.StatusBadRequest)
+		return
+	}
+
+	autosaveService := autosave.NewService(a.db)
+	autosave, err := autosaveService.Get(autosaveID)
+	if err != nil {
+		slog.Error("Failed to get autosave", "autosave_id", autosaveID, "err", err)
+		http.Error(w, "Autosave not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(autosave)
+}
+
+// deleteAutosave removes a single autosave by ID.
+func (a *Admin) deleteAutosave(w http.ResponseWriter, r *http.Request) {
+	autosaveID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid autosave ID", http.StatusBadRequest)
+		return
+	}
+	if err := autosave.NewService(a.db).Delete(autosaveID); err != nil {
+		slog.Error("Failed to delete autosave", "autosave_id", autosaveID, "err", err)
+		http.Error(w, "Failed to delete autosave", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// restoreAutosave replaces the post content with an autosaved version
+func (a *Admin) restoreAutosave(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	autosaveIDStr := chi.URLParam(r, "autosaveId")
+
+	postID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	autosaveID, err := strconv.Atoi(autosaveIDStr)
+	if err != nil {
+		http.Error(w, "Invalid autosave ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get the autosave
+	autosaveService := autosave.NewService(a.db)
+	autosave, err := autosaveService.Get(autosaveID)
+	if err != nil {
+		slog.Error("Failed to get autosave", "autosave_id", autosaveID, "err", err)
+		http.Error(w, "Autosave not found", http.StatusNotFound)
+		return
+	}
+
+	// Verify the autosave belongs to this post
+	if autosave.ContentType != "blog_post" || autosave.ContentID != postID {
+		http.Error(w, "Autosave does not belong to this post", http.StatusBadRequest)
+		return
+	}
+
+	// Get the post and update its content
+	postService := NewPostService(a.db)
+	post, err := postService.Get(postID)
+	if err != nil {
+		slog.Error("Failed to get post", "post_id", postID, "err", err)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	post.Content = autosave.Content
+	if autosave.Title != "" {
+		post.Title = autosave.Title
+	}
+
+	if err := postService.Save(post); err != nil {
+		slog.Error("Failed to save post", "post_id", postID, "err", err)
+		http.Error(w, "Failed to restore autosave", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+// autoclearAutosaves deletes all autosaves that do not differ from the current saved content.
+func (a *Admin) autoclearAutosaves(w http.ResponseWriter, r *http.Request) {
+	postID, err := strconv.Atoi(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	post, err := NewPostService(a.db).Get(postID)
+	if err != nil {
+		slog.Error("Failed to get post for autoclear", "post_id", postID, "err", err)
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	deleted, err := autosave.NewService(a.db).AutoClear("blog_post", postID, post.Content)
+	if err != nil {
+		slog.Error("Failed to autoclear autosaves", "post_id", postID, "err", err)
+		http.Error(w, "Failed to autoclear autosaves", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "deleted": deleted})
 }

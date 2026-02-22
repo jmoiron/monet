@@ -1,0 +1,29 @@
+#flash-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 20px;
+  font-size: 0.85em;
+  text-align: center;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 3s ease;
+  color: #2d6a2d;
+  background-color: #d4edda;
+
+  &.fading {
+    opacity: 0;
+  }
+
+  &.warning {
+    color: #856404;
+    background-color: #fff3cd;
+  }
+
+  &.error {
+    color: #721c24;
+    background-color: #f8d7da;
+  }
+}

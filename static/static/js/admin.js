@@ -30,6 +30,52 @@ function getTimeAgo(date) {
     return Math.floor(seconds) + ' seconds ago';
 }
 
+class Countdown {
+    constructor(seconds) {
+        this.seconds = seconds;
+        this.remaining = 0;
+        this._timer = null;
+        this._interval = null;
+    }
+
+    onStart(fn)    { this._onStart = fn;    return this; }
+    onTick(fn)     { this._onTick = fn;     return this; }
+    onCancel(fn)   { this._onCancel = fn;   return this; }
+    onComplete(fn) { this._onComplete = fn; return this; }
+
+    start() {
+        // silent reset — does NOT fire onCancel
+        clearTimeout(this._timer);
+        clearInterval(this._interval);
+        this.remaining = this.seconds;
+        if (this._onStart) this._onStart(this.remaining);
+        this._interval = setInterval(() => this.tick(), 1000);
+        this._timer = setTimeout(() => {
+            this._clearTimers();
+            if (this._onComplete) this._onComplete();
+        }, this.seconds * 1000);
+        return this;
+    }
+
+    tick() {
+        this.remaining = Math.max(0, this.remaining - 1);
+        if (this._onTick) this._onTick(this.remaining);
+        return this;
+    }
+
+    cancel() {
+        this._clearTimers();
+        if (this._onCancel) this._onCancel();
+        return this;
+    }
+
+    _clearTimers() {
+        clearTimeout(this._timer);
+        clearInterval(this._interval);
+        this._timer = this._interval = null;
+    }
+}
+
 $.fn.center = function() {
     var $window = $(window);
     this.css("top", (($window.height() - this.outerHeight())/2) + "px");

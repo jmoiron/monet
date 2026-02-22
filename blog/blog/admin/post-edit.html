@@ -195,50 +195,26 @@ $(() => {
     let titleChanged = false;
     let autosaveCount = {{.numAutosaves}};
 
-    let autosaveTimer = null;
-    let countdownInterval = null;
-    let countdownSeconds = 0;
     const AUTOSAVE_DELAY = 5 * 60; // 5 minutes in seconds
 
-    function updateCountdownDisplay() {
-        const mins = Math.floor(countdownSeconds / 60);
-        const secs = countdownSeconds % 60;
-        $('.autosave-countdown').text(` ${mins}:${secs.toString().padStart(2, '0')}`);
-    }
-
-    function clearCountdown() {
-        clearInterval(countdownInterval);
-        countdownInterval = null;
-        $('.autosave-countdown').text('');
-    }
-
-    function startAutosaveCountdown() {
-        clearTimeout(autosaveTimer);
-        clearInterval(countdownInterval);
-
-        countdownSeconds = AUTOSAVE_DELAY;
-        updateCountdownDisplay();
-
-        countdownInterval = setInterval(() => {
-            countdownSeconds = Math.max(0, countdownSeconds - 1);
-            updateCountdownDisplay();
-        }, 1000);
-
-        autosaveTimer = setTimeout(() => {
-            clearCountdown();
-            performAutosave();
-        }, AUTOSAVE_DELAY * 1000);
-    }
+    const countdown = new Countdown(AUTOSAVE_DELAY)
+        .onTick(remaining => {
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            $('.autosave-countdown').text(` ${mins}:${secs.toString().padStart(2, '0')}`);
+        })
+        .onCancel(() => $('.autosave-countdown').text(''))
+        .onComplete(() => performAutosave());
 
     // Track content changes
     $('#content').on('input', () => {
         contentChanged = true;
-        startAutosaveCountdown();
+        countdown.start();
     });
 
     $('#title').on('input', () => {
         titleChanged = true;
-        startAutosaveCountdown();
+        countdown.start();
     });
 
     // Autosave function
@@ -314,6 +290,7 @@ $(() => {
     // Debug: force autosave button
     $('.debug-autosave-button').on('click', (e) => {
         e.preventDefault();
+        countdown.cancel();
         contentChanged = true;
         performAutosave();
     });

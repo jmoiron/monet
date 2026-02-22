@@ -80,30 +80,6 @@
     </div>
 </form>
 
-{{if .post.ID}}
-<!-- Autosave Viewer Modal -->
-<div id="autosave-modal" class="autosave-modal">
-    <div class="autosave-modal-content">
-        <div class="autosave-modal-header">
-            <h3>Autosaved Versions</h3>
-            <button type="button" id="autoclear-autosaves">Auto-clear</button>
-            <button type="button" class="autosave-modal-close">&times;</button>
-        </div>
-        <div class="autosave-modal-body">
-            <div id="autosave-list" class="autosave-list">
-                <p>Loading autosaves...</p>
-            </div>
-            <div id="autosave-diff" class="autosave-diff" style="display: none;">
-                <div class="autosave-diff-header">
-                    <button type="button" id="back-to-list">&larr; Back to list</button>
-                    <button type="button" id="restore-autosave" class="restore-button">Restore this version</button>
-                </div>
-                <div id="diff-content"></div>
-            </div>
-        </div>
-    </div>
-</div>
-{{end}}
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>
 <script src="/static/js/goldmark.js"></script>
@@ -190,238 +166,25 @@ function deleteAttachedFile(uploadId) {
     });
 }
 
-// Autosave functionality
 $(() => {
-    let autosaveCount = {{.numAutosaves}};
+    const viewer = $('.autosave-button').autosaveViewer({
+        count:        {{.numAutosaves}},
+        listUrl:      `/admin/posts/${postId}/autosaves`,
+        deleteUrl:    id => `/admin/autosave/${id}`,
+        autoclearUrl: `/admin/posts/${postId}/autosaves/autoclear`,
+        restoreUrl:   id => `/admin/posts/${postId}/restore/${id}`,
+    });
 
     const autosave = $('#content, #title').autosave({
-        url: `/admin/posts/${postId}/autosave`,
+        url:       `/admin/posts/${postId}/autosave`,
         countdown: '.autosave-countdown',
-        onSuccess: () => {
-            $('.autosave-button').removeClass('inactive');
-            if (autosaveCount < 10) autosaveCount++;
-            $('.autosave-count').text(` [${autosaveCount}]`);
-        }
+        onSuccess: () => viewer.onNewSave(),
     });
 
-    // Autosave viewer functionality
-    let currentAutosaves = [];
-    let selectedAutosave = null;
-
-    // Open autosave modal (only if not inactive)
-    $('.autosave-button').on('click', (e) => {
-        e.preventDefault();
-        if ($(e.currentTarget).hasClass('inactive')) return;
-        loadAutosaves();
-        $('#autosave-modal').show();
-    });
-
-    // Debug: force autosave button
     $('.debug-autosave-button').on('click', (e) => {
         e.preventDefault();
         autosave.forceSave();
     });
-
-    // Close modal
-    $('.autosave-modal-close').on('click', () => {
-        $('#autosave-modal').hide();
-    });
-
-    // Click outside modal to close
-    $('#autosave-modal').on('click', (e) => {
-        if (e.target.id === 'autosave-modal') {
-            $('#autosave-modal').hide();
-        }
-    });
-
-    // Auto-clear: delete autosaves that match current saved content, then reload with modal open
-    $('#autoclear-autosaves').on('click', () => {
-        fetch(`/admin/posts/${postId}/autosaves/autoclear`, { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('autosave_modal', '1');
-                    window.location.href = url.toString();
-                } else {
-                    alert('Failed to auto-clear autosaves');
-                }
-            })
-            .catch(error => {
-                console.error('Auto-clear error:', error);
-                alert('Failed to auto-clear autosaves');
-            });
-    });
-
-    // Re-open autosave modal if redirected back after autoclear
-    if (new URLSearchParams(window.location.search).has('autosave_modal')) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('autosave_modal');
-        history.replaceState(null, '', url.toString());
-        loadAutosaves();
-        $('#autosave-modal').show();
-    }
-
-    // Load autosaves list
-    function loadAutosaves() {
-        $('#autosave-list').html('<p>Loading autosaves...</p>');
-        $('#autosave-diff').hide();
-        $('#autosave-list').show();
-
-        fetch(`/admin/posts/${postId}/autosaves`)
-            .then(response => response.json())
-            .then(autosaves => {
-                currentAutosaves = autosaves;
-                if (autosaves.length === 0) {
-                    $('#autosave-list').html('<p>No autosaves found.</p>');
-                } else {
-                    displayAutosaveList(autosaves);
-                }
-            })
-            .catch(error => {
-                console.error('Failed to load autosaves:', error);
-                $('#autosave-list').html('<p>Failed to load autosaves.</p>');
-            });
-    }
-
-    // Display list of autosaves
-    function displayAutosaveList(autosaves) {
-        let html = '<div class="autosave-items">';
-        autosaves.forEach(autosave => {
-            const date = new Date(autosave.created_at);
-            const timeAgo = getTimeAgo(date);
-            html += `
-                <div class="autosave-item" data-autosave-id="${autosave.id}">
-                    <div class="autosave-info" data-autosave-id="${autosave.id}">
-                        <div class="autosave-time">${timeAgo}</div>
-                        <div class="autosave-preview">${escapeHtml(autosave.title || 'Untitled')}</div>
-                    </div>
-                    <a class="del delete-autosave-btn" href="#" data-autosave-id="${autosave.id}"><i class="fa-solid fa-circle-xmark"></i></a>
-                </div>
-            `;
-        });
-        html += '</div>';
-        $('#autosave-list').html(html);
-
-        // Click the info area to view diff
-        $('.autosave-info').on('click', function() {
-            const autosaveId = parseInt($(this).data('autosave-id'));
-            viewDiff(autosaveId);
-        });
-
-        // Delete button handler
-        $('.delete-autosave-btn').on('click', function(e) {
-            e.preventDefault();
-            const autosaveId = parseInt($(this).data('autosave-id'));
-            deleteAutosave(autosaveId);
-        });
-    }
-
-    // Delete an autosave without page reload
-    function deleteAutosave(autosaveId) {
-        fetch(`/admin/autosave/${autosaveId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                currentAutosaves = currentAutosaves.filter(a => a.id !== autosaveId);
-                $(`.autosave-item[data-autosave-id="${autosaveId}"]`).remove();
-                autosaveCount = Math.max(0, autosaveCount - 1);
-                if (autosaveCount === 0) {
-                    $('.autosave-button').addClass('inactive');
-                    $('.autosave-count').text('');
-                    $('#autosave-list').html('<p>No autosaves found.</p>');
-                } else {
-                    $('.autosave-count').text(` [${autosaveCount}]`);
-                }
-            } else {
-                alert('Failed to delete autosave');
-            }
-        })
-        .catch(error => {
-            console.error('Delete error:', error);
-            alert('Failed to delete autosave');
-        });
-    }
-
-    // View diff for a specific autosave
-    function viewDiff(autosaveId) {
-        const autosave = currentAutosaves.find(a => a.id === autosaveId);
-        if (!autosave) return;
-
-        selectedAutosave = autosave;
-        $('#diff-content').html(renderUnifiedDiff(autosave.diff));
-        $('#autosave-list').hide();
-        $('#autosave-diff').show();
-    }
-
-    function renderUnifiedDiff(diff) {
-        if (!diff) return '<p>No differences from saved content.</p>';
-        const lines = diff.split('\n');
-        let html = '<div class="unified-diff">';
-        for (const line of lines) {
-            let cls = 'diff-context';
-            if (line.startsWith('---') || line.startsWith('+++')) {
-                cls = 'diff-file-header';
-            } else if (line.startsWith('@@')) {
-                cls = 'diff-hunk-header';
-            } else if (line.startsWith('-')) {
-                cls = 'diff-removed';
-            } else if (line.startsWith('+')) {
-                cls = 'diff-added';
-            }
-            html += `<div class="${cls}">${escapeHtml(line) || ' '}</div>`;
-        }
-        html += '</div>';
-        return html;
-    }
-
-    // Back to list
-    $('#back-to-list').on('click', () => {
-        $('#autosave-diff').hide();
-        $('#autosave-list').show();
-        selectedAutosave = null;
-    });
-
-    // Esc: back to list when viewing a diff, close modal when viewing the list
-    $(document).on('keydown', (e) => {
-        if (e.key !== 'Escape' || $('#autosave-modal').css('display') === 'none') return;
-        if (selectedAutosave) {
-            $('#autosave-diff').hide();
-            $('#autosave-list').show();
-            selectedAutosave = null;
-        } else {
-            $('#autosave-modal').hide();
-        }
-    });
-
-    // Restore autosave
-    $('#restore-autosave').on('click', () => {
-        if (!selectedAutosave) return;
-
-        if (!confirm('Are you sure you want to restore this version? Your current unsaved changes will be lost.')) {
-            return;
-        }
-
-        fetch(`/admin/posts/${postId}/restore/${selectedAutosave.id}`, {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Reload the page to show the restored content
-                location.reload();
-            } else {
-                alert('Failed to restore autosave');
-            }
-        })
-        .catch(error => {
-            console.error('Restore error:', error);
-            alert('Failed to restore autosave');
-        });
-    });
-
 });
 </script>
 

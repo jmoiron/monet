@@ -149,6 +149,217 @@ $.fn.autosave = function(options) {
     };
 };
 
+// $.fn.autosaveViewer(options)
+// Creates and manages the autosave viewer modal. Call on the trigger button element.
+//
+// Options:
+//   count        {number}   initial autosave count
+//   listUrl      {string}   GET - returns autosave list with diffs
+//   deleteUrl    {function} (id) => string - DELETE endpoint
+//   autoclearUrl {string}   POST - deletes autosaves matching saved content
+//   restoreUrl   {function} (id) => string - POST endpoint
+//
+// Returns { onNewSave() } to be called when a new autosave is created.
+$.fn.autosaveViewer = function(options) {
+    const trigger = this;
+    let count = options.count || 0;
+    let currentAutosaves = [];
+    let selectedAutosave = null;
+
+    const modal = $(`
+        <div class="autosave-modal">
+            <div class="autosave-modal-content">
+                <div class="autosave-modal-header">
+                    <h3>Autosaved Versions</h3>
+                    <button type="button" class="autoclear-btn">Auto-clear</button>
+                    <button type="button" class="autosave-modal-close">&times;</button>
+                </div>
+                <div class="autosave-modal-body">
+                    <div class="autosave-list"></div>
+                    <div class="autosave-diff" style="display:none;">
+                        <div class="autosave-diff-header">
+                            <button type="button" class="back-to-list-btn">&larr; Back to list</button>
+                            <button type="button" class="restore-btn restore-button">Restore this version</button>
+                        </div>
+                        <div class="diff-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+    $('body').append(modal);
+
+    function open() {
+        loadAutosaves();
+        modal.show();
+    }
+
+    function close() {
+        modal.hide();
+    }
+
+    function backToList() {
+        modal.find('.autosave-diff').hide();
+        modal.find('.autosave-list').show();
+        selectedAutosave = null;
+    }
+
+    // Trigger: open modal
+    trigger.on('click', (e) => {
+        e.preventDefault();
+        if (trigger.hasClass('inactive')) return;
+        open();
+    });
+
+    // Close button and outside click
+    modal.find('.autosave-modal-close').on('click', close);
+    modal.on('click', (e) => { if (e.target === modal[0]) close(); });
+
+    // Back to list
+    modal.find('.back-to-list-btn').on('click', backToList);
+
+    // Esc: back to list from diff, or close from list
+    $(document).on('keydown', (e) => {
+        if (e.key !== 'Escape' || modal.css('display') === 'none') return;
+        selectedAutosave ? backToList() : close();
+    });
+
+    // Auto-clear: reload page with modal open on success
+    modal.find('.autoclear-btn').on('click', () => {
+        fetch(options.autoclearUrl, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('autosave_modal', '1');
+                    window.location.href = url.toString();
+                } else {
+                    $.flash('Failed to auto-clear autosaves', 'error');
+                }
+            })
+            .catch(() => $.flash('Failed to auto-clear autosaves', 'error'));
+    });
+
+    // Restore
+    modal.find('.restore-btn').on('click', () => {
+        if (!selectedAutosave) return;
+        if (!confirm('Restore this version? Your current unsaved changes will be lost.')) return;
+        fetch(options.restoreUrl(selectedAutosave.id), { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) location.reload();
+                else $.flash('Failed to restore autosave', 'error');
+            })
+            .catch(() => $.flash('Failed to restore autosave', 'error'));
+    });
+
+    function loadAutosaves() {
+        modal.find('.autosave-list').html('<p>Loading autosaves...</p>');
+        modal.find('.autosave-diff').hide();
+        modal.find('.autosave-list').show();
+        fetch(options.listUrl)
+            .then(r => r.json())
+            .then(autosaves => {
+                currentAutosaves = autosaves;
+                if (autosaves.length === 0) {
+                    modal.find('.autosave-list').html('<p>No autosaves found.</p>');
+                } else {
+                    displayList(autosaves);
+                }
+            })
+            .catch(() => modal.find('.autosave-list').html('<p>Failed to load autosaves.</p>'));
+    }
+
+    function displayList(autosaves) {
+        let html = '<div class="autosave-items">';
+        autosaves.forEach(a => {
+            html += `
+                <div class="autosave-item" data-autosave-id="${a.id}">
+                    <div class="autosave-info" data-autosave-id="${a.id}">
+                        <div class="autosave-time">${getTimeAgo(new Date(a.created_at))}</div>
+                        <div class="autosave-preview">${escapeHtml(a.title || 'Untitled')}</div>
+                    </div>
+                    <a class="del delete-autosave-btn" href="#" data-autosave-id="${a.id}">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </a>
+                </div>`;
+        });
+        html += '</div>';
+        modal.find('.autosave-list').html(html);
+
+        modal.find('.autosave-info').on('click', function() {
+            viewDiff(parseInt($(this).attr('data-autosave-id')));
+        });
+        modal.find('.delete-autosave-btn').on('click', function(e) {
+            e.preventDefault();
+            deleteAutosave(parseInt($(this).attr('data-autosave-id')));
+        });
+    }
+
+    function deleteAutosave(autosaveId) {
+        fetch(options.deleteUrl(autosaveId), { method: 'DELETE' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    currentAutosaves = currentAutosaves.filter(a => a.id !== autosaveId);
+                    modal.find(`.autosave-item[data-autosave-id="${autosaveId}"]`).remove();
+                    count = Math.max(0, count - 1);
+                    if (count === 0) {
+                        trigger.addClass('inactive');
+                        trigger.find('.autosave-count').text('');
+                        modal.find('.autosave-list').html('<p>No autosaves found.</p>');
+                    } else {
+                        trigger.find('.autosave-count').text(` [${count}]`);
+                    }
+                } else {
+                    $.flash('Failed to delete autosave', 'error');
+                }
+            })
+            .catch(() => $.flash('Failed to delete autosave', 'error'));
+    }
+
+    function viewDiff(autosaveId) {
+        const a = currentAutosaves.find(a => a.id === autosaveId);
+        if (!a) return;
+        selectedAutosave = a;
+        modal.find('.diff-content').html(renderUnifiedDiff(a.diff));
+        modal.find('.autosave-list').hide();
+        modal.find('.autosave-diff').show();
+    }
+
+    function renderUnifiedDiff(diff) {
+        if (!diff) return '<p>No differences from saved content.</p>';
+        const lines = diff.split('\n');
+        let html = '<div class="unified-diff">';
+        for (const line of lines) {
+            let cls = 'diff-context';
+            if (line.startsWith('---') || line.startsWith('+++')) cls = 'diff-file-header';
+            else if (line.startsWith('@@'))  cls = 'diff-hunk-header';
+            else if (line.startsWith('-'))   cls = 'diff-removed';
+            else if (line.startsWith('+'))   cls = 'diff-added';
+            html += `<div class="${cls}">${escapeHtml(line) || ' '}</div>`;
+        }
+        html += '</div>';
+        return html;
+    }
+
+    // Re-open modal after autoclear redirect
+    if (new URLSearchParams(window.location.search).has('autosave_modal')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('autosave_modal');
+        history.replaceState(null, '', url.toString());
+        open();
+    }
+
+    return {
+        onNewSave() {
+            count = Math.min(count + 1, 10);
+            trigger.removeClass('inactive');
+            trigger.find('.autosave-count').text(` [${count}]`);
+        }
+    };
+};
+
 $.fn.center = function() {
     var $window = $(window);
     this.css("top", (($window.height() - this.outerHeight())/2) + "px");

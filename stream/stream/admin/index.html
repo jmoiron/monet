@@ -1,0 +1,40 @@
+<div class="title"><h1>Stream Sources</h1></div>
+
+<table class="post-list">
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Status</th>
+      <th>Schedule</th>
+      <th>Events</th>
+      <th>Last Success</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .sources}}
+    <tr>
+      <td>
+        <strong><a href="/admin/stream/source/{{.source.Kind}}">{{.source.Name}}</a></strong><br>
+        <small>{{.module.Description}}</small>
+      </td>
+      <td>
+        {{if .source.Enabled}}enabled{{else}}disabled{{end}}
+        {{if .isRunning}} / running{{end}}
+        {{if .lastError}}<br><small>{{.lastError}}</small>{{end}}
+      </td>
+      <td>{{if gt .source.ScheduleMinutes 0}}{{.source.ScheduleMinutes}} min{{else}}manual{{end}}</td>
+      <td>{{.eventCount}}</td>
+      <td>{{.lastSuccessFmt}}</td>
+      <td>
+        <form action="/admin/stream/run/{{.source.Kind}}" method="POST">
+          <button type="submit" {{if .isRunning}}disabled{{end}}>Run now</button>
+        </form>
+        <form action="/admin/stream/run/{{.source.Kind}}/full" method="POST">
+          <button type="submit" {{if .isRunning}}disabled{{end}}>Full import</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>

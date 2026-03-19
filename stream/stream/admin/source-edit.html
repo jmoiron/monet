@@ -1,0 +1,49 @@
+<div class="title"><h1>{{.source.Name}}</h1></div>
+
+<p>{{.module.Description}}</p>
+
+<form action="/admin/stream/source/{{.source.Kind}}" method="POST">
+  <p>
+    <label>Name</label><br>
+    <input type="text" name="name" value="{{.source.Name}}">
+  </p>
+
+  <p>
+    <label>
+      <input type="checkbox" name="enabled" {{if .source.Enabled}}checked{{end}}>
+      Enabled
+    </label>
+  </p>
+
+  <p>
+    <label>Schedule Minutes</label><br>
+    <input type="number" min="0" name="schedule_minutes" value="{{.source.ScheduleMinutes}}">
+    <br><small>Set to 0 for manual-only runs.</small>
+  </p>
+
+  {{range .fields}}
+  <p>
+    <label>{{.Label}}</label><br>
+    {{if eq .Type "password"}}
+      <input type="password" name="{{.Name}}" value="{{index $.settings .Name}}" placeholder="{{.Placeholder}}">
+    {{else if eq .Type "checkbox"}}
+      <label><input type="checkbox" name="{{.Name}}" {{if eq (index $.settings .Name) "true"}}checked{{end}}> {{.Help}}</label>
+    {{else}}
+      <input type="text" name="{{.Name}}" value="{{index $.settings .Name}}" placeholder="{{.Placeholder}}">
+    {{end}}
+    {{if and (ne .Type "checkbox") .Help}}<br><small>{{.Help}}</small>{{end}}
+  </p>
+  {{end}}
+
+  <p>
+    <button type="submit">Save</button>
+  </p>
+</form>
+
+<form action="/admin/stream/run/{{.source.Kind}}" method="POST">
+  <button type="submit" {{if .running}}disabled{{end}}>Run now</button>
+</form>
+
+<form action="/admin/stream/run/{{.source.Kind}}/full" method="POST">
+  <button type="submit" {{if .running}}disabled{{end}}>Full import</button>
+</form>

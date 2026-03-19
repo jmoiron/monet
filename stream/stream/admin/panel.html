@@ -1,0 +1,8 @@
+<h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
+<ul class="admin-panel-list shortlist">
+{{range .sources}}
+  <li class="admin-panel-item">
+    <strong><a href="/admin/stream/source/{{.kind}}">{{.name}}</a></strong>{{if .count}} ({{.count}} events){{end}}
+  </li>
+{{end}}
+</ul>

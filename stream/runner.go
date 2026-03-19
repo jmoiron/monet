@@ -1,0 +1,134 @@
+package stream
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"sync"
+	"time"
+
+	"github.com/jmoiron/monet/db"
+)
+
+type Runner struct {
+	db      db.DB
+	sources *SourceService
+	events  *EventService
+	modules *ModuleRegistry
+
+	startOnce sync.Once
+
+	mu      sync.Mutex
+	running map[string]bool
+}
+
+func NewRunner(database db.DB, modules *ModuleRegistry) *Runner {
+	return &Runner{
+		db:      database,
+		sources: NewSourceService(database),
+		events:  NewEventService(database),
+		modules: modules,
+		running: map[string]bool{},
+	}
+}
+
+func (r *Runner) Start() {
+	r.startOnce.Do(func() {
+		go r.loop()
+	})
+}
+
+func (r *Runner) loop() {
+	r.runDue(context.Background())
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		r.runDue(context.Background())
+	}
+}
+
+func (r *Runner) runDue(ctx context.Context) {
+	sources, err := r.sources.List()
+	if err != nil {
+		slog.Error("loading stream sources", "err", err)
+		return
+	}
+
+	now := time.Now().Unix()
+	for _, source := range sources {
+		if !source.Enabled || source.ScheduleMinutes <= 0 {
+			continue
+		}
+		if source.LastRunAt > 0 && now-source.LastRunAt < int64(source.ScheduleMinutes*60) {
+			continue
+		}
+
+		go func(kind string) {
+			if err := r.Run(context.Background(), kind); err != nil {
+				slog.Error("running stream source", "kind", kind, "err", err)
+			}
+		}(source.Kind)
+	}
+}
+
+func (r *Runner) IsRunning(kind string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.running[kind]
+}
+
+func (r *Runner) begin(kind string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.running[kind] {
+		return false
+	}
+	r.running[kind] = true
+	return true
+}
+
+func (r *Runner) end(kind string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	delete(r.running, kind)
+}
+
+func (r *Runner) Run(ctx context.Context, kind string) error {
+	module, ok := r.modules.Get(kind)
+	if !ok {
+		return fmt.Errorf("unknown source kind %q", kind)
+	}
+
+	if !r.begin(kind) {
+		return fmt.Errorf("%s is already running", kind)
+	}
+	defer r.end(kind)
+
+	source, err := r.sources.GetByKind(kind)
+	if err != nil {
+		return err
+	}
+
+	if err := r.sources.MarkRunStart(source.ID); err != nil {
+		return err
+	}
+
+	runID, err := r.sources.CreateRun(source.ID)
+	if err != nil {
+		return err
+	}
+
+	result, runErr := module.Sync(ctx, source, r.events)
+	if finishErr := r.sources.FinishRun(runID, result, runErr); finishErr != nil {
+		slog.Error("finishing stream run", "kind", kind, "err", finishErr)
+	}
+	if markErr := r.sources.MarkRunResult(source.ID, result, runErr); markErr != nil {
+		slog.Error("marking stream run result", "kind", kind, "err", markErr)
+	}
+	if runErr != nil {
+		return runErr
+	}
+	return nil
+}

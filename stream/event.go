@@ -2,10 +2,12 @@ package stream
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
+	"github.com/jmoiron/sqlx"
 )
 
 var eventMigration = monarch.Set{
@@ -55,6 +57,26 @@ var eventMigration = monarch.Set{
 					(new.id, new.title, new.type,  new.url, new.timestamp, new.data);
 			END`,
 			Down: `DROP TRIGGER event_u;`,
+		}, {
+			Up: `DELETE FROM event
+				WHERE source_id IS NOT NULL
+				AND source_id <> ''
+				AND id NOT IN (
+					SELECT id FROM (
+						SELECT id,
+							row_number() OVER (
+								PARTITION BY type, source_id
+								ORDER BY length(COALESCE(data, '')) DESC, id DESC
+							) AS rank
+						FROM event
+						WHERE source_id IS NOT NULL AND source_id <> ''
+					)
+					WHERE rank = 1
+				);
+				CREATE UNIQUE INDEX IF NOT EXISTS event_type_source_id
+				ON event (type, source_id)
+				WHERE source_id IS NOT NULL AND source_id <> '';`,
+			Down: `DROP INDEX IF EXISTS event_type_source_id;`,
 		},
 	},
 }
@@ -105,6 +127,72 @@ func (s *EventService) InsertArchive(e *Event) error {
 	return err
 }
 
+// Upsert inserts or updates an event keyed by its source identifier and type.
+func (s *EventService) Upsert(e *Event) error {
+	if e.SourceId == "" {
+		return s.InsertArchive(e)
+	}
+
+	return db.With(s.db, func(tx *sqlx.Tx) error {
+		res, err := tx.Exec(`UPDATE event SET
+			title=?,
+			timestamp=?,
+			url=?,
+			data=?,
+			summary_rendered=?
+			WHERE type=? AND source_id=?`,
+			e.Title,
+			e.Timestamp,
+			e.Url,
+			e.Data,
+			e.SummaryRendered,
+			e.Type,
+			e.SourceId,
+		)
+		if err != nil {
+			return err
+		}
+
+		rows, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rows > 0 {
+			return nil
+		}
+
+		stmt, err := tx.PrepareNamed(`INSERT INTO event
+			(title, source_id, timestamp, type, url, data, summary_rendered) VALUES
+			(:title, :source_id, :timestamp, :type, :url, :data, :summary_rendered)`)
+		if err != nil {
+			return err
+		}
+
+		if _, err := stmt.Exec(e); err != nil {
+			// If another writer inserted the row after our update, retry as an update.
+			if sqliteConflict(err) {
+				_, err = tx.Exec(`UPDATE event SET
+					title=?,
+					timestamp=?,
+					url=?,
+					data=?,
+					summary_rendered=?
+					WHERE type=? AND source_id=?`,
+					e.Title,
+					e.Timestamp,
+					e.Url,
+					e.Data,
+					e.SummaryRendered,
+					e.Type,
+					e.SourceId,
+				)
+			}
+			return err
+		}
+		return nil
+	})
+}
+
 // Select multiple posts via a query.
 func (s *EventService) Select(where string, args ...interface{}) ([]*Event, error) {
 	q := fmt.Sprintf(`SELECT * FROM event %s`, where)
@@ -115,4 +203,44 @@ func (s *EventService) Select(where string, args ...interface{}) ([]*Event, erro
 	}
 
 	return events, nil
+}
+
+func (s *EventService) CountByType(eventType string) (int, error) {
+	var count int
+	err := s.db.Get(&count, `SELECT count(*) FROM event WHERE type=?`, eventType)
+	return count, err
+}
+
+func (s *EventService) DeleteMissingByType(eventType string, keepSourceIDs []string) (int64, error) {
+	if len(keepSourceIDs) == 0 {
+		res, err := s.db.Exec(`DELETE FROM event WHERE type=?`, eventType)
+		if err != nil {
+			return 0, err
+		}
+		return res.RowsAffected()
+	}
+
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(keepSourceIDs)), ",")
+	args := make([]any, 0, len(keepSourceIDs)+1)
+	args = append(args, eventType)
+	for _, id := range keepSourceIDs {
+		args = append(args, id)
+	}
+
+	q := fmt.Sprintf(`DELETE FROM event WHERE type=? AND source_id NOT IN (%s)`, placeholders)
+	res, err := s.db.Exec(q, args...)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
+func (s *EventService) LatestTimestampByType(eventType string) (time.Time, error) {
+	var ts time.Time
+	err := s.db.Get(&ts, `SELECT COALESCE(max(timestamp), 0) FROM event WHERE type=?`, eventType)
+	return ts, err
+}
+
+func sqliteConflict(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
 }

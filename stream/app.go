@@ -18,7 +18,7 @@ import (
 
 const defaultPageSize = 25
 
-//go:embed stream/*
+//go:embed stream/* stream/admin/*
 var templates embed.FS
 
 type App struct {
@@ -26,10 +26,23 @@ type App struct {
 
 	BaseURL  string
 	PageSize int
+	modules  *ModuleRegistry
+	runner   *Runner
 }
 
 func NewApp(db db.DB) *App {
-	return &App{db: db, PageSize: defaultPageSize}
+	modules := NewModuleRegistry(
+		NewBlueskyModule(),
+		NewGitHubModule(),
+		NewTwitterArchiveModule(),
+	)
+
+	return &App{
+		db:       db,
+		PageSize: defaultPageSize,
+		modules:  modules,
+		runner:   NewRunner(db, modules),
+	}
 }
 
 func (a *App) WithBaseURL(url string) *App {
@@ -48,17 +61,23 @@ func (a *App) Migrate() error {
 	if err != nil {
 		return nil
 	}
-	return manager.Upgrade(eventMigration)
+	for _, migration := range []monarch.Set{eventMigration, sourceMigration} {
+		if err := manager.Upgrade(migration); err != nil {
+			return err
+		}
+	}
+	return NewSourceService(a.db).EnsureDefaults(a.modules.List())
 
 }
 
 // Return an Admin object that can render admin homepage panels
 // and register all of the administrative pages.
 func (a *App) GetAdmin() (app.Admin, error) {
-	return nil, nil
+	return NewAdmin(a.db, a.runner, a.modules), nil
 }
 
 func (a *App) Bind(r chi.Router) {
+	a.runner.Start()
 	r.Route(a.BaseURL, func(r chi.Router) {
 		r.Get("/", a.index)
 		r.Get("/page/{page:[0-9]+}", a.list)

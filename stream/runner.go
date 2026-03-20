@@ -187,6 +187,19 @@ func (r *Runner) applyResult(module Module, source *StreamSource, result *RunRes
 		}
 		result.Deleted = int(rows)
 	}
+
+	if len(result.SettingsUpdates) > 0 {
+		settings := source.Settings()
+		for key, value := range result.SettingsUpdates {
+			settings[key] = value
+		}
+		if err := source.SetSettings(settings); err != nil {
+			return err
+		}
+		if err := r.sources.Save(source); err != nil {
+			return err
+		}
+	}
 	slog.Info("applied stream source result", "kind", module.Kind(), "imported", result.Imported, "deleted", result.Deleted)
 
 	return nil

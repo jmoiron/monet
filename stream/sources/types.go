@@ -14,12 +14,13 @@ type SettingField struct {
 }
 
 type RunResult struct {
-	Items          []Item
-	PruneMissing   bool
-	PruneSourceIDs []string
-	Imported       int
-	Deleted        int
-	Details        map[string]any
+	Items           []Item
+	PruneMissing    bool
+	PruneSourceIDs  []string
+	Imported        int
+	Deleted         int
+	Details         map[string]any
+	SettingsUpdates map[string]string
 }
 
 type Record struct {

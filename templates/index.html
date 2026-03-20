@@ -10,27 +10,34 @@
 </div>
 
 
-<div class="bottom-panel summary">
-    <div class="left-panel">
+<div class="bottom-panel summary summary-stacked">
+    <div class="summary-section blog-home-list">
         <h3><a href="/blog/"><i class="icon icon-book"></i> Blog</a></h3>
         <ul>
         {{range $post := .posts}}
         <li>
-            <a href="/blog/{{$post.Slug}}">{{$post.Title}}</a>
-            <span class="date">{{$post.PublishedAt | naturalTime}}</span>
+            <div class="summary-title-line">
+                <a href="/blog/{{$post.Slug}}">{{$post.Title}}</a>
+                <span class="date">&middot; {{$post.PublishedAt | naturalTime}}</span>
+            </div>
+            {{if $post.OgDescription}}
+            <div class="summary-description">{{$post.OgDescription}}</div>
+            {{end}}
         </li>
         {{end}}
         </ul>
     </div>
-    <div class="right-panel">
+    <div class="summary-section stream-home-list">
         <h3><a href="/stream/"><i class="icon icon-list"></i> Stream</a></h3>
-        <ul>
+        <div class="entries">
         {{range $event := .events}}
-        <li>
-            {{$event.SummaryRendered |safe}}
-        </li>
+            <article class="entry-container js-clickable-row"
+                role="link"
+                tabindex="0"
+                data-href="/stream/event/{{$event.Id}}">
+                {{$event.SummaryRendered |safe}}
+            </article>
         {{end}}
-        </ul>
+        </div>
     </div>
-    <div class="clear"></div>
 </div>

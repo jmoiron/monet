@@ -258,7 +258,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 		app.Http500("loading posts", w, err)
 		return
 	}
-	events, err := streamService.Select("ORDER BY timestamp DESC LIMIT 5")
+	events, err := streamService.Select("WHERE hidden=0 ORDER BY timestamp DESC LIMIT 5")
 	if err != nil {
 		app.Http500("loading events", w, err)
 		return

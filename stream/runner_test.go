@@ -57,3 +57,51 @@ func TestRunnerApplyResultUpsertsEvents(t *testing.T) {
 	require.NoError(t, db.Get(&count, `SELECT count(*) FROM event WHERE type='github'`))
 	assert.Equal(1, count)
 }
+
+func TestRunnerApplyResultPersistsSettingsUpdates(t *testing.T) {
+	db := newTestStreamDB(t)
+	_, err := db.Exec(`CREATE TABLE stream_source (
+		id integer PRIMARY KEY,
+		kind text NOT NULL,
+		name text NOT NULL,
+		enabled integer NOT NULL DEFAULT 0,
+		schedule_minutes integer NOT NULL DEFAULT 60,
+		settings_json text NOT NULL DEFAULT '{}',
+		last_run_at integer NOT NULL DEFAULT 0,
+		last_success_at integer NOT NULL DEFAULT 0,
+		last_error text NOT NULL DEFAULT '',
+		created_at integer NOT NULL,
+		updated_at integer NOT NULL
+	);`)
+	require.NoError(t, err)
+
+	source := &StreamSource{
+		ID:              1,
+		Kind:            "test",
+		Name:            "Test",
+		Enabled:         false,
+		ScheduleMinutes: 60,
+		CreatedAt:       1,
+		UpdatedAt:       1,
+	}
+	require.NoError(t, source.SetSettings(map[string]string{}))
+	_, err = db.NamedExec(`INSERT INTO stream_source
+		(id, kind, name, enabled, schedule_minutes, settings_json, last_run_at, last_success_at, last_error, created_at, updated_at)
+		VALUES (:id, :kind, :name, :enabled, :schedule_minutes, :settings_json, :last_run_at, :last_success_at, :last_error, :created_at, :updated_at)`, source)
+	require.NoError(t, err)
+
+	runner := NewRunner(db, NewModuleRegistry())
+	result := &RunResult{
+		SettingsUpdates: map[string]string{
+			"events_etag": `"etag-1"`,
+		},
+	}
+
+	err = runner.applyResult(testModule{result: result}, source, result)
+	require.NoError(t, err)
+
+	sourceService := NewSourceService(db)
+	source, err = sourceService.GetByKind("test")
+	require.NoError(t, err)
+	assert.Equal(t, `"etag-1"`, source.Settings()["events_etag"])
+}

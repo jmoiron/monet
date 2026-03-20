@@ -549,6 +549,67 @@ p code {
   }
 }
 
+.summary-stacked {
+  .summary-section + .summary-section {
+    margin-top: 1.5rem;
+  }
+
+  .summary-section h3 {
+    margin-bottom: .5rem;
+  }
+}
+
+.blog-home-list {
+  h3 {
+    text-align: center;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0 10px;
+    list-style: none;
+  }
+
+  li {
+    padding: .5rem 10px .7rem;
+  }
+
+  .summary-title-line {
+    line-height: 1.4;
+  }
+
+  .summary-title-line a {
+    color: @bluelink;
+    font-weight: bold;
+
+    &:hover {
+      color: @bluehover;
+    }
+  }
+
+  .summary-description {
+    margin-top: .12rem;
+    color: #666;
+    line-height: 1.45;
+  }
+
+  .summary-title-line .date {
+    color: #bbb;
+    font-size: 12px;
+    margin-left: .2rem;
+  }
+}
+
+.stream-home-list {
+  .entries {
+    margin-top: 0;
+  }
+
+  .entry-container:nth-child(even) .entry {
+    background-color: transparent;
+  }
+}
+
 .entry {
   .icon { color: #999; &:hover { color: @bluehover; } }
   &:hover .icon { color: #222; &:hover { color: @bluehover;} }

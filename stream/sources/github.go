@@ -38,6 +38,7 @@ func (m *GitHubModule) Fields() []SettingField {
 	return []SettingField{
 		{Name: "username", Label: "Username", Type: "text", Placeholder: "jmoiron"},
 		{Name: "token", Label: "Token", Type: "password", Help: "Optional personal access token to avoid rate limits."},
+		{Name: "use_etag", Label: "Conditional Requests", Type: "checkbox", Help: "Use ETag/If-None-Match on the events feed. With an authorized request, GitHub says 304 responses do not count against the primary rate limit."},
 	}
 }
 
@@ -45,6 +46,7 @@ func (m *GitHubModule) DefaultSettings() map[string]string {
 	return map[string]string{
 		"username": "jmoiron",
 		"token":    "",
+		"use_etag": "true",
 	}
 }
 
@@ -58,15 +60,39 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 	}
 
 	token := strings.TrimSpace(settings["token"])
+	useETag := settings["use_etag"] == "true"
+	eventsETag := strings.TrimSpace(settings["events_etag"])
 	lastSuccess := source.LastSuccessTime()
+	mode := SyncModeFromContext(ctx)
 	results := make([]Item, 0, 300)
-	slog.Info("starting github sync", "username", username, "has_token", token != "", "last_success", lastSuccess)
+	runResult := &RunResult{
+		Details: map[string]any{
+			"username":  username,
+			"sync_mode": string(mode),
+		},
+	}
+	slog.Info("starting github sync", "username", username, "has_token", token != "", "use_etag", useETag, "has_events_etag", eventsETag != "", "sync_mode", mode, "last_success", lastSuccess)
 
 	for page := 1; page <= 3; page++ {
-		pageEvents, err := m.fetchPage(ctx, username, token, page)
+		ifNoneMatch := ""
+		if mode != SyncModeFull && useETag && page == 1 && eventsETag != "" {
+			ifNoneMatch = eventsETag
+		}
+		pageResult, err := m.fetchPage(ctx, username, token, page, ifNoneMatch)
 		if err != nil {
 			return nil, err
 		}
+		if mode != SyncModeFull && page == 1 && pageResult.NotModified {
+			slog.Info("github events feed not modified", "username", username, "page", page)
+			runResult.Details["not_modified"] = true
+			return runResult, nil
+		}
+		if page == 1 && useETag && pageResult.ETag != "" && pageResult.ETag != eventsETag {
+			runResult.SettingsUpdates = map[string]string{
+				"events_etag": pageResult.ETag,
+			}
+		}
+		pageEvents := pageResult.Events
 		if len(pageEvents) == 0 {
 			break
 		}
@@ -95,18 +121,20 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 
 	slog.Info("finished github sync", "username", username, "items", len(results))
 
-	return &RunResult{
-		Items: results,
-		Details: map[string]any{
-			"username": username,
-		},
-	}, nil
+	runResult.Items = results
+	return runResult, nil
 }
 
-func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, page int) ([]githubAPIEvent, error) {
+type githubPageResult struct {
+	Events      []githubAPIEvent
+	ETag        string
+	NotModified bool
+}
+
+func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, page int, ifNoneMatch string) (*githubPageResult, error) {
 	reqURL := fmt.Sprintf("https://api.github.com/users/%s/events/public?per_page=100&page=%d", username, page)
 	slog.Info("loading github url", "url", reqURL)
-	req, err := m.newRequest(ctx, reqURL, token)
+	req, err := m.newRequest(ctx, reqURL, token, ifNoneMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -117,6 +145,13 @@ func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, pa
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusNotModified {
+		slog.Info("github url not modified", "url", reqURL)
+		return &githubPageResult{
+			ETag:        strings.TrimSpace(res.Header.Get("ETag")),
+			NotModified: true,
+		}, nil
+	}
 	if res.StatusCode >= 300 {
 		return nil, fmt.Errorf("github api returned %s", res.Status)
 	}
@@ -125,8 +160,12 @@ func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, pa
 	if err := json.NewDecoder(res.Body).Decode(&events); err != nil {
 		return nil, err
 	}
-	slog.Info("loaded github events page", "page", page, "count", len(events))
-	return events, nil
+	etag := strings.TrimSpace(res.Header.Get("ETag"))
+	slog.Info("loaded github events page", "page", page, "count", len(events), "has_etag", etag != "")
+	return &githubPageResult{
+		Events: events,
+		ETag:   etag,
+	}, nil
 }
 
 func (m *GitHubModule) expandEvent(ctx context.Context, token, username string, e githubAPIEvent) ([]Item, error) {
@@ -224,7 +263,7 @@ func githubCommitMatchesUsername(commit githubCommit, username string) bool {
 func (m *GitHubModule) fetchCompareCommits(ctx context.Context, token, repo, before, head string) ([]githubCommit, error) {
 	reqURL := fmt.Sprintf("https://api.github.com/repos/%s/compare/%s...%s", repo, before, head)
 	slog.Info("loading github url", "url", reqURL)
-	req, err := m.newRequest(ctx, reqURL, token)
+	req, err := m.newRequest(ctx, reqURL, token, "")
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +290,7 @@ func (m *GitHubModule) fetchCompareCommits(ctx context.Context, token, repo, bef
 
 func (m *GitHubModule) fetchPullRequest(ctx context.Context, token, apiURL string) (json.RawMessage, error) {
 	slog.Info("loading github url", "url", apiURL)
-	req, err := m.newRequest(ctx, apiURL, token)
+	req, err := m.newRequest(ctx, apiURL, token, "")
 	if err != nil {
 		return nil, err
 	}
@@ -273,13 +312,16 @@ func (m *GitHubModule) fetchPullRequest(ctx context.Context, token, apiURL strin
 	return payload, nil
 }
 
-func (m *GitHubModule) newRequest(ctx context.Context, url, token string) (*http.Request, error) {
+func (m *GitHubModule) newRequest(ctx context.Context, url, token, ifNoneMatch string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "monet-stream")
+	if ifNoneMatch != "" {
+		req.Header.Set("If-None-Match", ifNoneMatch)
+	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
@@ -287,16 +329,16 @@ func (m *GitHubModule) newRequest(ctx context.Context, url, token string) (*http
 }
 
 type githubAPIEvent struct {
-	ID        string          `json:"id"`
-	Type      string          `json:"type"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	CreatedAt time.Time `json:"created_at"`
 	Actor     struct {
 		Login     string `json:"login"`
 		AvatarURL string `json:"avatar_url"`
 	} `json:"actor"`
-	Repo      githubRepo      `json:"repo"`
-	Payload   json.RawMessage `json:"payload"`
-	Raw       json.RawMessage `json:"-"`
+	Repo    githubRepo      `json:"repo"`
+	Payload json.RawMessage `json:"payload"`
+	Raw     json.RawMessage `json:"-"`
 }
 
 type githubRepo struct {
@@ -318,7 +360,7 @@ type githubCommit struct {
 	Commit  struct {
 		Message string `json:"message"`
 		Author  struct {
-			Name string `json:"name"`
+			Name  string `json:"name"`
 			Email string `json:"email"`
 		} `json:"author"`
 	} `json:"commit"`
@@ -467,8 +509,8 @@ type githubIssueCommentItem struct {
 
 func (i githubIssueCommentItem) ToRecord() (*Record, error) {
 	var payload struct {
-		Action  string `json:"action"`
-		Issue   struct {
+		Action string `json:"action"`
+		Issue  struct {
 			HTMLURL string `json:"html_url"`
 			Number  int    `json:"number"`
 			Title   string `json:"title"`
@@ -557,8 +599,8 @@ type githubPullRequestReviewItem struct {
 
 func (i githubPullRequestReviewItem) ToRecord() (*Record, error) {
 	var payload struct {
-		Action      string `json:"action"`
-		Review      struct {
+		Action string `json:"action"`
+		Review struct {
 			HTMLURL string `json:"html_url"`
 			Body    string `json:"body"`
 			State   string `json:"state"`

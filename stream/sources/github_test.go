@@ -394,3 +394,144 @@ func TestGitHubSyncFiltersPushCommitsByAuthorUsername(t *testing.T) {
 		"/users/jmoiron/events/public",
 	}, requests)
 }
+
+func TestGitHubSyncStoresEventsETagFromFirstPage(t *testing.T) {
+	module := sources.NewGitHub().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			require.Equal(t, "/users/jmoiron/events/public", r.URL.Path)
+			require.Empty(t, r.Header.Get("If-None-Match"))
+
+			if r.URL.Query().Get("page") != "1" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("[]")),
+				}, nil
+			}
+
+			body, err := json.Marshal([]map[string]any{})
+			require.NoError(t, err)
+			header := make(http.Header)
+			header.Set("ETag", `"events-page-1"`)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     header,
+				Body:       io.NopCloser(strings.NewReader(string(body))),
+			}, nil
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"username": "jmoiron",
+		"use_etag": "true",
+	}))
+
+	result, err := module.Sync(context.Background(), source)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, map[string]string{"events_etag": `"events-page-1"`}, result.SettingsUpdates)
+}
+
+func TestGitHubSyncUsesIfNoneMatchAndStopsOnNotModified(t *testing.T) {
+	requests := 0
+	module := sources.NewGitHub().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			requests++
+			require.Equal(t, "/users/jmoiron/events/public", r.URL.Path)
+			require.Equal(t, `"events-page-1"`, r.Header.Get("If-None-Match"))
+			require.Equal(t, "Bearer github-token", r.Header.Get("Authorization"))
+			return &http.Response{
+				StatusCode: http.StatusNotModified,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader("")),
+			}, nil
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"username":    "jmoiron",
+		"token":       "github-token",
+		"use_etag":    "true",
+		"events_etag": `"events-page-1"`,
+	}))
+
+	result, err := module.Sync(context.Background(), source)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Empty(t, result.Items)
+	assert.Equal(t, true, result.Details["not_modified"])
+	assert.Equal(t, 1, requests)
+}
+
+func TestGitHubFullSyncBypassesIfNoneMatch(t *testing.T) {
+	requests := 0
+	module := sources.NewGitHub().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			requests++
+			require.Equal(t, "/users/jmoiron/events/public", r.URL.Path)
+			require.Empty(t, r.Header.Get("If-None-Match"))
+
+			if r.URL.Query().Get("page") != "1" {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("[]")),
+				}, nil
+			}
+
+			body, err := json.Marshal([]map[string]any{
+				{
+					"id":         "evt-full-1",
+					"type":       "PushEvent",
+					"created_at": "2026-03-19T15:04:05Z",
+					"repo":       map[string]any{"name": "jmoiron/monet"},
+					"payload": map[string]any{
+						"ref":    "refs/heads/main",
+						"head":   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+						"before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						"size":   1,
+						"commits": []map[string]any{
+							{
+								"sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+								"author": map[string]any{
+									"login": "jmoiron",
+								},
+								"commit": map[string]any{
+									"message": "full sync commit",
+								},
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+
+			header := make(http.Header)
+			header.Set("ETag", `"fresh-etag"`)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     header,
+				Body:       io.NopCloser(strings.NewReader(string(body))),
+			}, nil
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"username":    "jmoiron",
+		"token":       "github-token",
+		"use_etag":    "true",
+		"events_etag": `"old-etag"`,
+	}))
+
+	result, err := module.Sync(stream.WithSyncMode(context.Background(), stream.SyncModeFull), source)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, `"fresh-etag"`, result.SettingsUpdates["events_etag"])
+	assert.Equal(t, "full", result.Details["sync_mode"])
+	assert.Nil(t, result.Details["not_modified"])
+	assert.Equal(t, 2, requests)
+}

@@ -21,10 +21,10 @@ func SyncModeFromContext(ctx context.Context) SyncMode {
 	return sources.SyncModeFromContext(ctx)
 }
 
-func WithPageOverride(ctx context.Context, page int) context.Context {
-	return sources.WithPageOverride(ctx, page)
+func WithRepoBackfill(ctx context.Context, repo string) context.Context {
+	return sources.WithRepoBackfill(ctx, repo)
 }
 
-func PageOverrideFromContext(ctx context.Context) int {
-	return sources.PageOverrideFromContext(ctx)
+func RepoBackfillFromContext(ctx context.Context) string {
+	return sources.RepoBackfillFromContext(ctx)
 }

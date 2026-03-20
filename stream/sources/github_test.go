@@ -536,49 +536,83 @@ func TestGitHubFullSyncBypassesIfNoneMatch(t *testing.T) {
 	assert.Equal(t, 2, requests)
 }
 
-func TestGitHubSyncPageOverrideFetchesOnlyRequestedPage(t *testing.T) {
+func TestGitHubSyncRepoBackfillLoadsCommitsIssuesAndPullRequests(t *testing.T) {
 	requests := []string{}
 	module := sources.NewGitHub().WithClient(&http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-			requests = append(requests, r.URL.RawQuery)
-			require.Equal(t, "/users/jmoiron/events/public", r.URL.Path)
+			requests = append(requests, r.URL.Path+"?"+r.URL.RawQuery)
 			require.Empty(t, r.Header.Get("If-None-Match"))
-
-			if r.URL.Query().Get("page") != "5" {
-				t.Fatalf("unexpected page %s", r.URL.Query().Get("page"))
-			}
-
-			body, err := json.Marshal([]map[string]any{
-				{
-					"id":         "evt-page-5",
-					"type":       "PushEvent",
-					"created_at": "2025-01-19T15:04:05Z",
-					"repo":       map[string]any{"name": "jmoiron/monet"},
-					"payload": map[string]any{
-						"ref":    "refs/heads/main",
-						"head":   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-						"before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-						"size":   1,
-						"commits": []map[string]any{
-							{
-								"sha": "555555555555555555555555555555555555555a",
+			switch r.URL.Path {
+			case "/repos/jmoiron/monet/commits":
+				if r.URL.Query().Get("page") == "1" {
+					body, err := json.Marshal([]map[string]any{
+						{
+							"sha":      "555555555555555555555555555555555555555a",
+							"html_url": "https://github.com/jmoiron/monet/commit/5555555",
+							"author": map[string]any{
+								"login":      "jmoiron",
+								"avatar_url": "https://avatars.githubusercontent.com/u/218132?v=4",
+							},
+							"commit": map[string]any{
+								"message": "older backfill commit",
 								"author": map[string]any{
-									"login": "jmoiron",
-								},
-								"commit": map[string]any{
-									"message": "older backfill commit",
+									"date": "2025-01-19T15:04:05Z",
 								},
 							},
 						},
-					},
-				},
-			})
-			require.NoError(t, err)
-			return &http.Response{
-				StatusCode: http.StatusOK,
-				Header:     make(http.Header),
-				Body:       io.NopCloser(strings.NewReader(string(body))),
-			}, nil
+					})
+					require.NoError(t, err)
+					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(body)))}, nil
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("[]"))}, nil
+			case "/repos/jmoiron/monet/issues":
+				if r.URL.Query().Get("page") == "1" {
+					body, err := json.Marshal([]map[string]any{
+						{
+							"html_url":   "https://github.com/jmoiron/monet/issues/12",
+							"number":     12,
+							"title":      "older issue",
+							"body":       "issue body",
+							"created_at": "2024-12-01T10:00:00Z",
+							"user": map[string]any{
+								"login":      "jmoiron",
+								"html_url":   "https://github.com/jmoiron",
+								"avatar_url": "https://avatars.githubusercontent.com/u/218132?v=4",
+							},
+						},
+					})
+					require.NoError(t, err)
+					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(body)))}, nil
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("[]"))}, nil
+			case "/repos/jmoiron/monet/pulls":
+				if r.URL.Query().Get("page") == "1" {
+					body, err := json.Marshal([]map[string]any{
+						{
+							"html_url":   "https://github.com/jmoiron/monet/pull/15",
+							"number":     15,
+							"title":      "older pr",
+							"body":       "pr body",
+							"created_at": "2024-11-01T09:00:00Z",
+							"merged":     false,
+							"state":      "open",
+							"user": map[string]any{
+								"login":      "jmoiron",
+								"html_url":   "https://github.com/jmoiron",
+								"avatar_url": "https://avatars.githubusercontent.com/u/218132?v=4",
+							},
+							"head": map[string]any{"ref": "feature"},
+							"base": map[string]any{"ref": "main"},
+						},
+					})
+					require.NoError(t, err)
+					return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(string(body)))}, nil
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("[]"))}, nil
+			default:
+				t.Fatalf("unexpected path %s", r.URL.Path)
+			}
+			return nil, nil
 		}),
 	})
 
@@ -590,16 +624,34 @@ func TestGitHubSyncPageOverrideFetchesOnlyRequestedPage(t *testing.T) {
 		"events_etag": `"page-1-etag"`,
 	}))
 
-	result, err := module.Sync(stream.WithPageOverride(context.Background(), 5), source)
+	result, err := module.Sync(stream.WithRepoBackfill(context.Background(), "jmoiron/monet"), source)
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Len(t, result.Items, 1)
-	assert.Equal(t, 5, result.Details["page"])
-	assert.Equal(t, "incremental", result.Details["sync_mode"])
+	require.Len(t, result.Items, 3)
+	assert.Equal(t, "jmoiron/monet", result.Details["repo"])
+	assert.Equal(t, "repo", result.Details["backfill_mode"])
 	assert.Nil(t, result.SettingsUpdates)
-	assert.Equal(t, []string{"per_page=100&page=5"}, requests)
+	assert.Equal(t, []string{
+		"/repos/jmoiron/monet/commits?author=jmoiron&per_page=100&page=1",
+		"/repos/jmoiron/monet/commits?author=jmoiron&per_page=100&page=2",
+		"/repos/jmoiron/monet/issues?state=all&sort=created&direction=desc&per_page=100&page=1",
+		"/repos/jmoiron/monet/issues?state=all&sort=created&direction=desc&per_page=100&page=2",
+		"/repos/jmoiron/monet/pulls?state=all&sort=created&direction=desc&per_page=100&page=1",
+		"/repos/jmoiron/monet/pulls?state=all&sort=created&direction=desc&per_page=100&page=2",
+	}, requests)
 
-	record, err := result.Items[0].ToRecord()
+	commitRecord, err := result.Items[0].ToRecord()
 	require.NoError(t, err)
-	assert.Contains(t, record.SummaryRendered, "older backfill commit")
+	assert.Contains(t, commitRecord.SummaryRendered, "older backfill commit")
+	assert.Contains(t, commitRecord.Data, `"kind":"commit"`)
+
+	issueRecord, err := result.Items[1].ToRecord()
+	require.NoError(t, err)
+	assert.Contains(t, issueRecord.SummaryRendered, `issue #12`)
+	assert.Contains(t, issueRecord.Data, `"type":"IssuesEvent"`)
+
+	prRecord, err := result.Items[2].ToRecord()
+	require.NoError(t, err)
+	assert.Contains(t, prRecord.SummaryRendered, `PR #15`)
+	assert.Contains(t, prRecord.Data, `"kind":"pull_request"`)
 }

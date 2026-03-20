@@ -61,7 +61,7 @@ type Module interface {
 }
 
 type syncModeKey struct{}
-type pageOverrideKey struct{}
+type repoBackfillKey struct{}
 
 type SyncMode string
 
@@ -84,16 +84,16 @@ func SyncModeFromContext(ctx context.Context) SyncMode {
 	return SyncModeIncremental
 }
 
-func WithPageOverride(ctx context.Context, page int) context.Context {
-	return context.WithValue(ctx, pageOverrideKey{}, page)
+func WithRepoBackfill(ctx context.Context, repo string) context.Context {
+	return context.WithValue(ctx, repoBackfillKey{}, repo)
 }
 
-func PageOverrideFromContext(ctx context.Context) int {
+func RepoBackfillFromContext(ctx context.Context) string {
 	if ctx == nil {
-		return 0
+		return ""
 	}
-	if page, ok := ctx.Value(pageOverrideKey{}).(int); ok && page > 0 {
-		return page
+	if repo, ok := ctx.Value(repoBackfillKey{}).(string); ok {
+		return repo
 	}
-	return 0
+	return ""
 }

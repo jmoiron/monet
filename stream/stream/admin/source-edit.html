@@ -68,15 +68,15 @@
 {{if eq .source.Kind "github"}}
 <hr>
 
-<form action="/admin/stream/run/{{.source.Kind}}/page" method="POST" class="stream-page-import-form">
+<form action="/admin/stream/run/{{.source.Kind}}/repo" method="POST" class="stream-page-import-form">
   <p>
-    <label>Import Specific Page</label><br>
-    <input type="number" min="1" name="page" value="1">
-    <br><small>Fetch only this GitHub events API page for backfill. This bypasses ETag checks and the normal incremental recency cutoff.</small>
+    <label>Backfill Repository</label><br>
+    <input type="text" name="repo" value="" placeholder="owner/repo">
+    <br><small>Load commits, issues, and pull requests for this repository using your configured GitHub username as the author filter.</small>
   </p>
 
   <p>
-    <button type="submit">Import Page</button>
+    <button type="submit">Backfill Repo</button>
   </p>
 </form>
 {{end}}

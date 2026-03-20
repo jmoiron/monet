@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -64,7 +65,10 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 	eventsETag := strings.TrimSpace(settings["events_etag"])
 	lastSuccess := source.LastSuccessTime()
 	mode := SyncModeFromContext(ctx)
-	pageOverride := PageOverrideFromContext(ctx)
+	repoBackfill := strings.TrimSpace(RepoBackfillFromContext(ctx))
+	if repoBackfill != "" {
+		return m.backfillRepo(ctx, token, username, repoBackfill)
+	}
 	results := make([]Item, 0, 300)
 	runResult := &RunResult{
 		Details: map[string]any{
@@ -72,31 +76,23 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 			"sync_mode": string(mode),
 		},
 	}
-	if pageOverride > 0 {
-		runResult.Details["page"] = pageOverride
-	}
-	slog.Info("starting github sync", "username", username, "has_token", token != "", "use_etag", useETag, "has_events_etag", eventsETag != "", "sync_mode", mode, "page_override", pageOverride, "last_success", lastSuccess)
+	slog.Info("starting github sync", "username", username, "has_token", token != "", "use_etag", useETag, "has_events_etag", eventsETag != "", "sync_mode", mode, "last_success", lastSuccess)
 
-	startPage, endPage := 1, 3
-	if pageOverride > 0 {
-		startPage, endPage = pageOverride, pageOverride
-	}
-
-	for page := startPage; page <= endPage; page++ {
+	for page := 1; page <= 3; page++ {
 		ifNoneMatch := ""
-		if pageOverride == 0 && mode != SyncModeFull && useETag && page == 1 && eventsETag != "" {
+		if mode != SyncModeFull && useETag && page == 1 && eventsETag != "" {
 			ifNoneMatch = eventsETag
 		}
 		pageResult, err := m.fetchPage(ctx, username, token, page, ifNoneMatch)
 		if err != nil {
 			return nil, err
 		}
-		if pageOverride == 0 && mode != SyncModeFull && page == 1 && pageResult.NotModified {
+		if mode != SyncModeFull && page == 1 && pageResult.NotModified {
 			slog.Info("github events feed not modified", "username", username, "page", page)
 			runResult.Details["not_modified"] = true
 			return runResult, nil
 		}
-		if pageOverride == 0 && page == 1 && useETag && pageResult.ETag != "" && pageResult.ETag != eventsETag {
+		if page == 1 && useETag && pageResult.ETag != "" && pageResult.ETag != eventsETag {
 			runResult.SettingsUpdates = map[string]string{
 				"events_etag": pageResult.ETag,
 			}
@@ -117,7 +113,7 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 				if err != nil {
 					return nil, err
 				}
-				if pageOverride == 0 && !lastSuccess.IsZero() && record.Timestamp.Before(lastSuccess.Add(-24*time.Hour)) {
+				if !lastSuccess.IsZero() && record.Timestamp.Before(lastSuccess.Add(-24*time.Hour)) {
 					stop = true
 				}
 				results = append(results, item)
@@ -138,6 +134,43 @@ type githubPageResult struct {
 	Events      []githubAPIEvent
 	ETag        string
 	NotModified bool
+}
+
+type githubRepoIssue struct {
+	HTMLURL   string    `json:"html_url"`
+	Number    int       `json:"number"`
+	Title     string    `json:"title"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	User      struct {
+		Login     string `json:"login"`
+		HTMLURL   string `json:"html_url"`
+		AvatarURL string `json:"avatar_url"`
+	} `json:"user"`
+	PullRequest *struct {
+		HTMLURL string `json:"html_url"`
+	} `json:"pull_request"`
+}
+
+type githubRepoPullRequest struct {
+	HTMLURL   string    `json:"html_url"`
+	Number    int       `json:"number"`
+	Title     string    `json:"title"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
+	Merged    bool      `json:"merged"`
+	State     string    `json:"state"`
+	User      struct {
+		Login     string `json:"login"`
+		HTMLURL   string `json:"html_url"`
+		AvatarURL string `json:"avatar_url"`
+	} `json:"user"`
+	Head struct {
+		Ref string `json:"ref"`
+	} `json:"head"`
+	Base struct {
+		Ref string `json:"ref"`
+	} `json:"base"`
 }
 
 func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, page int, ifNoneMatch string) (*githubPageResult, error) {
@@ -175,6 +208,162 @@ func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, pa
 		Events: events,
 		ETag:   etag,
 	}, nil
+}
+
+func (m *GitHubModule) backfillRepo(ctx context.Context, token, username, repo string) (*RunResult, error) {
+	slog.Info("starting github repo backfill", "repo", repo, "username", username, "has_token", token != "")
+
+	commitItems, err := m.fetchRepoCommitItems(ctx, token, username, repo)
+	if err != nil {
+		return nil, err
+	}
+	issueItems, err := m.fetchRepoIssueItems(ctx, token, username, repo)
+	if err != nil {
+		return nil, err
+	}
+	prItems, err := m.fetchRepoPullRequestItems(ctx, token, username, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]Item, 0, len(commitItems)+len(issueItems)+len(prItems))
+	items = append(items, commitItems...)
+	items = append(items, issueItems...)
+	items = append(items, prItems...)
+
+	slog.Info("finished github repo backfill", "repo", repo, "username", username, "items", len(items), "commits", len(commitItems), "issues", len(issueItems), "pull_requests", len(prItems))
+
+	return &RunResult{
+		Items: items,
+		Details: map[string]any{
+			"username":      username,
+			"repo":          repo,
+			"backfill_mode": "repo",
+			"commits":       len(commitItems),
+			"issues":        len(issueItems),
+			"pull_requests": len(prItems),
+		},
+	}, nil
+}
+
+func (m *GitHubModule) fetchRepoCommitItems(ctx context.Context, token, username, repo string) ([]Item, error) {
+	items := []Item{}
+	for page := 1; ; page++ {
+		reqURL := fmt.Sprintf("https://api.github.com/repos/%s/commits?author=%s&per_page=100&page=%d", repo, url.QueryEscape(username), page)
+		slog.Info("loading github url", "url", reqURL)
+		req, err := m.newRequest(ctx, reqURL, token, "")
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := m.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if res.StatusCode >= 300 {
+			res.Body.Close()
+			return nil, fmt.Errorf("github commits api returned %s", res.Status)
+		}
+
+		var commits []githubCommit
+		if err := json.NewDecoder(res.Body).Decode(&commits); err != nil {
+			res.Body.Close()
+			return nil, err
+		}
+		res.Body.Close()
+		slog.Info("loaded github repo commits page", "repo", repo, "page", page, "count", len(commits))
+		if len(commits) == 0 {
+			break
+		}
+		for _, commit := range commits {
+			if !githubCommitMatchesUsername(commit, username) {
+				continue
+			}
+			items = append(items, githubBackfillCommitItem{Repo: repo, Commit: commit})
+		}
+	}
+	return items, nil
+}
+
+func (m *GitHubModule) fetchRepoIssueItems(ctx context.Context, token, username, repo string) ([]Item, error) {
+	items := []Item{}
+	for page := 1; ; page++ {
+		reqURL := fmt.Sprintf("https://api.github.com/repos/%s/issues?state=all&sort=created&direction=desc&per_page=100&page=%d", repo, page)
+		slog.Info("loading github url", "url", reqURL)
+		req, err := m.newRequest(ctx, reqURL, token, "")
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := m.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if res.StatusCode >= 300 {
+			res.Body.Close()
+			return nil, fmt.Errorf("github issues api returned %s", res.Status)
+		}
+
+		var issues []githubRepoIssue
+		if err := json.NewDecoder(res.Body).Decode(&issues); err != nil {
+			res.Body.Close()
+			return nil, err
+		}
+		res.Body.Close()
+		slog.Info("loaded github repo issues page", "repo", repo, "page", page, "count", len(issues))
+		if len(issues) == 0 {
+			break
+		}
+		for _, issue := range issues {
+			if issue.PullRequest != nil {
+				continue
+			}
+			if !strings.EqualFold(strings.TrimSpace(issue.User.Login), username) {
+				continue
+			}
+			items = append(items, githubBackfillIssueItem{Repo: repo, Issue: issue})
+		}
+	}
+	return items, nil
+}
+
+func (m *GitHubModule) fetchRepoPullRequestItems(ctx context.Context, token, username, repo string) ([]Item, error) {
+	items := []Item{}
+	for page := 1; ; page++ {
+		reqURL := fmt.Sprintf("https://api.github.com/repos/%s/pulls?state=all&sort=created&direction=desc&per_page=100&page=%d", repo, page)
+		slog.Info("loading github url", "url", reqURL)
+		req, err := m.newRequest(ctx, reqURL, token, "")
+		if err != nil {
+			return nil, err
+		}
+
+		res, err := m.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if res.StatusCode >= 300 {
+			res.Body.Close()
+			return nil, fmt.Errorf("github pull requests api returned %s", res.Status)
+		}
+
+		var prs []githubRepoPullRequest
+		if err := json.NewDecoder(res.Body).Decode(&prs); err != nil {
+			res.Body.Close()
+			return nil, err
+		}
+		res.Body.Close()
+		slog.Info("loaded github repo pull requests page", "repo", repo, "page", page, "count", len(prs))
+		if len(prs) == 0 {
+			break
+		}
+		for _, pr := range prs {
+			if !strings.EqualFold(strings.TrimSpace(pr.User.Login), username) {
+				continue
+			}
+			items = append(items, githubBackfillPullRequestItem{Repo: repo, PullRequest: pr})
+		}
+	}
+	return items, nil
 }
 
 func (m *GitHubModule) expandEvent(ctx context.Context, token, username string, e githubAPIEvent) ([]Item, error) {
@@ -369,14 +558,16 @@ type githubCommit struct {
 	Commit  struct {
 		Message string `json:"message"`
 		Author  struct {
-			Name  string `json:"name"`
-			Email string `json:"email"`
+			Name  string    `json:"name"`
+			Email string    `json:"email"`
+			Date  time.Time `json:"date"`
 		} `json:"author"`
 	} `json:"commit"`
 	Author struct {
-		Login string `json:"login"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
+		Login     string `json:"login"`
+		Name      string `json:"name"`
+		Email     string `json:"email"`
+		AvatarURL string `json:"avatar_url"`
 	} `json:"author"`
 }
 
@@ -401,6 +592,21 @@ type githubCommitItem struct {
 	Event  githubAPIEvent
 	Commit githubCommit
 	Ref    string
+}
+
+type githubBackfillCommitItem struct {
+	Repo   string
+	Commit githubCommit
+}
+
+type githubBackfillIssueItem struct {
+	Repo  string
+	Issue githubRepoIssue
+}
+
+type githubBackfillPullRequestItem struct {
+	Repo        string
+	PullRequest githubRepoPullRequest
 }
 
 func (i githubCommitItem) ToRecord() (*Record, error) {
@@ -436,6 +642,45 @@ func (i githubCommitItem) ToRecord() (*Record, error) {
 		Url:             url,
 		Data:            string(raw),
 		SummaryRendered: renderGithubCommitSummary(url, i.Event.Repo.Name, branch, i.Commit.SHA, message),
+	}, nil
+}
+
+func (i githubBackfillCommitItem) ToRecord() (*Record, error) {
+	repoURL := "https://github.com/" + i.Repo
+	url := i.Commit.HTMLURL
+	if url == "" {
+		url = repoURL + "/commit/" + i.Commit.SHA
+	}
+
+	message := firstLine(strings.TrimSpace(i.Commit.Commit.Message))
+	if message == "" {
+		message = "commit " + shortSHA(i.Commit.SHA)
+	}
+
+	timestamp := i.Commit.Commit.Author.Date
+	if timestamp.IsZero() {
+		timestamp = time.Now().UTC()
+	}
+
+	raw, err := json.Marshal(map[string]any{
+		"kind":       "commit",
+		"repo":       i.Repo,
+		"ref":        "",
+		"source":     map[string]any{"actor": map[string]any{"login": i.Commit.Author.Login, "avatar_url": i.Commit.Author.AvatarURL}},
+		"commit":     i.Commit,
+		"commit_url": url,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Record{
+		Title:           "commit",
+		SourceId:        i.Commit.SHA,
+		Timestamp:       timestamp,
+		Url:             url,
+		Data:            string(raw),
+		SummaryRendered: renderGithubCommitSummary(url, i.Repo, "", i.Commit.SHA, message),
 	}, nil
 }
 
@@ -509,6 +754,65 @@ func (i githubPullRequestItem) ToRecord() (*Record, error) {
 		Url:             url,
 		Data:            string(rawData),
 		SummaryRendered: githubPullRequestSummaryRendered(url, i.Event.Repo.Name, payload.PullRequest.Number, payload.PullRequest.Head.Ref, payload.PullRequest.Base.Ref, payload.Action, payload.PullRequest.Merged),
+	}, nil
+}
+
+func (i githubBackfillPullRequestItem) ToRecord() (*Record, error) {
+	url := i.PullRequest.HTMLURL
+	if url == "" {
+		url = "https://github.com/" + i.Repo
+	}
+
+	enriched, err := json.Marshal(map[string]any{
+		"kind": "pull_request",
+		"event": map[string]any{
+			"type":       "PullRequestEvent",
+			"created_at": i.PullRequest.CreatedAt,
+			"repo":       map[string]any{"name": i.Repo},
+			"payload":    map[string]any{"action": "opened"},
+		},
+		"pull_request": i.PullRequest,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Record{
+		Title:           "pull request",
+		SourceId:        fmt.Sprintf("pr:%s:%d:opened", i.Repo, i.PullRequest.Number),
+		Timestamp:       i.PullRequest.CreatedAt,
+		Url:             url,
+		Data:            string(enriched),
+		SummaryRendered: githubPullRequestSummaryRendered(url, i.Repo, i.PullRequest.Number, i.PullRequest.Head.Ref, i.PullRequest.Base.Ref, "opened", i.PullRequest.Merged),
+	}, nil
+}
+
+func (i githubBackfillIssueItem) ToRecord() (*Record, error) {
+	url := i.Issue.HTMLURL
+	if url == "" {
+		url = "https://github.com/" + i.Repo
+	}
+
+	raw, err := json.Marshal(map[string]any{
+		"type":       "IssuesEvent",
+		"created_at": i.Issue.CreatedAt,
+		"repo":       map[string]any{"name": i.Repo},
+		"payload": map[string]any{
+			"action": "opened",
+			"issue":  i.Issue,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &Record{
+		Title:           "issue",
+		SourceId:        fmt.Sprintf("issue:%s:%d:opened", i.Repo, i.Issue.Number),
+		Timestamp:       i.Issue.CreatedAt,
+		Url:             url,
+		Data:            string(raw),
+		SummaryRendered: renderGithubIssueSummary(url, i.Repo, i.Issue.HTMLURL, i.Issue.Number),
 	}, nil
 }
 

@@ -592,6 +592,27 @@ p code {
 .entry-container:last-child .entry { border-bottom: 0px; }
 .entry-container:nth-child(even) .entry { background-color: #fbfbfb; }
 
+.icon-actions {
+  white-space: nowrap;
+}
+
+.icon-action {
+  display: inline-block;
+  padding: .2em .35em;
+  text-decoration: none;
+  color: #666;
+
+  &:hover {
+    color: @bluehover;
+  }
+
+  &.disabled {
+    color: #bbb;
+    cursor: default;
+    pointer-events: auto;
+  }
+}
+
 .stream-detail {
   .stream-meta {
     margin-bottom: 1.5em;
@@ -607,6 +628,110 @@ p code {
 
   .stream-rendered {
     margin-bottom: 2em;
+  }
+
+  .stream-detail-rendered {
+    margin-bottom: 2em;
+  }
+
+  .stream-card {
+    h1 {
+      margin-top: 0;
+    }
+  }
+
+  .bluesky-detail {
+    .stream-card-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stream-card-icon-circle {
+      width: 3.2rem;
+      height: 3.2rem;
+      border-radius: 999px;
+      background: #1185fe;
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    .stream-card-icon a {
+      text-decoration: none;
+    }
+
+    .stream-card-identity {
+      min-height: 3.2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .stream-card-name {
+      font-weight: bold;
+      font-size: 1.15rem;
+      line-height: 1.35;
+      color: #222;
+    }
+
+    .stream-card-handle {
+      line-height: 1.35;
+      color: #666;
+    }
+
+    .stream-card-body {
+      white-space: pre-wrap;
+      font-size: 1.05rem;
+      line-height: 1.65;
+      margin-bottom: 1.25rem;
+    }
+
+    .stream-embed-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid #d7dee7;
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #fff 0%, #fafcff 100%);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 8px 18px rgba(17, 133, 254, .06);
+    }
+
+    .stream-embed-card:hover {
+      border-color: #b9cde5;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .04), 0 12px 24px rgba(17, 133, 254, .1);
+    }
+
+    .stream-embed-image img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .stream-embed-content {
+      padding: 1rem 1.1rem;
+    }
+
+    .stream-embed-title {
+      font-weight: 600;
+      color: #1e2732;
+      line-height: 1.4;
+    }
+
+    .stream-embed-content hr {
+      border: 0;
+      border-top: 1px solid #e3eaf2;
+      margin: .8rem 0 .75rem;
+    }
+
+    .stream-embed-domain {
+      color: #667788;
+      font-size: .95rem;
+    }
   }
 
   .stream-raw {

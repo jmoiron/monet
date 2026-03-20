@@ -9,6 +9,23 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
+$(function() {
+    $(".js-post-link").on("click", function(e) {
+        e.preventDefault();
+        const $link = $(this);
+        if ($link.hasClass("disabled") || $link.attr("aria-disabled") === "true") {
+            return;
+        }
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = $link.attr("href");
+        form.style.display = "none";
+        document.body.appendChild(form);
+        form.submit();
+    });
+});
+
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - date) / 1000);
 

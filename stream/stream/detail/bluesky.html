@@ -1,0 +1,28 @@
+<div class="stream-card bluesky-detail">
+    <div class="stream-card-header">
+        <div class="stream-card-icon">
+            <a href="{{.url}}" target="_blank">
+                <span class="stream-card-icon-circle"><i class="fa-brands fa-bluesky"></i></span>
+            </a>
+        </div>
+        <div class="stream-card-identity">
+            <div class="stream-card-name">{{.display_name}}</div>
+            <div class="stream-card-handle">{{.handle}}</div>
+        </div>
+    </div>
+    <div class="stream-card-body">{{.text | safe}}</div>
+    {{if .embed}}
+    <a href="{{index .embed "url"}}" target="_blank" class="stream-embed-card">
+        {{if index .embed "image_url"}}
+        <div class="stream-embed-image">
+            <img src="{{index .embed "image_url"}}" alt="">
+        </div>
+        {{end}}
+        <div class="stream-embed-content">
+            <div class="stream-embed-title">{{index .embed "title"}}</div>
+            <hr>
+            <div class="stream-embed-domain">{{index .embed "domain"}}</div>
+        </div>
+    </a>
+    {{end}}
+</div>

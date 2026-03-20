@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"bytes"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
+	"github.com/jmoiron/monet/auth"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
@@ -213,10 +215,25 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reg := mtr.RegistryFromContext(r.Context())
+	rawEvent := ""
+	if sm := auth.SessionFromContext(r.Context()); sm != nil && sm.IsAuthenticated(r) {
+		rawEvent = PrettyEventData(event.Data)
+	}
+	detailTemplate, detailCtx, err := sources.RenderDetail(event.Type, event.Title, event.Url, event.Data, event.SummaryRendered)
+	if err != nil {
+		app.Http500("rendering stream detail content", w, err)
+		return
+	}
+	var detailBuf bytes.Buffer
+	if err := reg.Render(&detailBuf, detailTemplate, mtr.Ctx(detailCtx)); err != nil {
+		app.Http500("rendering stream detail partial", w, err)
+		return
+	}
 	err = reg.RenderWithBase(w, "base", "stream/detail.html", mtr.Ctx{
-		"title":     event.Title,
-		"event":     event,
-		"raw_event": PrettyEventData(event.Data),
+		"title":           event.Title,
+		"event":           event,
+		"detail_rendered": detailBuf.String(),
+		"raw_event":       rawEvent,
 	})
 	if err != nil {
 		slog.Error("rendering stream detail", "err", err)

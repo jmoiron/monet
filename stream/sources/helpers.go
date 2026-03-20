@@ -37,7 +37,7 @@ func renderBlueskySummary(url, actor, text string) string {
 		`<div class="entry bluesky"><a href="%s"><i class="fa-brands fa-bluesky"></i></a> <span class="name">%s</span> <span class="message">%s</span></div>`,
 		escape(url),
 		escape(actor),
-		escape(text),
+		text,
 	)
 }
 

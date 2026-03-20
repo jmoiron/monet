@@ -40,10 +40,10 @@
   </p>
 </form>
 
-<form action="/admin/stream/run/{{.source.Kind}}" method="POST">
-  <button type="submit" {{if .running}}disabled{{end}}>Run now</button>
-</form>
+<div class="button-group">
+  <a href="/admin/stream/run/{{.source.Kind}}" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Refresh this source once using its normal incremental import settings." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-arrow-down-wide-short"></i></a>
 
-<form action="/admin/stream/run/{{.source.Kind}}/full" method="POST">
-  <button type="submit" {{if .running}}disabled{{end}}>Full import</button>
-</form>
+  <a href="/admin/stream/run/{{.source.Kind}}/full" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Run a deeper full import for this source, using its full backfill settings." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-arrows-spin"></i></a>
+
+  <a href="/admin/stream/run/{{.source.Kind}}/rerender" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Rebuild the rendered HTML for existing entries from this source without fetching new upstream data." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-rotate-right"></i></a>
+</div>

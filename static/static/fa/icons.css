@@ -89,8 +89,14 @@
 .fa-arrow-down-wide-short {
   --fa: "\f160";
 }
+.fa-arrow-down-wide-short {
+  --fa: "\f160";
+}
 .fa-arrow-up-wide-short {
   --fa: "\f161";
+}
+.fa-arrows-spin {
+  --fa: "\e4bb";
 }
 .fa-arrows-spin {
   --fa: "\e4bb";
@@ -148,6 +154,9 @@
 }
 .fa-rotate {
   --fa: "\f2f1";
+}
+.fa-rotate-right {
+  --fa: "\f2f9";
 }
 .fa-rotate-right {
   --fa: "\f2f9";

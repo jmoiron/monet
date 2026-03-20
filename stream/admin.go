@@ -3,6 +3,7 @@ package stream
 import (
 	"bytes"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -36,6 +37,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/stream/source/{kind}", a.save)
 	r.Post("/stream/run/{kind}", a.runNow)
 	r.Post("/stream/run/{kind}/full", a.runFull)
+	r.Post("/stream/run/{kind}/rerender", a.rerender)
 }
 
 func (a *Admin) Panels(r *http.Request) ([]string, error) {
@@ -211,5 +213,22 @@ func (a *Admin) runFull(w http.ResponseWriter, r *http.Request) {
 		app.Http500("running full stream import", w, err)
 		return
 	}
+	http.Redirect(w, r, "/admin/stream/", http.StatusSeeOther)
+}
+
+func (a *Admin) rerender(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	module, ok := a.modules.Get(kind)
+	if !ok {
+		app.Http404(w)
+		return
+	}
+
+	updated, err := a.events.RerenderByType(module.EventType())
+	if err != nil {
+		app.Http500("rerendering stream source events", w, err)
+		return
+	}
+	slog.Info("rerendered stream source events", "kind", kind, "event_type", module.EventType(), "updated", updated)
 	http.Redirect(w, r, "/admin/stream/", http.StatusSeeOther)
 }

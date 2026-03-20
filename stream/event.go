@@ -9,6 +9,7 @@ import (
 
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
+	"github.com/jmoiron/monet/stream/sources"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -208,6 +209,26 @@ func (s *EventService) CountByType(eventType string) (int, error) {
 	var count int
 	err := s.db.Get(&count, `SELECT count(*) FROM event WHERE type=?`, eventType)
 	return count, err
+}
+
+func (s *EventService) RerenderByType(eventType string) (int, error) {
+	events, err := s.Select("WHERE type=? ORDER BY id ASC", eventType)
+	if err != nil {
+		return 0, err
+	}
+
+	updated := 0
+	for _, event := range events {
+		summary, err := sources.RenderSummary(event.Type, event.Url, event.Data)
+		if err != nil {
+			return updated, fmt.Errorf("rerender event %d: %w", event.Id, err)
+		}
+		if _, err := s.db.Exec(`UPDATE event SET summary_rendered=? WHERE id=?`, summary, event.Id); err != nil {
+			return updated, err
+		}
+		updated++
+	}
+	return updated, nil
 }
 
 func (s *EventService) DeleteMissingByType(eventType string, keepSourceIDs []string) (int64, error) {

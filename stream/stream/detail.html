@@ -1,22 +1,11 @@
 <article class="stream-detail">
-    <h1>
-        {{if .event.Url}}
-        <a href="{{.event.Url}}" target="_blank">{{.event.Title}}</a>
-        <a href="{{.event.Url}}" target="_blank" class="external-link">
-            <i class="fa-solid fa-link"></i>
-        </a>
-        {{else}}
-        {{.event.Title}}
-        {{end}}
-    </h1>
-
     <div class="stream-meta">
         <span class="stream-type">{{.event.Type}}</span>
         <span class="date">{{.event.Timestamp | naturalTime}}</span>
     </div>
 
-    <div class="stream-rendered">
-        {{.event.SummaryRendered | safe}}
+    <div class="stream-detail-rendered">
+        {{.detail_rendered | safe}}
     </div>
 
     {{if .raw_event}}

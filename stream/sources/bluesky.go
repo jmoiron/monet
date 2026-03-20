@@ -238,6 +238,28 @@ type blueskyRecord struct {
 	Type      string `json:"$type"`
 	Text      string `json:"text"`
 	CreatedAt string `json:"createdAt"`
+	Embed     *struct {
+		Type     string `json:"$type"`
+		External *struct {
+			URI   string `json:"uri"`
+			Title string `json:"title"`
+			Thumb *struct {
+				Ref struct {
+					Link string `json:"$link"`
+				} `json:"ref"`
+			} `json:"thumb"`
+		} `json:"external"`
+	} `json:"embed"`
+	Facets    []struct {
+		Index struct {
+			ByteStart int `json:"byteStart"`
+			ByteEnd   int `json:"byteEnd"`
+		} `json:"index"`
+		Features []struct {
+			Type string `json:"$type"`
+			URI  string `json:"uri"`
+		} `json:"features"`
+	} `json:"facets"`
 }
 
 func (i blueskyFeedItem) toEvent() (*Record, error) {
@@ -254,17 +276,18 @@ func (i blueskyFeedItem) toEvent() (*Record, error) {
 	postURL := blueskyPostURL(i.Post.Author.Handle, i.Post.URI)
 	sourceID := i.Post.URI
 	text := truncateText(record.Text, 280)
+	renderedText := renderBlueskyFacetText(text, record.Facets)
 	title := "post"
 
 	if i.Reason != nil && i.Reason.Type == "app.bsky.feed.defs#reasonRepost" {
 		sourceID = "repost:" + i.Post.URI
 		ts = i.Reason.IndexedAt
 		title = "repost"
-		text = "reposted: " + text
+		renderedText = "reposted: " + renderedText
 	}
 	if i.Reply != nil {
 		title = "reply"
-		text = "replied: " + text
+		renderedText = "replied: " + renderedText
 	}
 
 	raw, err := json.Marshal(i)
@@ -283,7 +306,7 @@ func (i blueskyFeedItem) toEvent() (*Record, error) {
 		Timestamp:       ts,
 		Url:             postURL,
 		Data:            string(raw),
-		SummaryRendered: renderBlueskySummary(postURL, actor, text),
+		SummaryRendered: renderBlueskySummary(postURL, actor, renderedText),
 	}, nil
 }
 

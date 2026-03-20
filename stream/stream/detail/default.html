@@ -1,0 +1,16 @@
+<div class="stream-card stream-card-default">
+    <h1>
+        {{if .url}}
+        <a href="{{.url}}" target="_blank">{{.title}}</a>
+        <a href="{{.url}}" target="_blank" class="external-link">
+            <i class="fa-solid fa-link"></i>
+        </a>
+        {{else}}
+        {{.title}}
+        {{end}}
+    </h1>
+
+    <div class="stream-rendered">
+        {{.summary_rendered | safe}}
+    </div>
+</div>

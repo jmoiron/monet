@@ -6,19 +6,32 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/monet/mtr"
 )
 
-func RenderSummary(eventType, url, data string) (string, error) {
-	switch eventType {
-	case "github":
-		return renderStoredGitHubSummary(url, data)
-	case "bluesky":
-		return renderStoredBlueskySummary(data)
-	case "twitter":
-		return renderStoredTwitterSummary(url, data)
-	default:
-		return "", fmt.Errorf("unsupported event type %q", eventType)
+type Evaluation struct {
+	SummaryRendered string
+	Hidden          bool
+}
+
+func Reevaluate(eventType, url, data string, settings map[string]string) (*Evaluation, error) {
+	summary, hidden, err := renderAndFilter(eventType, url, data, settings)
+	if err != nil {
+		return nil, err
 	}
+	return &Evaluation{
+		SummaryRendered: summary,
+		Hidden:          hidden,
+	}, nil
+}
+
+func RenderSummary(eventType, url, data string) (string, error) {
+	evaluation, err := Reevaluate(eventType, url, data, nil)
+	if err != nil {
+		return "", err
+	}
+	return evaluation.SummaryRendered, nil
 }
 
 func RenderDetail(eventType, title, url, data, summaryRendered string, timestamp time.Time) (string, map[string]any, error) {
@@ -48,6 +61,21 @@ func RenderBlueskySummary(url, actor, text string) string {
 
 func RenderTwitterSummary(url, text string) string {
 	return renderTwitterSummary(url, text)
+}
+
+func renderAndFilter(eventType, url, data string, settings map[string]string) (string, bool, error) {
+	switch eventType {
+	case "github":
+		return renderStoredGitHubSummary(url, data, settings)
+	case "bluesky":
+		summary, err := renderStoredBlueskySummary(data)
+		return summary, false, err
+	case "twitter":
+		summary, err := renderStoredTwitterSummary(url, data)
+		return summary, false, err
+	default:
+		return "", false, fmt.Errorf("unsupported event type %q", eventType)
+	}
 }
 
 func renderStoredTwitterSummary(url, data string) (string, error) {
@@ -105,6 +133,9 @@ func renderStoredBlueskyDetail(url, data string, timestamp time.Time) (map[strin
 	if embed := blueskyExternalEmbed(item.Post.URI, record.Embed); embed != nil {
 		ctx["embed"] = embed
 	}
+	if images := blueskyImageEmbeds(item.Post.URI, record.Embed); len(images) > 0 {
+		ctx["image_embeds"] = images
+	}
 	return ctx, nil
 }
 
@@ -119,6 +150,14 @@ func blueskyExternalEmbed(postURI string, embed *struct {
 			} `json:"ref"`
 		} `json:"thumb"`
 	} `json:"external"`
+	Images []struct {
+		Alt string `json:"alt"`
+		Image struct {
+			Ref struct {
+				Link string `json:"$link"`
+			} `json:"ref"`
+		} `json:"image"`
+	} `json:"images"`
 }) map[string]any {
 	if embed == nil || embed.Type != "app.bsky.embed.external" || embed.External == nil {
 		return nil
@@ -149,6 +188,51 @@ func blueskyExternalEmbed(postURI string, embed *struct {
 	return card
 }
 
+func blueskyImageEmbeds(postURI string, embed *struct {
+	Type     string `json:"$type"`
+	External *struct {
+		URI   string `json:"uri"`
+		Title string `json:"title"`
+		Thumb *struct {
+			Ref struct {
+				Link string `json:"$link"`
+			} `json:"ref"`
+		} `json:"thumb"`
+	} `json:"external"`
+	Images []struct {
+		Alt string `json:"alt"`
+		Image struct {
+			Ref struct {
+				Link string `json:"$link"`
+			} `json:"ref"`
+		} `json:"image"`
+	} `json:"images"`
+}) []map[string]any {
+	if embed == nil || embed.Type != "app.bsky.embed.images" || len(embed.Images) == 0 {
+		return nil
+	}
+
+	did := blueskyPostDID(postURI)
+	if did == "" {
+		return nil
+	}
+
+	out := make([]map[string]any, 0, len(embed.Images))
+	for _, image := range embed.Images {
+		ref := strings.TrimSpace(image.Image.Ref.Link)
+		if ref == "" {
+			continue
+		}
+		imageURL := "https://cdn.bsky.app/img/feed_fullsize/plain/" + did + "/" + ref
+		out = append(out, map[string]any{
+			"url":       imageURL,
+			"image_url": imageURL,
+			"alt":       image.Alt,
+		})
+	}
+	return out
+}
+
 func blueskyPostDID(atURI string) string {
 	parts := strings.Split(strings.TrimPrefix(atURI, "at://"), "/")
 	if len(parts) < 1 {
@@ -157,7 +241,47 @@ func blueskyPostDID(atURI string) string {
 	return parts[0]
 }
 
-func renderStoredGitHubSummary(url, data string) (string, error) {
+func renderStoredGitHubSummary(url, data string, settings map[string]string) (string, bool, error) {
+	username := strings.TrimSpace(settings["username"])
+	var pullRequestEnvelope struct {
+		Kind        string `json:"kind"`
+		Event       struct {
+			Repo struct {
+				Name string `json:"name"`
+			} `json:"repo"`
+			Payload struct {
+				Action string `json:"action"`
+			} `json:"payload"`
+		} `json:"event"`
+		PullRequest struct {
+			HTMLURL string `json:"html_url"`
+			Number  int    `json:"number"`
+			Title   string `json:"title"`
+			Merged  bool   `json:"merged"`
+			Head    struct {
+				Ref string `json:"ref"`
+			} `json:"head"`
+			Base struct {
+				Ref string `json:"ref"`
+			} `json:"base"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal([]byte(data), &pullRequestEnvelope); err == nil && pullRequestEnvelope.Kind == "pull_request" {
+		renderURL := pullRequestEnvelope.PullRequest.HTMLURL
+		if renderURL == "" {
+			renderURL = url
+		}
+		return githubPullRequestSummaryRendered(
+			renderURL,
+			pullRequestEnvelope.Event.Repo.Name,
+			pullRequestEnvelope.PullRequest.Number,
+			pullRequestEnvelope.PullRequest.Head.Ref,
+			pullRequestEnvelope.PullRequest.Base.Ref,
+			pullRequestEnvelope.Event.Payload.Action,
+			pullRequestEnvelope.PullRequest.Merged,
+		), false, nil
+	}
+
 	var commitEnvelope struct {
 		Kind      string       `json:"kind"`
 		Repo      string       `json:"repo"`
@@ -175,47 +299,150 @@ func renderStoredGitHubSummary(url, data string) (string, error) {
 			message = "commit " + shortSHA(commitEnvelope.Commit.SHA)
 		}
 		branch := strings.TrimPrefix(commitEnvelope.Ref, "refs/heads/")
-		return renderGithubSummary(renderURL, commitEnvelope.Repo, githubCommitSummaryText(branch, message)), nil
+		hidden := username != "" && !githubCommitMatchesUsername(commitEnvelope.Commit, username)
+		return renderGithubCommitSummary(renderURL, commitEnvelope.Repo, branch, commitEnvelope.Commit.SHA, message), hidden, nil
 	}
 
 	var event githubAPIEvent
 	if err := json.Unmarshal([]byte(data), &event); err != nil {
-		return "", err
+		return "", false, err
 	}
 	switch event.Type {
 	case "PushEvent":
+		var payload struct {
+			Commits []json.RawMessage `json:"commits"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err == nil && len(payload.Commits) == 0 {
+			summary, _, _ := event.legacySummary()
+			return summary, true, nil
+		}
 		summary, _, _ := event.legacySummary()
-		return summary, nil
+		return summary, false, nil
 	case "PullRequestEvent":
 		record, err := githubPullRequestItem{Event: event}.ToRecord()
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return record.SummaryRendered, nil
+		return record.SummaryRendered, false, nil
+	case "CreateEvent":
+		var payload struct {
+			RefType string `json:"ref_type"`
+			Ref     string `json:"ref"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return "", false, err
+		}
+		if strings.TrimSpace(payload.RefType) == "branch" && strings.TrimSpace(payload.Ref) != "" {
+			return renderGithubCreateSummary(url, event.Repo.Name, payload.Ref), false, nil
+		}
+		summary, _, _ := event.legacySummary()
+		return summary, false, nil
+	case "IssuesEvent":
+		var payload struct {
+			Action string `json:"action"`
+			Issue  struct {
+				HTMLURL string `json:"html_url"`
+				Number  int    `json:"number"`
+			} `json:"issue"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			return "", false, err
+		}
+		if strings.TrimSpace(payload.Action) == "opened" && payload.Issue.Number > 0 && strings.TrimSpace(payload.Issue.HTMLURL) != "" {
+			return renderGithubIssueSummary(url, event.Repo.Name, payload.Issue.HTMLURL, payload.Issue.Number), false, nil
+		}
+		summary, _, _ := event.legacySummary()
+		return summary, false, nil
 	case "IssueCommentEvent":
 		record, err := githubIssueCommentItem{Event: event}.ToRecord()
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return record.SummaryRendered, nil
+		return record.SummaryRendered, false, nil
 	case "PullRequestReviewCommentEvent":
 		record, err := githubPullRequestReviewCommentItem{Event: event}.ToRecord()
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return record.SummaryRendered, nil
+		return record.SummaryRendered, false, nil
 	case "PullRequestReviewEvent":
 		record, err := githubPullRequestReviewItem{Event: event}.ToRecord()
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return record.SummaryRendered, nil
+		return record.SummaryRendered, false, nil
 	default:
-		return renderGithubSummary(url, event.Repo.Name, strings.TrimSpace(event.Type)), nil
+		return renderGithubSummary(url, event.Repo.Name, strings.TrimSpace(event.Type)), false, nil
 	}
 }
 
 func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestamp time.Time) (string, map[string]any, error) {
+	var pullRequestEnvelope struct {
+		Kind        string `json:"kind"`
+		Event       struct {
+			Repo struct {
+				Name string `json:"name"`
+			} `json:"repo"`
+			Payload struct {
+				Action string `json:"action"`
+			} `json:"payload"`
+		} `json:"event"`
+		PullRequest struct {
+			HTMLURL string `json:"html_url"`
+			Number  int    `json:"number"`
+			Title   string `json:"title"`
+			Body    string `json:"body"`
+			Merged  bool   `json:"merged"`
+			User    struct {
+				Login     string `json:"login"`
+				HTMLURL   string `json:"html_url"`
+				AvatarURL string `json:"avatar_url"`
+			} `json:"user"`
+			Head struct {
+				Ref string `json:"ref"`
+			} `json:"head"`
+			Base struct {
+				Ref string `json:"ref"`
+			} `json:"base"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal([]byte(data), &pullRequestEnvelope); err == nil && pullRequestEnvelope.Kind == "pull_request" {
+		handle := strings.TrimSpace(pullRequestEnvelope.PullRequest.User.Login)
+		if handle != "" {
+			handle = "@" + handle
+		}
+		profileURL := pullRequestEnvelope.PullRequest.User.HTMLURL
+		if profileURL == "" && pullRequestEnvelope.PullRequest.User.Login != "" {
+			profileURL = "https://github.com/" + pullRequestEnvelope.PullRequest.User.Login
+		}
+		prURL := pullRequestEnvelope.PullRequest.HTMLURL
+		if prURL == "" {
+			prURL = url
+		}
+		repoName := pullRequestEnvelope.Event.Repo.Name
+		repoURL := ""
+		if strings.TrimSpace(repoName) != "" {
+			repoURL = "https://github.com/" + repoName
+		}
+
+		return "stream/detail/github-pr.html", map[string]any{
+			"url":           prURL,
+			"repo_name":     repoName,
+			"repo_url":      repoURL,
+			"pr_number":     pullRequestEnvelope.PullRequest.Number,
+			"profile_url":   profileURL,
+			"handle":        handle,
+			"avatar_url":    pullRequestEnvelope.PullRequest.User.AvatarURL,
+			"timestamp_ui":  timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+			"pr_title":      pullRequestEnvelope.PullRequest.Title,
+			"pr_body_md":    mtr.RenderMarkdown(pullRequestEnvelope.PullRequest.Body),
+			"head_ref":      pullRequestEnvelope.PullRequest.Head.Ref,
+			"base_ref":      pullRequestEnvelope.PullRequest.Base.Ref,
+			"action":        pullRequestEnvelope.Event.Payload.Action,
+			"merged":        pullRequestEnvelope.PullRequest.Merged,
+		}, nil
+	}
+
 	var commitEnvelope struct {
 		Kind      string `json:"kind"`
 		Repo      string `json:"repo"`
@@ -274,6 +501,87 @@ func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestam
 			"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
 			"message":      commitEnvelope.Commit.Commit.Message,
 		}, nil
+	}
+
+	var event githubAPIEvent
+	if err := json.Unmarshal([]byte(data), &event); err == nil && event.Type == "IssuesEvent" {
+		var payload struct {
+			Action string `json:"action"`
+			Issue  struct {
+				HTMLURL string `json:"html_url"`
+				Number  int    `json:"number"`
+				Title   string `json:"title"`
+				Body    string `json:"body"`
+				User    struct {
+					Login     string `json:"login"`
+					HTMLURL   string `json:"html_url"`
+					AvatarURL string `json:"avatar_url"`
+				} `json:"user"`
+			} `json:"issue"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err == nil && payload.Action == "opened" {
+			handle := strings.TrimSpace(payload.Issue.User.Login)
+			if handle != "" {
+				handle = "@" + handle
+			}
+			profileURL := payload.Issue.User.HTMLURL
+			if profileURL == "" && payload.Issue.User.Login != "" {
+				profileURL = "https://github.com/" + payload.Issue.User.Login
+			}
+			issueURL := payload.Issue.HTMLURL
+			if issueURL == "" {
+				issueURL = url
+			}
+			repoURL := ""
+			if strings.TrimSpace(event.Repo.Name) != "" {
+				repoURL = "https://github.com/" + event.Repo.Name
+			}
+
+			return "stream/detail/github-issue.html", map[string]any{
+				"url":           issueURL,
+				"repo_name":     event.Repo.Name,
+				"repo_url":      repoURL,
+				"issue_number":  payload.Issue.Number,
+				"profile_url":   profileURL,
+				"handle":        handle,
+				"avatar_url":    payload.Issue.User.AvatarURL,
+				"timestamp_ui":  timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+				"issue_title":   payload.Issue.Title,
+				"issue_body_md": mtr.RenderMarkdown(payload.Issue.Body),
+			}, nil
+		}
+	}
+
+	if err := json.Unmarshal([]byte(data), &event); err == nil && event.Type == "CreateEvent" {
+		var payload struct {
+			RefType string `json:"ref_type"`
+			Ref     string `json:"ref"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err == nil && payload.RefType == "branch" {
+			handle := strings.TrimSpace(event.Actor.Login)
+			if handle != "" {
+				handle = "@" + handle
+			}
+			profileURL := ""
+			if event.Actor.Login != "" {
+				profileURL = "https://github.com/" + event.Actor.Login
+			}
+			repoURL := ""
+			if strings.TrimSpace(event.Repo.Name) != "" {
+				repoURL = "https://github.com/" + event.Repo.Name
+			}
+			return "stream/detail/github-create.html", map[string]any{
+				"url":           url,
+				"repo_name":     event.Repo.Name,
+				"repo_url":      repoURL,
+				"profile_url":   profileURL,
+				"handle":        handle,
+				"avatar_url":    event.Actor.AvatarURL,
+				"timestamp_ui":  timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+				"ref_type":      payload.RefType,
+				"ref":           payload.Ref,
+			}, nil
+		}
 	}
 
 	return "stream/detail/default.html", map[string]any{

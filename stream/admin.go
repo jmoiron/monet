@@ -224,7 +224,13 @@ func (a *Admin) rerender(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := a.events.RerenderByType(module.EventType())
+	source, err := a.sources.GetByKind(kind)
+	if err != nil {
+		app.Http500("loading stream source", w, err)
+		return
+	}
+
+	updated, err := a.events.RerenderByType(module.EventType(), source.Settings())
 	if err != nil {
 		app.Http500("rerendering stream source events", w, err)
 		return

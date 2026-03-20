@@ -66,6 +66,9 @@
 
 /* Individual icon definitions */
 /* Brands icons */
+.fa-bitbucket {
+  --fa: "\f171";
+}
 .fa-bluesky {
   --fa: "\e671";
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/monet/db"
+	"github.com/jmoiron/monet/stream/sources"
 )
 
 type Runner struct {
@@ -124,7 +125,7 @@ func (r *Runner) Run(ctx context.Context, kind string) error {
 
 	result, runErr := module.Sync(ctx, source)
 	if runErr == nil {
-		runErr = r.applyResult(module, result)
+		runErr = r.applyResult(module, source, result)
 	}
 	if finishErr := r.sources.FinishRun(runID, result, runErr); finishErr != nil {
 		slog.Error("finishing stream run", "kind", kind, "err", finishErr)
@@ -146,7 +147,7 @@ func (r *Runner) Run(ctx context.Context, kind string) error {
 	return nil
 }
 
-func (r *Runner) applyResult(module Module, result *RunResult) error {
+func (r *Runner) applyResult(module Module, source *StreamSource, result *RunResult) error {
 	if result == nil {
 		slog.Info("stream source returned no result", "kind", module.Kind())
 		return nil
@@ -158,6 +159,10 @@ func (r *Runner) applyResult(module Module, result *RunResult) error {
 		if err != nil {
 			return err
 		}
+		evaluation, err := sources.Reevaluate(module.EventType(), record.Url, record.Data, source.Settings())
+		if err != nil {
+			return err
+		}
 
 		event := &Event{
 			Title:           record.Title,
@@ -166,7 +171,8 @@ func (r *Runner) applyResult(module Module, result *RunResult) error {
 			Type:            module.EventType(),
 			Url:             record.Url,
 			Data:            record.Data,
-			SummaryRendered: record.SummaryRendered,
+			SummaryRendered: evaluation.SummaryRendered,
+			Hidden:          evaluation.Hidden,
 		}
 		if err := r.events.Upsert(event); err != nil {
 			return err

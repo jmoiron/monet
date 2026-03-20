@@ -93,8 +93,70 @@ func TestBlueskySyncImportsPublicFeed(t *testing.T) {
 	assert.Equal("post", record0.Title)
 	assert.Equal("repost", record1.Title)
 	assert.True(strings.Contains(record0.SummaryRendered, "hello from bluesky"))
+	assert.True(strings.Contains(record0.SummaryRendered, `href="https://bsky.app/profile/jmoiron.bsky.social"`))
+	assert.True(strings.Contains(record0.SummaryRendered, "@jmoiron.bsky.social"))
 	assert.True(strings.Contains(record1.SourceId, "repost:"))
+	assert.True(strings.Contains(record1.SummaryRendered, "reposted"))
+	assert.False(strings.Contains(record1.SummaryRendered, `<span class="name">`))
 	assert.Equal("https://bsky.app/profile/jmoiron.bsky.social/post/3lf7abc", record0.Url)
+}
+
+func TestBlueskySummaryFallsBackToImageAlt(t *testing.T) {
+	module := sources.NewBluesky().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			body, err := json.Marshal(map[string]any{
+				"feed": []map[string]any{
+					{
+						"post": map[string]any{
+							"uri": "at://did:plc:jmoiron/app.bsky.feed.post/3img",
+							"author": map[string]any{
+								"handle": "jmoiron.bsky.social",
+							},
+							"record": map[string]any{
+								"$type":     "app.bsky.feed.post",
+								"text":      "",
+								"createdAt": "2026-03-19T15:04:05Z",
+								"embed": map[string]any{
+									"$type": "app.bsky.embed.images",
+									"images": []map[string]any{
+										{
+											"alt": "example alt text",
+											"image": map[string]any{
+												"ref": map[string]any{
+													"$link": "bafkreiimg123",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(string(body))),
+			}, nil
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"actor":       "jmoiron.bsky.social",
+		"appview_url": "https://public.api.bsky.test",
+	}))
+
+	result, err := module.Sync(context.Background(), source)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+
+	record, err := result.Items[0].ToRecord()
+	require.NoError(t, err)
+	assert.Contains(t, record.SummaryRendered, "example alt text")
+	assert.Contains(t, record.SummaryRendered, "@jmoiron.bsky.social")
 }
 
 func TestBlueskyFullSyncUsesMorePages(t *testing.T) {

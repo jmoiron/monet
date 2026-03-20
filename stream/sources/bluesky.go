@@ -245,10 +245,18 @@ type blueskyRecord struct {
 			Title string `json:"title"`
 			Thumb *struct {
 				Ref struct {
+				Link string `json:"$link"`
+			} `json:"ref"`
+		} `json:"thumb"`
+	} `json:"external"`
+		Images []struct {
+			Alt string `json:"alt"`
+			Image struct {
+				Ref struct {
 					Link string `json:"$link"`
 				} `json:"ref"`
-			} `json:"thumb"`
-		} `json:"external"`
+			} `json:"image"`
+		} `json:"images"`
 	} `json:"embed"`
 	Facets    []struct {
 		Index struct {
@@ -275,15 +283,16 @@ func (i blueskyFeedItem) toEvent() (*Record, error) {
 
 	postURL := blueskyPostURL(i.Post.Author.Handle, i.Post.URI)
 	sourceID := i.Post.URI
-	text := truncateText(record.Text, 280)
-	renderedText := renderBlueskyFacetText(text, record.Facets)
+	renderedText := blueskySummaryRenderedText(record)
 	title := "post"
+	actor := externalLink("https://bsky.app/profile/"+i.Post.Author.Handle, "@"+i.Post.Author.Handle)
 
 	if i.Reason != nil && i.Reason.Type == "app.bsky.feed.defs#reasonRepost" {
 		sourceID = "repost:" + i.Post.URI
 		ts = i.Reason.IndexedAt
 		title = "repost"
-		renderedText = "reposted: " + renderedText
+		actor = ""
+		renderedText = "reposted " + externalLink("https://bsky.app/profile/"+i.Post.Author.Handle, "@"+i.Post.Author.Handle) + ": " + renderedText
 	}
 	if i.Reply != nil {
 		title = "reply"
@@ -295,11 +304,6 @@ func (i blueskyFeedItem) toEvent() (*Record, error) {
 		return nil, err
 	}
 
-	actor := i.Post.Author.Handle
-	if i.Post.Author.DisplayName != "" {
-		actor = i.Post.Author.DisplayName
-	}
-
 	return &Record{
 		Title:           title,
 		SourceId:        sourceID,
@@ -308,6 +312,33 @@ func (i blueskyFeedItem) toEvent() (*Record, error) {
 		Data:            string(raw),
 		SummaryRendered: renderBlueskySummary(postURL, actor, renderedText),
 	}, nil
+}
+
+func blueskySummaryRenderedText(record blueskyRecord) string {
+	text := strings.TrimSpace(record.Text)
+	if text != "" {
+		return renderBlueskyFacetText(truncateText(text, 280), record.Facets)
+	}
+	if record.Embed != nil {
+		if record.Embed.Type == "app.bsky.embed.images" && len(record.Embed.Images) > 0 {
+			alt := strings.TrimSpace(record.Embed.Images[0].Alt)
+			if alt != "" {
+				return escape(truncateText(alt, 280))
+			}
+			return "posted an image"
+		}
+		if record.Embed.Type == "app.bsky.embed.external" && record.Embed.External != nil {
+			title := strings.TrimSpace(record.Embed.External.Title)
+			if title != "" {
+				return escape(truncateText(title, 280))
+			}
+			uri := strings.TrimSpace(record.Embed.External.URI)
+			if uri != "" {
+				return escape(truncateText(uri, 280))
+			}
+		}
+	}
+	return ""
 }
 
 func blueskyPostURL(handle, atURI string) string {

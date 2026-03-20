@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
-
+	
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/auth"
@@ -95,13 +96,20 @@ func (a *App) index(w http.ResponseWriter, r *http.Request) {
 func (a *App) list(w http.ResponseWriter, r *http.Request) {
 	serv := NewEventService(a.db)
 	r.ParseForm()
+	typeFilter := streamTypeFilter(r.Form.Get("t"))
 	if query := r.Form.Get("q"); len(query) > 0 {
-		a.search(w, r, query)
+		a.search(w, r, query, typeFilter)
 		return
 	}
 
 	var count int
-	if err := a.db.Get(&count, "SELECT count(*) FROM event;"); err != nil {
+	countQuery := "SELECT count(*) FROM event WHERE hidden=0"
+	countArgs := []any{}
+	if typeFilter != "" {
+		countQuery += " AND type=?"
+		countArgs = append(countArgs, typeFilter)
+	}
+	if err := a.db.Get(&count, countQuery, countArgs...); err != nil {
 		app.Http500("getting count", w, err)
 		return
 	}
@@ -118,12 +126,16 @@ func (a *App) list(w http.ResponseWriter, r *http.Request) {
 	page := paginator.Page(pageNum)
 
 	// select the posts for the page we're trying to render
-	q := fmt.Sprintf(`ORDER BY timestamp DESC LIMIT %d`, a.PageSize)
-	if page.Number > 1 {
-		q = fmt.Sprintf(`ORDER BY timestamp DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
+	q := ""
+	args := []any{}
+	q = `WHERE hidden=0 `
+	if typeFilter != "" {
+		q += `AND type=? `
+		args = append(args, typeFilter)
 	}
+	q += fmt.Sprintf(`ORDER BY timestamp DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
 
-	events, err := serv.Select(q)
+	events, err := serv.Select(q, args...)
 	if err != nil {
 		app.Http500("loading events", w, err)
 		return
@@ -132,19 +144,27 @@ func (a *App) list(w http.ResponseWriter, r *http.Request) {
 
 	reg := mtr.RegistryFromContext(r.Context())
 	reg.RenderWithBase(w, "base", "stream/index.html", mtr.Ctx{
+		"query":      "",
+		"type":       typeFilter,
+		"types":      a.streamFrontendTypes("", typeFilter),
 		"events":     events,
 		"pagination": paginator.Render(reg, page),
 	})
 }
 
-func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
+func (a *App) search(w http.ResponseWriter, r *http.Request, query string, typeFilter string) {
 
 	// make query safe for fts5
 	query = db.SafeQuery(query)
 
-	countq := `SELECT count(*) FROM event_fts WHERE event_fts MATCH ? ORDER BY rank`
+	countq := `SELECT count(*) FROM event_fts JOIN event ON event.id = event_fts.rowid WHERE event_fts MATCH ? AND event.hidden = 0`
+	countArgs := []any{query}
+	if typeFilter != "" {
+		countq += ` AND event.type = ?`
+		countArgs = append(countArgs, typeFilter)
+	}
 	var count int
-	if err := a.db.Get(&count, countq, query); err != nil {
+	if err := a.db.Get(&count, countq, countArgs...); err != nil {
 		app.Http500("counting results", w, err)
 		return
 	}
@@ -154,6 +174,8 @@ func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
 	if count == 0 {
 		reg.RenderWithBase(w, "base", "stream/index.html", mtr.Ctx{
 			"query": query,
+			"type":  typeFilter,
+			"types": a.streamFrontendTypes(query, typeFilter),
 		})
 		return
 	}
@@ -167,11 +189,16 @@ func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
 	page := paginator.Page(pageNum)
 
 	// any makes it easier to use these in sqlx.In
-	searchq := fmt.Sprintf(`select id from event_fts where event_fts
-		MATCH ? ORDER BY rank LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
+	searchq := `select event.id from event_fts join event on event.id = event_fts.rowid where event_fts MATCH ? and event.hidden = 0`
+	searchArgs := []any{query}
+	if typeFilter != "" {
+		searchq += ` and event.type = ?`
+		searchArgs = append(searchArgs, typeFilter)
+	}
+	searchq += fmt.Sprintf(` ORDER BY rank LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
 
 	var ids []any
-	if err := a.db.Select(&ids, searchq, query); err != nil {
+	if err := a.db.Select(&ids, searchq, searchArgs...); err != nil {
 		app.Http500("fetching results", w, err)
 		return
 	}
@@ -191,6 +218,8 @@ func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
 
 	err = reg.RenderWithBase(w, "base", "stream/index.html", mtr.Ctx{
 		"query":      query,
+		"type":       typeFilter,
+		"types":      a.streamFrontendTypes(query, typeFilter),
 		"events":     events,
 		"pagination": paginator.Render(reg, page),
 	})
@@ -199,6 +228,52 @@ func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
 		slog.Error("rendering template", "err", err)
 	}
 
+}
+
+func streamTypeFilter(value string) string {
+	switch value {
+	case "github", "bluesky", "twitter", "bitbucket":
+		return value
+	default:
+		return ""
+	}
+}
+
+func (a *App) streamFrontendTypes(query, selected string) []map[string]any {
+	items := []struct {
+		Value string
+		Icon  string
+		Label string
+	}{
+		{Value: "", Icon: "fa-solid fa-bars", Label: "All stream sources"},
+		{Value: "bluesky", Icon: "fa-brands fa-bluesky", Label: "Bluesky only"},
+		{Value: "github", Icon: "fa-brands fa-github", Label: "GitHub only"},
+		{Value: "twitter", Icon: "fa-brands fa-twitter", Label: "Twitter only"},
+		{Value: "bitbucket", Icon: "fa-brands fa-bitbucket", Label: "Bitbucket only"},
+	}
+
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		values := url.Values{}
+		if query != "" {
+			values.Set("q", query)
+		}
+		if item.Value != "" {
+			values.Set("t", item.Value)
+		}
+		href := a.BaseURL
+		if encoded := values.Encode(); encoded != "" {
+			href += "?" + encoded
+		}
+		out = append(out, map[string]any{
+			"value":    item.Value,
+			"icon":     item.Icon,
+			"label":    item.Label,
+			"href":     href,
+			"selected": item.Value == selected || (item.Value == "" && selected == ""),
+		})
+	}
+	return out
 }
 
 func (a *App) detail(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +285,10 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 
 	event, err := NewEventService(a.db).GetByID(id)
 	if err != nil {
+		app.Http404(w)
+		return
+	}
+	if event.Hidden {
 		app.Http404(w)
 		return
 	}
@@ -232,7 +311,7 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 	err = reg.RenderWithBase(w, "base", "stream/detail.html", mtr.Ctx{
 		"title":           event.Title,
 		"event":           event,
-		"show_meta":       event.Type != "bluesky",
+		"show_meta":       event.Type != "bluesky" && event.Type != "github",
 		"detail_rendered": detailBuf.String(),
 		"raw_event":       rawEvent,
 	})

@@ -1,6 +1,15 @@
 {{if .Search}}<h3><a href="/stream/">Full Stream</a></h3>{{end}}
 
+<div class="stream-type-filters">
+    {{range .types}}
+    <a href="{{.href}}" class="stream-type-filter{{if .selected}} selected{{end}}" title="{{.label}}">
+        <i class="{{.icon}}"></i>
+    </a>
+    {{end}}
+</div>
+
 <form action="/stream/" method="GET">
+    {{if .type}}<input type="hidden" name="t" value="{{.type}}">{{end}}
     <input type="text" name="q" class="search js-clear-default" data-default="Search the stream..." value="{{if .query}}{{.query}}{{else}}Search the stream...{{end}}">
 </form>
 

@@ -17,7 +17,7 @@ type testModule struct {
 func (m testModule) Kind() string                       { return "test" }
 func (m testModule) Name() string                       { return "Test" }
 func (m testModule) Description() string                { return "test module" }
-func (m testModule) EventType() string                  { return "bluesky" }
+func (m testModule) EventType() string                  { return "github" }
 func (m testModule) Fields() []SettingField             { return nil }
 func (m testModule) DefaultSettings() map[string]string { return map[string]string{} }
 func (m testModule) DefaultScheduleMinutes() int        { return 60 }
@@ -39,21 +39,21 @@ func TestRunnerApplyResultUpsertsEvents(t *testing.T) {
 	result := &RunResult{
 		Items: []sources.Item{
 			testItem{record: &sources.Record{
-				Title:           "post",
-				SourceId:        "at://did:plc:test/app.bsky.feed.post/abc",
+				Title:           "commit",
+				SourceId:        "1111111111111111111111111111111111111111",
 				Timestamp:       time.Date(2026, 3, 19, 12, 0, 0, 0, time.UTC),
-				Url:             "https://bsky.app/profile/test/post/abc",
-				Data:            `{"text":"hello"}`,
-				SummaryRendered: "<div>hello</div>",
+				Url:             "https://github.com/jmoiron/monet/commit/1111111111111111111111111111111111111111",
+				Data:            `{"kind":"commit","repo":"jmoiron/monet","ref":"refs/heads/main","commit":{"sha":"1111111111111111111111111111111111111111","author":{"login":"jmoiron"},"commit":{"message":"hello"}},"commit_url":"https://github.com/jmoiron/monet/commit/1111111111111111111111111111111111111111"}`,
+				SummaryRendered: "<div>stale</div>",
 			}},
 		},
 	}
 
-	err := runner.applyResult(testModule{result: result}, result)
+	err := runner.applyResult(testModule{result: result}, &StreamSource{}, result)
 	require.NoError(t, err)
 	assert.Equal(1, result.Imported)
 
 	var count int
-	require.NoError(t, db.Get(&count, `SELECT count(*) FROM event WHERE type='bluesky'`))
+	require.NoError(t, db.Get(&count, `SELECT count(*) FROM event WHERE type='github'`))
 	assert.Equal(1, count)
 }

@@ -80,6 +80,9 @@ var eventMigration = monarch.Set{
 				ON event (type, source_id)
 				WHERE source_id IS NOT NULL AND source_id <> '';`,
 			Down: `DROP INDEX IF EXISTS event_type_source_id;`,
+		}, {
+			Up:   `ALTER TABLE event ADD COLUMN hidden integer NOT NULL DEFAULT 0;`,
+			Down: `UPDATE event SET hidden=0;`,
 		},
 	},
 }
@@ -94,6 +97,7 @@ type Event struct {
 	Url             string
 	Data            string
 	SummaryRendered string `db:"summary_rendered"`
+	Hidden          bool   `db:"hidden"`
 }
 
 // An EventService manages events.
@@ -107,8 +111,8 @@ func NewEventService(db db.DB) *EventService {
 
 func (s *EventService) InsertArchive(e *Event) error {
 	q := `INSERT INTO event
-		(title, source_id, timestamp, type, url, data, summary_rendered) VALUES
-		(:title, :source_id, :timestamp, :type, :url, :data, :summary_rendered);`
+		(title, source_id, timestamp, type, url, data, summary_rendered, hidden) VALUES
+		(:title, :source_id, :timestamp, :type, :url, :data, :summary_rendered, :hidden);`
 
 	stmt, err := s.db.PrepareNamed(q)
 	if err != nil {
@@ -131,13 +135,15 @@ func (s *EventService) Upsert(e *Event) error {
 			timestamp=?,
 			url=?,
 			data=?,
-			summary_rendered=?
+			summary_rendered=?,
+			hidden=?
 			WHERE type=? AND source_id=?`,
 			e.Title,
 			e.Timestamp,
 			e.Url,
 			e.Data,
 			e.SummaryRendered,
+			e.Hidden,
 			e.Type,
 			e.SourceId,
 		)
@@ -154,8 +160,8 @@ func (s *EventService) Upsert(e *Event) error {
 		}
 
 		stmt, err := tx.PrepareNamed(`INSERT INTO event
-			(title, source_id, timestamp, type, url, data, summary_rendered) VALUES
-			(:title, :source_id, :timestamp, :type, :url, :data, :summary_rendered)`)
+			(title, source_id, timestamp, type, url, data, summary_rendered, hidden) VALUES
+			(:title, :source_id, :timestamp, :type, :url, :data, :summary_rendered, :hidden)`)
 		if err != nil {
 			return err
 		}
@@ -168,13 +174,15 @@ func (s *EventService) Upsert(e *Event) error {
 					timestamp=?,
 					url=?,
 					data=?,
-					summary_rendered=?
+					summary_rendered=?,
+					hidden=?
 					WHERE type=? AND source_id=?`,
 					e.Title,
 					e.Timestamp,
 					e.Url,
 					e.Data,
 					e.SummaryRendered,
+					e.Hidden,
 					e.Type,
 					e.SourceId,
 				)
@@ -211,7 +219,7 @@ func (s *EventService) CountByType(eventType string) (int, error) {
 	return count, err
 }
 
-func (s *EventService) RerenderByType(eventType string) (int, error) {
+func (s *EventService) RerenderByType(eventType string, settings map[string]string) (int, error) {
 	events, err := s.Select("WHERE type=? ORDER BY id ASC", eventType)
 	if err != nil {
 		return 0, err
@@ -219,11 +227,11 @@ func (s *EventService) RerenderByType(eventType string) (int, error) {
 
 	updated := 0
 	for _, event := range events {
-		summary, err := sources.RenderSummary(event.Type, event.Url, event.Data)
+		evaluation, err := sources.Reevaluate(event.Type, event.Url, event.Data, settings)
 		if err != nil {
 			return updated, fmt.Errorf("rerender event %d: %w", event.Id, err)
 		}
-		if _, err := s.db.Exec(`UPDATE event SET summary_rendered=? WHERE id=?`, summary, event.Id); err != nil {
+		if _, err := s.db.Exec(`UPDATE event SET summary_rendered=?, hidden=? WHERE id=?`, evaluation.SummaryRendered, evaluation.Hidden, event.Id); err != nil {
 			return updated, err
 		}
 		updated++

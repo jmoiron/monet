@@ -73,7 +73,7 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 
 		stop := false
 		for _, apiEvent := range pageEvents {
-			items, err := m.expandEvent(ctx, token, apiEvent)
+			items, err := m.expandEvent(ctx, token, username, apiEvent)
 			if err != nil {
 				return nil, err
 			}
@@ -129,13 +129,17 @@ func (m *GitHubModule) fetchPage(ctx context.Context, username, token string, pa
 	return events, nil
 }
 
-func (m *GitHubModule) expandEvent(ctx context.Context, token string, e githubAPIEvent) ([]Item, error) {
+func (m *GitHubModule) expandEvent(ctx context.Context, token, username string, e githubAPIEvent) ([]Item, error) {
 	slog.Debug("processing github event", "event_id", e.ID, "event_type", e.Type, "repo", e.Repo.Name)
 	switch e.Type {
 	case "PushEvent":
-		return m.expandPushEvent(ctx, token, e)
+		return m.expandPushEvent(ctx, token, username, e)
 	case "PullRequestEvent":
-		return []Item{githubPullRequestItem{Event: e}}, nil
+		item, err := m.expandPullRequestEvent(ctx, token, e)
+		if err != nil {
+			return nil, err
+		}
+		return []Item{item}, nil
 	case "IssueCommentEvent":
 		return []Item{githubIssueCommentItem{Event: e}}, nil
 	case "PullRequestReviewCommentEvent":
@@ -147,15 +151,35 @@ func (m *GitHubModule) expandEvent(ctx context.Context, token string, e githubAP
 	}
 }
 
-func (m *GitHubModule) expandPushEvent(ctx context.Context, token string, e githubAPIEvent) ([]Item, error) {
+func (m *GitHubModule) expandPullRequestEvent(ctx context.Context, token string, e githubAPIEvent) (Item, error) {
+	var payload struct {
+		PullRequest struct {
+			URL string `json:"url"`
+		} `json:"pull_request"`
+	}
+	if err := json.Unmarshal(e.Payload, &payload); err != nil {
+		return githubPullRequestItem{Event: e}, nil
+	}
+	if strings.TrimSpace(payload.PullRequest.URL) == "" {
+		return githubPullRequestItem{Event: e}, nil
+	}
+
+	prRaw, err := m.fetchPullRequest(ctx, token, payload.PullRequest.URL)
+	if err != nil {
+		return nil, err
+	}
+	return githubPullRequestItem{Event: e, PullRequestRaw: prRaw}, nil
+}
+
+func (m *GitHubModule) expandPushEvent(ctx context.Context, token, username string, e githubAPIEvent) ([]Item, error) {
 	payload, err := e.pushPayload()
 	if err != nil {
 		return nil, err
 	}
 
 	commits := payload.Commits
-	needCompare := len(commits) == 0 || (payload.Size > 0 && len(commits) < payload.Size)
-	slog.Info("expanding github push event", "event_id", e.ID, "repo", e.Repo.Name, "ref", payload.Ref, "payload_commits", len(payload.Commits), "payload_size", payload.Size, "use_compare", needCompare)
+	needCompare := len(commits) == 0 || (payload.Size > 0 && len(commits) < payload.Size) || !githubCommitsHaveAuthorLogins(commits)
+	slog.Info("expanding github push event", "event_id", e.ID, "repo", e.Repo.Name, "ref", payload.Ref, "payload_commits", len(payload.Commits), "payload_size", payload.Size, "use_compare", needCompare, "username", username)
 	if needCompare && payload.Before != "" && payload.Head != "" {
 		compareCommits, err := m.fetchCompareCommits(ctx, token, e.Repo.Name, payload.Before, payload.Head)
 		if err != nil {
@@ -171,6 +195,10 @@ func (m *GitHubModule) expandPushEvent(ctx context.Context, token string, e gith
 		if strings.TrimSpace(commit.SHA) == "" {
 			continue
 		}
+		if !githubCommitMatchesUsername(commit, username) {
+			slog.Info("skipping github commit from push", "event_id", e.ID, "repo", e.Repo.Name, "sha", commit.SHA, "commit_author_login", strings.TrimSpace(commit.Author.Login), "username", username)
+			continue
+		}
 		items = append(items, githubCommitItem{
 			Event:  e,
 			Commit: commit,
@@ -178,6 +206,19 @@ func (m *GitHubModule) expandPushEvent(ctx context.Context, token string, e gith
 		})
 	}
 	return items, nil
+}
+
+func githubCommitsHaveAuthorLogins(commits []githubCommit) bool {
+	for _, commit := range commits {
+		if strings.TrimSpace(commit.Author.Login) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func githubCommitMatchesUsername(commit githubCommit, username string) bool {
+	return strings.EqualFold(strings.TrimSpace(commit.Author.Login), strings.TrimSpace(username))
 }
 
 func (m *GitHubModule) fetchCompareCommits(ctx context.Context, token, repo, before, head string) ([]githubCommit, error) {
@@ -208,6 +249,30 @@ func (m *GitHubModule) fetchCompareCommits(ctx context.Context, token, repo, bef
 	return payload.Commits, nil
 }
 
+func (m *GitHubModule) fetchPullRequest(ctx context.Context, token, apiURL string) (json.RawMessage, error) {
+	slog.Info("loading github url", "url", apiURL)
+	req, err := m.newRequest(ctx, apiURL, token)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := m.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	if res.StatusCode >= 300 {
+		return nil, fmt.Errorf("github pull request api returned %s", res.Status)
+	}
+
+	var payload json.RawMessage
+	if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	slog.Info("loaded github pull request", "url", apiURL)
+	return payload, nil
+}
+
 func (m *GitHubModule) newRequest(ctx context.Context, url, token string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -225,6 +290,10 @@ type githubAPIEvent struct {
 	ID        string          `json:"id"`
 	Type      string          `json:"type"`
 	CreatedAt time.Time       `json:"created_at"`
+	Actor     struct {
+		Login     string `json:"login"`
+		AvatarURL string `json:"avatar_url"`
+	} `json:"actor"`
 	Repo      githubRepo      `json:"repo"`
 	Payload   json.RawMessage `json:"payload"`
 	Raw       json.RawMessage `json:"-"`
@@ -250,10 +319,13 @@ type githubCommit struct {
 		Message string `json:"message"`
 		Author  struct {
 			Name string `json:"name"`
+			Email string `json:"email"`
 		} `json:"author"`
 	} `json:"commit"`
 	Author struct {
 		Login string `json:"login"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
 	} `json:"author"`
 }
 
@@ -312,7 +384,7 @@ func (i githubCommitItem) ToRecord() (*Record, error) {
 		Timestamp:       i.Event.CreatedAt,
 		Url:             url,
 		Data:            string(raw),
-		SummaryRendered: renderGithubSummary(url, i.Event.Repo.Name, githubCommitSummaryText(branch, message)),
+		SummaryRendered: renderGithubCommitSummary(url, i.Event.Repo.Name, branch, i.Commit.SHA, message),
 	}, nil
 }
 
@@ -323,20 +395,38 @@ func githubCommitSummaryText(branch, message string) string {
 	return truncateText(message+" ("+branch+")", 180)
 }
 
+func githubPullRequestSummaryRendered(url, repo string, number int, head, base, action string, merged bool) string {
+	branchText := ""
+	if head = strings.TrimSpace(head); head != "" {
+		if base = strings.TrimSpace(base); base != "" {
+			branchText = head + " → " + base
+		}
+	}
+	return renderGithubPRSummary(url, repo, url, fmt.Sprintf("PR #%d", number), branchText, action)
+}
+
 type githubPullRequestItem struct {
-	Event githubAPIEvent
+	Event          githubAPIEvent
+	PullRequestRaw json.RawMessage
 }
 
 func (i githubPullRequestItem) ToRecord() (*Record, error) {
 	var payload struct {
 		Action      string `json:"action"`
 		PullRequest struct {
+			URL     string `json:"url"`
 			HTMLURL string `json:"html_url"`
 			Number  int    `json:"number"`
 			Title   string `json:"title"`
 			Body    string `json:"body"`
 			Merged  bool   `json:"merged"`
 			State   string `json:"state"`
+			Head    struct {
+				Ref string `json:"ref"`
+			} `json:"head"`
+			Base struct {
+				Ref string `json:"ref"`
+			} `json:"base"`
 		} `json:"pull_request"`
 	}
 	if err := json.Unmarshal(i.Event.Payload, &payload); err != nil {
@@ -348,13 +438,17 @@ func (i githubPullRequestItem) ToRecord() (*Record, error) {
 		url = "https://github.com/" + i.Event.Repo.Name
 	}
 
-	text := fmt.Sprintf("%s PR #%d: %s", payload.Action, payload.PullRequest.Number, truncateText(payload.PullRequest.Title, 140))
-	body := firstLine(strings.TrimSpace(payload.PullRequest.Body))
-	if body != "" {
-		text += " - " + truncateText(body, 120)
-	}
-	if payload.Action == "closed" && payload.PullRequest.Merged {
-		text = fmt.Sprintf("merged PR #%d: %s", payload.PullRequest.Number, truncateText(payload.PullRequest.Title, 140))
+	rawData := i.Event.Raw
+	if len(i.PullRequestRaw) > 0 {
+		enriched, err := json.Marshal(map[string]any{
+			"kind":         "pull_request",
+			"event":        json.RawMessage(i.Event.Raw),
+			"pull_request": json.RawMessage(i.PullRequestRaw),
+		})
+		if err != nil {
+			return nil, err
+		}
+		rawData = enriched
 	}
 
 	return &Record{
@@ -362,8 +456,8 @@ func (i githubPullRequestItem) ToRecord() (*Record, error) {
 		SourceId:        i.Event.ID,
 		Timestamp:       i.Event.CreatedAt,
 		Url:             url,
-		Data:            string(i.Event.Raw),
-		SummaryRendered: renderGithubSummary(url, i.Event.Repo.Name, text),
+		Data:            string(rawData),
+		SummaryRendered: githubPullRequestSummaryRendered(url, i.Event.Repo.Name, payload.PullRequest.Number, payload.PullRequest.Head.Ref, payload.PullRequest.Base.Ref, payload.Action, payload.PullRequest.Merged),
 	}, nil
 }
 

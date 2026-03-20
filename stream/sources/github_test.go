@@ -42,12 +42,18 @@ func TestGitHubSyncExpandsPushEventIntoCommits(t *testing.T) {
 						"commits": []map[string]any{
 							{
 								"sha": "1111111111111111111111111111111111111111",
+								"author": map[string]any{
+									"login": "jmoiron",
+								},
 								"commit": map[string]any{
 									"message": "first commit\n\nwith more detail",
 								},
 							},
 							{
 								"sha": "2222222222222222222222222222222222222222",
+								"author": map[string]any{
+									"login": "jmoiron",
+								},
 								"commit": map[string]any{
 									"message": "second commit",
 								},
@@ -85,7 +91,10 @@ func TestGitHubSyncExpandsPushEventIntoCommits(t *testing.T) {
 	assert.Equal(t, "commit", record0.Title)
 	assert.Equal(t, "1111111111111111111111111111111111111111", record0.SourceId)
 	assert.Contains(t, record0.SummaryRendered, "first commit")
-	assert.Contains(t, record0.SummaryRendered, "(main)")
+	assert.Contains(t, record0.SummaryRendered, `stream-entry-commit-branch`)
+	assert.Contains(t, record0.SummaryRendered, ">main<")
+	assert.Contains(t, record0.SummaryRendered, `fa-code-commit`)
+	assert.Contains(t, record0.SummaryRendered, ">1111111<")
 	assert.Equal(t, "https://github.com/jmoiron/monet/commit/1111111111111111111111111111111111111111", record0.Url)
 
 	assert.Equal(t, "https://github.com/jmoiron/monet/commit/2222222", record1.Url)
@@ -136,6 +145,9 @@ func TestGitHubSyncFallsBackToCompareWhenPushPayloadHasNoCommits(t *testing.T) {
 						{
 							"sha":      "3333333333333333333333333333333333333333",
 							"html_url": "https://github.com/jmoiron/monet/commit/3333333",
+							"author": map[string]any{
+								"login": "jmoiron",
+							},
 							"commit": map[string]any{
 								"message": "commit from compare endpoint",
 							},
@@ -176,13 +188,30 @@ func TestGitHubSyncFallsBackToCompareWhenPushPayloadHasNoCommits(t *testing.T) {
 }
 
 func TestGitHubSyncKeepsPRAndCommentEvents(t *testing.T) {
+	requests := []string{}
 	module := sources.NewGitHub().WithClient(&http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			requests = append(requests, r.URL.Path)
 			if r.URL.Path == "/users/jmoiron/events/public" && r.URL.Query().Get("page") != "1" {
 				return &http.Response{
 					StatusCode: http.StatusOK,
 					Header:     make(http.Header),
 					Body:       io.NopCloser(strings.NewReader("[]")),
+				}, nil
+			}
+			if r.URL.Path == "/repos/jmoiron/monet/pulls/10" {
+				body, err := json.Marshal(map[string]any{
+					"id":       10,
+					"html_url": "https://github.com/jmoiron/monet/pull/10",
+					"number":   10,
+					"title":    "Add better GitHub stream rendering",
+					"body":     "This wires commit imports into the stream with full body text.",
+				})
+				require.NoError(t, err)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(string(body))),
 				}, nil
 			}
 			body, err := json.Marshal([]map[string]any{
@@ -194,10 +223,17 @@ func TestGitHubSyncKeepsPRAndCommentEvents(t *testing.T) {
 					"payload": map[string]any{
 						"action": "opened",
 						"pull_request": map[string]any{
+							"url":      "https://api.github.com/repos/jmoiron/monet/pulls/10",
 							"html_url": "https://github.com/jmoiron/monet/pull/10",
 							"number":   10,
 							"title":    "Add better GitHub stream rendering",
 							"body":     "This wires commit imports into the stream.",
+							"head": map[string]any{
+								"ref": "stream-detail",
+							},
+							"base": map[string]any{
+								"ref": "main",
+							},
 						},
 					},
 				},
@@ -240,11 +276,121 @@ func TestGitHubSyncKeepsPRAndCommentEvents(t *testing.T) {
 
 	prRecord, err := result.Items[0].ToRecord()
 	require.NoError(t, err)
-	assert.Contains(t, prRecord.SummaryRendered, "opened PR #10")
-	assert.Contains(t, prRecord.SummaryRendered, "This wires commit imports")
+	assert.Contains(t, prRecord.SummaryRendered, `class="stream-entry-pr"`)
+	assert.Contains(t, prRecord.SummaryRendered, `href="https://github.com/jmoiron/monet/pull/10"`)
+	assert.Contains(t, prRecord.SummaryRendered, `fa-code-pull-request`)
+	assert.Contains(t, prRecord.SummaryRendered, ">PR #10<")
+	assert.Contains(t, prRecord.SummaryRendered, `aria-hidden="true">·</span>`)
+	assert.Contains(t, prRecord.SummaryRendered, "stream-detail → main")
+	assert.NotContains(t, prRecord.SummaryRendered, "Add better GitHub stream rendering")
+	assert.Contains(t, prRecord.Data, `"kind":"pull_request"`)
+	assert.Contains(t, prRecord.Data, `"pull_request":{"body":"This wires commit imports into the stream with full body text."`)
 
 	commentRecord, err := result.Items[1].ToRecord()
 	require.NoError(t, err)
 	assert.Contains(t, commentRecord.SummaryRendered, "created comment on issue #12")
 	assert.Contains(t, commentRecord.SummaryRendered, "compare fallback")
+	assert.Equal(t, []string{
+		"/users/jmoiron/events/public",
+		"/repos/jmoiron/monet/pulls/10",
+		"/users/jmoiron/events/public",
+	}, requests)
+}
+
+func TestGitHubSyncFiltersPushCommitsByAuthorUsername(t *testing.T) {
+	requests := []string{}
+	module := sources.NewGitHub().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			requests = append(requests, r.URL.Path)
+
+			switch r.URL.Path {
+			case "/users/jmoiron/events/public":
+				if r.URL.Query().Get("page") != "1" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     make(http.Header),
+						Body:       io.NopCloser(strings.NewReader("[]")),
+					}, nil
+				}
+
+				body, err := json.Marshal([]map[string]any{
+					{
+						"id":         "evt-3",
+						"type":       "PushEvent",
+						"created_at": "2026-03-19T15:04:05Z",
+						"repo": map[string]any{
+							"name": "jmoiron/monet",
+						},
+						"payload": map[string]any{
+							"ref":     "refs/heads/main",
+							"head":    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+							"before":  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+							"size":    2,
+							"commits": []map[string]any{},
+						},
+					},
+				})
+				require.NoError(t, err)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(string(body))),
+				}, nil
+			case "/repos/jmoiron/monet/compare/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb":
+				body, err := json.Marshal(map[string]any{
+					"commits": []map[string]any{
+						{
+							"sha":      "4444444444444444444444444444444444444444",
+							"html_url": "https://github.com/jmoiron/monet/commit/4444444",
+							"author": map[string]any{
+								"login": "jmoiron",
+							},
+							"commit": map[string]any{
+								"message": "my commit",
+							},
+						},
+						{
+							"sha":      "5555555555555555555555555555555555555555",
+							"html_url": "https://github.com/jmoiron/monet/commit/5555555",
+							"author": map[string]any{
+								"login": "upstream-user",
+							},
+							"commit": map[string]any{
+								"message": "someone else's commit",
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(string(body))),
+				}, nil
+			default:
+				t.Fatalf("unexpected request path %s", r.URL.Path)
+				return nil, nil
+			}
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"username": "jmoiron",
+	}))
+
+	result, err := module.Sync(context.Background(), source)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+
+	record, err := result.Items[0].ToRecord()
+	require.NoError(t, err)
+	assert.Equal(t, "4444444444444444444444444444444444444444", record.SourceId)
+	assert.Contains(t, record.SummaryRendered, "my commit")
+	assert.NotContains(t, record.SummaryRendered, "someone else's commit")
+	assert.Equal(t, []string{
+		"/users/jmoiron/events/public",
+		"/repos/jmoiron/monet/compare/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa...bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		"/users/jmoiron/events/public",
+	}, requests)
 }

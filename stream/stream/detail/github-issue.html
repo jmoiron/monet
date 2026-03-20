@@ -1,4 +1,4 @@
-<div class="stream-card github-detail">
+<div class="stream-card github-detail github-issue-detail">
     <div class="stream-card-header">
         <div class="stream-card-avatar">
             {{if .avatar_url}}
@@ -12,12 +12,14 @@
                 <i class="fa-brands fa-github"></i>
                 <a href="{{.repo_url}}" target="_blank">{{.repo_name}}</a>
                 <span class="stream-card-separator">&middot;</span>
-                <span class="stream-card-branch">{{.branch}}</span>
-                <span class="stream-card-commit-meta"><i class="fa-solid fa-code-commit"></i> <a href="{{.url}}" target="_blank" class="stream-card-sha">{{.short_sha}}</a></span>
+                <a href="{{.url}}" target="_blank" class="stream-card-issue-link">issue #{{.issue_number}}</a>
             </div>
             <div class="stream-card-handle"><a href="{{.profile_url}}" target="_blank">{{.handle}}</a></div>
         </div>
     </div>
-    <div class="stream-card-body">{{.message}}</div>
+    <div class="stream-card-body">
+        <div class="stream-card-issue-title">{{.issue_title}}</div>
+        <div class="stream-card-issue-body">{{.issue_body_md | safe}}</div>
+    </div>
     <div class="stream-card-timestamp">{{.timestamp_ui}}</div>
 </div>

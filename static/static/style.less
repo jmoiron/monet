@@ -592,6 +592,27 @@ p code {
 .entry-container:last-child .entry { border-bottom: 0px; }
 .entry-container:nth-child(even) .entry { background-color: #fbfbfb; }
 
+.stream-type-filters {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.stream-type-filter {
+  color: #a0a0a0;
+  font-size: 1.35rem;
+  text-decoration: none;
+
+  &:hover {
+    color: @bluehover;
+  }
+
+  &.selected {
+    color: #222;
+  }
+}
+
 .icon-actions {
   white-space: nowrap;
 }
@@ -754,6 +775,16 @@ p code {
       align-items: center;
       gap: .45rem;
     }
+
+    .stream-image-embed-card {
+      margin-top: 1rem;
+    }
+
+    .stream-image-embed-alt {
+      color: #44515f;
+      line-height: 1.5;
+      font-weight: normal;
+    }
   }
 
   .github-detail {
@@ -814,16 +845,6 @@ p code {
       text-decoration: underline;
     }
 
-    .stream-card-branch {
-      font-weight: normal;
-      color: #667788;
-    }
-
-    .stream-card-sha {
-      font-weight: normal;
-      color: #667788;
-    }
-
     .stream-card-separator {
       color: #8a97a6;
     }
@@ -848,13 +869,124 @@ p code {
       color: #667788;
       font-size: .95rem;
       white-space: nowrap;
-      align-self: center;
+      margin-top: 1.35rem;
     }
 
     .stream-card-body {
       white-space: pre-wrap;
       font-size: 1.05rem;
       line-height: 1.65;
+    }
+  }
+
+  .github-issue-detail {
+    .stream-card-body {
+      white-space: normal;
+    }
+
+    .stream-card-issue-link {
+      font-weight: normal;
+      color: #667788;
+    }
+
+    .stream-card-issue-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+      color: #222;
+    }
+
+    .stream-card-issue-body {
+      color: #222;
+    }
+
+    .stream-card-issue-body p:first-child {
+      margin-top: 0;
+    }
+  }
+
+  .entry.github {
+
+    .stream-entry-pr a,
+    .stream-entry-issue a {
+      color: #111;
+      font-weight: normal;
+    }
+
+    .stream-entry-pr a:hover,
+    .stream-entry-issue a:hover {
+      color: @bluelink;
+    }
+
+    .stream-entry-pr i,
+    .stream-entry-create i {
+      color: #667788;
+      margin-right: 0.2rem;
+    }
+  }
+
+  .github-pr-detail {
+    .stream-card-body {
+      white-space: normal;
+    }
+
+    .stream-card-pr {
+      color: #111;
+      font-weight: normal;
+    }
+
+    .stream-card-pr-link,
+    .stream-card-pr-branches {
+      font-weight: normal;
+      color: #667788;
+    }
+
+    .stream-card-pr-link {
+      color: #111;
+    }
+
+    .stream-card-pr-link:hover {
+      color: @bluelink;
+    }
+
+    .stream-card-pr-link i {
+      margin-right: 0.2rem;
+    }
+
+    .stream-card-pr-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      line-height: 1.4;
+      margin-bottom: 1rem;
+      color: #222;
+    }
+
+    .stream-card-pr-body {
+      color: #222;
+    }
+
+    .stream-card-pr-body img {
+      max-width: @site-width;
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 8px 18px rgba(17, 133, 254, .06);
+    }
+
+    .stream-card-pr-body p:first-child {
+      margin-top: 0;
+    }
+  }
+
+  .github-create-detail {
+    .stream-card-create-ref {
+      font-weight: normal;
+      color: #111;
+    }
+
+    .stream-card-create-ref i {
+      margin-right: 0.2rem;
+      color: #667788;
     }
   }
 
@@ -873,6 +1005,37 @@ p code {
       overflow-x: auto;
     }
   }
+}
+
+.stream-card-branch,
+.stream-entry-commit-branch {
+  color: #8a97a6;
+  font-weight: normal;
+}
+
+.stream-card-sha,
+.stream-card-sha:visited,
+.stream-entry-commit-sha,
+.stream-entry-commit-sha a,
+.stream-entry-commit-sha a:visited {
+  color: #111;
+  font-weight: normal;
+}
+
+.stream-card-sha:hover,
+.stream-entry-commit-sha a:hover {
+  color: @bluelink;
+}
+
+.stream-card-commit-meta {
+  color: #111;
+  font-weight: normal;
+}
+
+.stream-card-commit-meta i,
+.stream-entry-commit-sha i {
+  color: #667788;
+  margin-right: 0.2rem;
 }
 
 .right { float: right; }

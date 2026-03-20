@@ -26,4 +26,16 @@
         </div>
     </a>
     {{end}}
+    {{range .image_embeds}}
+    <a href="{{.url}}" target="_blank" class="stream-embed-card stream-image-embed-card">
+        <div class="stream-embed-image">
+            <img src="{{.image_url}}" alt="{{.alt}}">
+        </div>
+        {{if .alt}}
+        <div class="stream-embed-content">
+            <div class="stream-image-embed-alt">{{.alt}}</div>
+        </div>
+        {{end}}
+    </a>
+    {{end}}
 </div>

@@ -4,6 +4,7 @@ fa-brands fa-bluesky
 fa-brands fa-twitter
 fa-brands fa-linkedin
 fa-brands fa-instagram
+fa-brands fa-bitbucket
 fa-solid fa-circle-info
 fa-solid fa-right-from-bracket
 fa-solid fa-users

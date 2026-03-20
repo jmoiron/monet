@@ -1,0 +1,24 @@
+<div class="stream-card github-detail">
+    <div class="stream-card-header">
+        <div class="stream-card-avatar">
+            {{if .avatar_url}}
+            <a href="{{.profile_url}}" target="_blank">
+                <span class="stream-card-avatar-circle"><img src="{{.avatar_url}}" alt=""></span>
+            </a>
+            {{end}}
+        </div>
+        <div class="stream-card-identity">
+            <div class="stream-card-repo-line">
+                <i class="fa-brands fa-github"></i>
+                <a href="{{.repo_url}}" target="_blank">{{.repo_name}}</a>
+                <span class="stream-card-separator">&middot;</span>
+                <span class="stream-card-branch">{{.branch}}</span>
+                <span class="stream-card-separator">&middot;</span>
+                <a href="{{.url}}" target="_blank" class="stream-card-sha">{{.short_sha}}</a>
+            </div>
+            <div class="stream-card-handle"><a href="{{.profile_url}}" target="_blank">{{.handle}}</a></div>
+        </div>
+        <div class="stream-card-timestamp">{{.timestamp_ui}}</div>
+    </div>
+    <div class="stream-card-body">{{.message}}</div>
+</div>

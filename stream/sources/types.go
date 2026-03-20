@@ -61,6 +61,7 @@ type Module interface {
 }
 
 type syncModeKey struct{}
+type pageOverrideKey struct{}
 
 type SyncMode string
 
@@ -81,4 +82,18 @@ func SyncModeFromContext(ctx context.Context) SyncMode {
 		return mode
 	}
 	return SyncModeIncremental
+}
+
+func WithPageOverride(ctx context.Context, page int) context.Context {
+	return context.WithValue(ctx, pageOverrideKey{}, page)
+}
+
+func PageOverrideFromContext(ctx context.Context) int {
+	if ctx == nil {
+		return 0
+	}
+	if page, ok := ctx.Value(pageOverrideKey{}).(int); ok && page > 0 {
+		return page
+	}
+	return 0
 }

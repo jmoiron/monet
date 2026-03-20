@@ -42,6 +42,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/stream/source/{kind}/import", a.importArchive)
 	r.Post("/stream/run/{kind}", a.runNow)
 	r.Post("/stream/run/{kind}/full", a.runFull)
+	r.Post("/stream/run/{kind}/page", a.runPage)
 	r.Post("/stream/run/{kind}/rerender", a.rerender)
 }
 
@@ -370,6 +371,22 @@ func (a *Admin) runFull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/admin/stream/", http.StatusSeeOther)
+}
+
+func (a *Admin) runPage(w http.ResponseWriter, r *http.Request) {
+	kind := chi.URLParam(r, "kind")
+	page, err := strconv.Atoi(r.FormValue("page"))
+	if err != nil || page <= 0 {
+		app.Http500("running paged stream import", w, fmt.Errorf("invalid page"))
+		return
+	}
+
+	ctx := WithPageOverride(r.Context(), page)
+	if err := a.runner.Run(ctx, kind); err != nil {
+		app.Http500("running paged stream import", w, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/stream/source/"+kind, http.StatusSeeOther)
 }
 
 func (a *Admin) rerender(w http.ResponseWriter, r *http.Request) {

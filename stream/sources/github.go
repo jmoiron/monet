@@ -64,6 +64,7 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 	eventsETag := strings.TrimSpace(settings["events_etag"])
 	lastSuccess := source.LastSuccessTime()
 	mode := SyncModeFromContext(ctx)
+	pageOverride := PageOverrideFromContext(ctx)
 	results := make([]Item, 0, 300)
 	runResult := &RunResult{
 		Details: map[string]any{
@@ -71,23 +72,31 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 			"sync_mode": string(mode),
 		},
 	}
-	slog.Info("starting github sync", "username", username, "has_token", token != "", "use_etag", useETag, "has_events_etag", eventsETag != "", "sync_mode", mode, "last_success", lastSuccess)
+	if pageOverride > 0 {
+		runResult.Details["page"] = pageOverride
+	}
+	slog.Info("starting github sync", "username", username, "has_token", token != "", "use_etag", useETag, "has_events_etag", eventsETag != "", "sync_mode", mode, "page_override", pageOverride, "last_success", lastSuccess)
 
-	for page := 1; page <= 3; page++ {
+	startPage, endPage := 1, 3
+	if pageOverride > 0 {
+		startPage, endPage = pageOverride, pageOverride
+	}
+
+	for page := startPage; page <= endPage; page++ {
 		ifNoneMatch := ""
-		if mode != SyncModeFull && useETag && page == 1 && eventsETag != "" {
+		if pageOverride == 0 && mode != SyncModeFull && useETag && page == 1 && eventsETag != "" {
 			ifNoneMatch = eventsETag
 		}
 		pageResult, err := m.fetchPage(ctx, username, token, page, ifNoneMatch)
 		if err != nil {
 			return nil, err
 		}
-		if mode != SyncModeFull && page == 1 && pageResult.NotModified {
+		if pageOverride == 0 && mode != SyncModeFull && page == 1 && pageResult.NotModified {
 			slog.Info("github events feed not modified", "username", username, "page", page)
 			runResult.Details["not_modified"] = true
 			return runResult, nil
 		}
-		if page == 1 && useETag && pageResult.ETag != "" && pageResult.ETag != eventsETag {
+		if pageOverride == 0 && page == 1 && useETag && pageResult.ETag != "" && pageResult.ETag != eventsETag {
 			runResult.SettingsUpdates = map[string]string{
 				"events_etag": pageResult.ETag,
 			}
@@ -108,7 +117,7 @@ func (m *GitHubModule) Sync(ctx context.Context, source SourceConfig) (*RunResul
 				if err != nil {
 					return nil, err
 				}
-				if !lastSuccess.IsZero() && record.Timestamp.Before(lastSuccess.Add(-24*time.Hour)) {
+				if pageOverride == 0 && !lastSuccess.IsZero() && record.Timestamp.Before(lastSuccess.Add(-24*time.Hour)) {
 					stop = true
 				}
 				results = append(results, item)

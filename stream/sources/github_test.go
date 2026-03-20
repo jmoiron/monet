@@ -535,3 +535,71 @@ func TestGitHubFullSyncBypassesIfNoneMatch(t *testing.T) {
 	assert.Nil(t, result.Details["not_modified"])
 	assert.Equal(t, 2, requests)
 }
+
+func TestGitHubSyncPageOverrideFetchesOnlyRequestedPage(t *testing.T) {
+	requests := []string{}
+	module := sources.NewGitHub().WithClient(&http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			requests = append(requests, r.URL.RawQuery)
+			require.Equal(t, "/users/jmoiron/events/public", r.URL.Path)
+			require.Empty(t, r.Header.Get("If-None-Match"))
+
+			if r.URL.Query().Get("page") != "5" {
+				t.Fatalf("unexpected page %s", r.URL.Query().Get("page"))
+			}
+
+			body, err := json.Marshal([]map[string]any{
+				{
+					"id":         "evt-page-5",
+					"type":       "PushEvent",
+					"created_at": "2025-01-19T15:04:05Z",
+					"repo":       map[string]any{"name": "jmoiron/monet"},
+					"payload": map[string]any{
+						"ref":    "refs/heads/main",
+						"head":   "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+						"before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						"size":   1,
+						"commits": []map[string]any{
+							{
+								"sha": "555555555555555555555555555555555555555a",
+								"author": map[string]any{
+									"login": "jmoiron",
+								},
+								"commit": map[string]any{
+									"message": "older backfill commit",
+								},
+							},
+						},
+					},
+				},
+			})
+			require.NoError(t, err)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(string(body))),
+			}, nil
+		}),
+	})
+
+	source := &stream.StreamSource{}
+	require.NoError(t, source.SetSettings(map[string]string{
+		"username":    "jmoiron",
+		"token":       "github-token",
+		"use_etag":    "true",
+		"events_etag": `"page-1-etag"`,
+	}))
+
+	result, err := module.Sync(stream.WithPageOverride(context.Background(), 5), source)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, 5, result.Details["page"])
+	assert.Equal(t, "incremental", result.Details["sync_mode"])
+	assert.Nil(t, result.SettingsUpdates)
+	assert.Equal(t, []string{"per_page=100&page=5"}, requests)
+
+	record, err := result.Items[0].ToRecord()
+	require.NoError(t, err)
+	assert.Contains(t, record.SummaryRendered, "older backfill commit")
+}

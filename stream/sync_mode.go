@@ -20,3 +20,11 @@ func WithSyncMode(ctx context.Context, mode SyncMode) context.Context {
 func SyncModeFromContext(ctx context.Context) SyncMode {
 	return sources.SyncModeFromContext(ctx)
 }
+
+func WithPageOverride(ctx context.Context, page int) context.Context {
+	return sources.WithPageOverride(ctx, page)
+}
+
+func PageOverrideFromContext(ctx context.Context) int {
+	return sources.PageOverrideFromContext(ctx)
+}

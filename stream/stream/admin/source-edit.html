@@ -65,6 +65,22 @@
 </form>
 {{end}}
 
+{{if eq .source.Kind "github"}}
+<hr>
+
+<form action="/admin/stream/run/{{.source.Kind}}/page" method="POST" class="stream-page-import-form">
+  <p>
+    <label>Import Specific Page</label><br>
+    <input type="number" min="1" name="page" value="1">
+    <br><small>Fetch only this GitHub events API page for backfill. This bypasses ETag checks and the normal incremental recency cutoff.</small>
+  </p>
+
+  <p>
+    <button type="submit">Import Page</button>
+  </p>
+</form>
+{{end}}
+
 <div class="button-group">
   {{if ne .source.Kind "twitter_archive"}}
   <a href="/admin/stream/run/{{.source.Kind}}" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Refresh this source once using its normal incremental import settings." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-arrow-down-wide-short"></i></a>

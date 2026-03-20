@@ -40,6 +40,14 @@ type Item interface {
 	ToRecord() (*Record, error)
 }
 
+type StaticItem struct {
+	Record *Record
+}
+
+func (i StaticItem) ToRecord() (*Record, error) {
+	return i.Record, nil
+}
+
 type Module interface {
 	Kind() string
 	Name() string

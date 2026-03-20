@@ -8,6 +8,7 @@
     <input type="text" name="name" value="{{.source.Name}}">
   </p>
 
+  {{if ne .source.Kind "twitter_archive"}}
   <p>
     <label>
       <input type="checkbox" name="enabled" {{if .source.Enabled}}checked{{end}}>
@@ -20,6 +21,7 @@
     <input type="number" min="0" name="schedule_minutes" value="{{.source.ScheduleMinutes}}">
     <br><small>Set to 0 for manual-only runs.</small>
   </p>
+  {{end}}
 
   {{range .fields}}
   <p>
@@ -40,10 +42,74 @@
   </p>
 </form>
 
+{{if eq .source.Kind "twitter_archive"}}
+<hr>
+
+<form action="/admin/stream/source/{{.source.Kind}}/import" method="POST" enctype="multipart/form-data" id="twitter-archive-import-form">
+  <p>
+    <label>Archive Upload</label><br>
+    <input type="file" name="file" id="twitter-archive-file" accept=".js,.json" hidden>
+    <div class="upload-drop-zone" id="twitter-archive-dropzone" tabindex="0">
+      <div class="upload-icon">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <div class="upload-text">Drag &amp; drop `tweets.js` here or click to upload</div>
+      <div class="upload-hint">Maximum size: 16 MiB</div>
+    </div>
+    <div class="upload-hint stream-upload-filename" id="twitter-archive-filename"></div>
+  </p>
+
+  <p>
+    <button type="submit">Import Archive</button>
+  </p>
+</form>
+{{end}}
+
 <div class="button-group">
+  {{if ne .source.Kind "twitter_archive"}}
   <a href="/admin/stream/run/{{.source.Kind}}" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Refresh this source once using its normal incremental import settings." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-arrow-down-wide-short"></i></a>
 
   <a href="/admin/stream/run/{{.source.Kind}}/full" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Run a deeper full import for this source, using its full backfill settings." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-arrows-spin"></i></a>
+  {{end}}
 
   <a href="/admin/stream/run/{{.source.Kind}}/rerender" class="icon-action js-post-link{{if .running}} disabled{{end}}" title="Rebuild the rendered HTML for existing entries from this source without fetching new upstream data." aria-disabled="{{if .running}}true{{else}}false{{end}}"><i class="fa-solid fa-rotate-right"></i></a>
 </div>
+
+{{if eq .source.Kind "twitter_archive"}}
+<script>
+(() => {
+  const input = document.getElementById('twitter-archive-file');
+  const dropzone = document.getElementById('twitter-archive-dropzone');
+  const filename = document.getElementById('twitter-archive-filename');
+  if (!input || !dropzone || !filename) return;
+
+  const updateName = () => {
+    filename.textContent = input.files && input.files.length ? input.files[0].name : '';
+  };
+
+  dropzone.addEventListener('click', () => input.click());
+  dropzone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      input.click();
+    }
+  });
+  dropzone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropzone.classList.add('drag-over');
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('drag-over');
+  });
+  dropzone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropzone.classList.remove('drag-over');
+    if (event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length) {
+      input.files = event.dataTransfer.files;
+      updateName();
+    }
+  });
+  input.addEventListener('change', updateName);
+})();
+</script>
+{{end}}

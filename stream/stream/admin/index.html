@@ -19,17 +19,19 @@
         <small>{{.module.Description}}</small>
       </td>
       <td>
-        {{if .source.Enabled}}enabled{{else}}disabled{{end}}
+        {{if eq .source.Kind "twitter_archive"}}manual upload only{{else}}{{if .source.Enabled}}enabled{{else}}disabled{{end}}{{end}}
         {{if .isRunning}} / running{{end}}
         {{if .lastError}}<br><small>{{.lastError}}</small>{{end}}
       </td>
-      <td>{{if gt .source.ScheduleMinutes 0}}{{.source.ScheduleMinutes}} min{{else}}manual{{end}}</td>
+      <td>{{if eq .source.Kind "twitter_archive"}}upload{{else}}{{if gt .source.ScheduleMinutes 0}}{{.source.ScheduleMinutes}} min{{else}}manual{{end}}{{end}}</td>
       <td>{{.eventCount}}</td>
       <td>{{.lastSuccessFmt}}</td>
       <td>
         <div class="button-group icon-actions">
+          {{if ne .source.Kind "twitter_archive"}}
           <a href="/admin/stream/run/{{.source.Kind}}" class="icon-action js-post-link{{if .isRunning}} disabled{{end}}" title="Refresh this source once using its normal incremental import settings." aria-disabled="{{if .isRunning}}true{{else}}false{{end}}"><i class="fa-solid fa-arrow-down-wide-short"></i></a>
           <a href="/admin/stream/run/{{.source.Kind}}/full" class="icon-action js-post-link{{if .isRunning}} disabled{{end}}" title="Run a deeper full import for this source, using its full backfill settings." aria-disabled="{{if .isRunning}}true{{else}}false{{end}}"><i class="fa-solid fa-arrows-spin"></i></a>
+          {{end}}
           <a href="/admin/stream/run/{{.source.Kind}}/rerender" class="icon-action js-post-link{{if .isRunning}} disabled{{end}}" title="Rebuild the rendered HTML for existing entries from this source without fetching new upstream data." aria-disabled="{{if .isRunning}}true{{else}}false{{end}}"><i class="fa-solid fa-rotate-right"></i></a>
         </div>
       </td>

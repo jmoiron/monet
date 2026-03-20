@@ -124,3 +124,15 @@ func renderTwitterSummary(url, text string) string {
 		escape(text),
 	)
 }
+
+func renderTwitterSummaryWithActor(actor, text string) string {
+	actorHTML := ""
+	if strings.TrimSpace(actor) != "" {
+		actorHTML = fmt.Sprintf(`<span class="name">%s</span> `, actor)
+	}
+	return fmt.Sprintf(
+		`<div class="entry twitter"><i class="fa-brands fa-twitter"></i> %s<span class="message">%s</span></div>`,
+		actorHTML,
+		escape(text),
+	)
+}

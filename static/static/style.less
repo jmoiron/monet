@@ -634,6 +634,11 @@ p code {
   }
 }
 
+.stream-upload-filename {
+  margin-top: 0.6rem;
+  color: #667788;
+}
+
 .stream-detail {
   .stream-meta {
     margin-bottom: 1.5em;
@@ -661,7 +666,8 @@ p code {
     }
   }
 
-  .bluesky-detail {
+  .bluesky-detail,
+  .twitter-detail {
     .stream-card-header {
       display: flex;
       align-items: center;
@@ -673,12 +679,11 @@ p code {
       width: 3.2rem;
       height: 3.2rem;
       border-radius: 999px;
-      background: #1185fe;
-      color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       font-size: 1.5rem;
+      color: #fff;
     }
 
     .stream-card-icon a {
@@ -728,6 +733,12 @@ p code {
       font-size: 1.05rem;
       line-height: 1.65;
       margin-bottom: 1.25rem;
+    }
+  }
+
+  .bluesky-detail {
+    .stream-card-icon-circle {
+      background: #1185fe;
     }
 
     .stream-embed-card {
@@ -784,6 +795,12 @@ p code {
       color: #44515f;
       line-height: 1.5;
       font-weight: normal;
+    }
+  }
+
+  .twitter-detail {
+    .stream-card-icon-circle {
+      background: @twitter;
     }
   }
 

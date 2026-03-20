@@ -311,7 +311,7 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 	err = reg.RenderWithBase(w, "base", "stream/detail.html", mtr.Ctx{
 		"title":           event.Title,
 		"event":           event,
-		"show_meta":       event.Type != "bluesky" && event.Type != "github",
+		"show_meta":       event.Type != "bluesky" && event.Type != "github" && event.Type != "twitter",
 		"detail_rendered": detailBuf.String(),
 		"raw_event":       rawEvent,
 	})

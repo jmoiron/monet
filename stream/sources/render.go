@@ -42,6 +42,9 @@ func RenderDetail(eventType, title, url, data, summaryRendered string, timestamp
 	case "github":
 		templateName, ctx, err := renderStoredGitHubDetail(title, url, data, summaryRendered, timestamp)
 		return templateName, ctx, err
+	case "twitter":
+		ctx, err := renderStoredTwitterDetail(data, timestamp)
+		return "stream/detail/twitter.html", ctx, err
 	default:
 		return "stream/detail/default.html", map[string]any{
 			"title":            title,
@@ -79,11 +82,99 @@ func renderAndFilter(eventType, url, data string, settings map[string]string) (s
 }
 
 func renderStoredTwitterSummary(url, data string) (string, error) {
-	var tweet twitterArchiveTweet
-	if err := json.Unmarshal([]byte(data), &tweet); err != nil {
+	profile, _ := twitterStoredProfile(data)
+	body, err := twitterSummaryBody(data)
+	if err != nil {
 		return "", err
 	}
-	return renderTwitterSummary(url, truncateText(tweet.body(), 280)), nil
+	actor := ""
+	if profile != nil && profile.Username != "" {
+		actor = "@" + profile.Username
+	}
+	return renderTwitterSummaryWithActor(actor, truncateText(body, 280)), nil
+}
+
+type twitterProfile struct {
+	DisplayName string `json:"display_name"`
+	Username    string `json:"username"`
+}
+
+func twitterStoredProfile(data string) (*twitterProfile, bool) {
+	var envelope struct {
+		Profile twitterProfile `json:"profile"`
+	}
+	if err := json.Unmarshal([]byte(data), &envelope); err == nil {
+		if strings.TrimSpace(envelope.Profile.DisplayName) != "" || strings.TrimSpace(envelope.Profile.Username) != "" {
+			return &envelope.Profile, true
+		}
+	}
+	return nil, false
+}
+
+func twitterSummaryBody(data string) (string, error) {
+	var merged struct {
+		Profile twitterProfile  `json:"profile"`
+		Legacy  json.RawMessage `json:"legacy"`
+		Archive json.RawMessage `json:"archive"`
+	}
+	if err := json.Unmarshal([]byte(data), &merged); err == nil && (len(merged.Legacy) > 0 || len(merged.Archive) > 0) {
+		if len(merged.Archive) > 0 {
+			if body, ok := twitterSummaryBodyFromRaw(merged.Archive); ok {
+				return body, nil
+			}
+		}
+		if len(merged.Legacy) > 0 {
+			if body, ok := twitterSummaryBodyFromRaw(merged.Legacy); ok {
+				return body, nil
+			}
+		}
+	}
+
+	if body, ok := twitterSummaryBodyFromRaw(json.RawMessage(data)); ok {
+		return body, nil
+	}
+	return "", fmt.Errorf("unsupported twitter event payload")
+}
+
+func renderStoredTwitterDetail(data string, timestamp time.Time) (map[string]any, error) {
+	profile, _ := twitterStoredProfile(data)
+	body, err := twitterSummaryBody(data)
+	if err != nil {
+		return nil, err
+	}
+
+	displayName := ""
+	handle := ""
+	if profile != nil {
+		displayName = strings.TrimSpace(profile.DisplayName)
+		handle = strings.TrimSpace(profile.Username)
+	}
+	if displayName == "" {
+		displayName = handle
+	}
+	if handle != "" && !strings.HasPrefix(handle, "@") {
+		handle = "@" + handle
+	}
+
+	return map[string]any{
+		"display_name": displayName,
+		"handle":       handle,
+		"text":         body,
+		"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+	}, nil
+}
+
+func twitterSummaryBodyFromRaw(raw json.RawMessage) (string, bool) {
+	var entry twitterArchiveEntry
+	if err := json.Unmarshal(raw, &entry); err == nil && strings.TrimSpace(entry.Tweet.IDStr) != "" {
+		return entry.Tweet.body(), true
+	}
+
+	var tweet twitterArchiveTweet
+	if err := json.Unmarshal(raw, &tweet); err == nil && strings.TrimSpace(tweet.IDStr) != "" {
+		return tweet.body(), true
+	}
+	return "", false
 }
 
 func renderStoredBlueskySummary(data string) (string, error) {
@@ -151,7 +242,7 @@ func blueskyExternalEmbed(postURI string, embed *struct {
 		} `json:"thumb"`
 	} `json:"external"`
 	Images []struct {
-		Alt string `json:"alt"`
+		Alt   string `json:"alt"`
 		Image struct {
 			Ref struct {
 				Link string `json:"$link"`
@@ -200,7 +291,7 @@ func blueskyImageEmbeds(postURI string, embed *struct {
 		} `json:"thumb"`
 	} `json:"external"`
 	Images []struct {
-		Alt string `json:"alt"`
+		Alt   string `json:"alt"`
 		Image struct {
 			Ref struct {
 				Link string `json:"$link"`
@@ -244,8 +335,8 @@ func blueskyPostDID(atURI string) string {
 func renderStoredGitHubSummary(url, data string, settings map[string]string) (string, bool, error) {
 	username := strings.TrimSpace(settings["username"])
 	var pullRequestEnvelope struct {
-		Kind        string `json:"kind"`
-		Event       struct {
+		Kind  string `json:"kind"`
+		Event struct {
 			Repo struct {
 				Name string `json:"name"`
 			} `json:"repo"`
@@ -378,8 +469,8 @@ func renderStoredGitHubSummary(url, data string, settings map[string]string) (st
 
 func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestamp time.Time) (string, map[string]any, error) {
 	var pullRequestEnvelope struct {
-		Kind        string `json:"kind"`
-		Event       struct {
+		Kind  string `json:"kind"`
+		Event struct {
 			Repo struct {
 				Name string `json:"name"`
 			} `json:"repo"`
@@ -426,28 +517,28 @@ func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestam
 		}
 
 		return "stream/detail/github-pr.html", map[string]any{
-			"url":           prURL,
-			"repo_name":     repoName,
-			"repo_url":      repoURL,
-			"pr_number":     pullRequestEnvelope.PullRequest.Number,
-			"profile_url":   profileURL,
-			"handle":        handle,
-			"avatar_url":    pullRequestEnvelope.PullRequest.User.AvatarURL,
-			"timestamp_ui":  timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
-			"pr_title":      pullRequestEnvelope.PullRequest.Title,
-			"pr_body_md":    mtr.RenderMarkdown(pullRequestEnvelope.PullRequest.Body),
-			"head_ref":      pullRequestEnvelope.PullRequest.Head.Ref,
-			"base_ref":      pullRequestEnvelope.PullRequest.Base.Ref,
-			"action":        pullRequestEnvelope.Event.Payload.Action,
-			"merged":        pullRequestEnvelope.PullRequest.Merged,
+			"url":          prURL,
+			"repo_name":    repoName,
+			"repo_url":     repoURL,
+			"pr_number":    pullRequestEnvelope.PullRequest.Number,
+			"profile_url":  profileURL,
+			"handle":       handle,
+			"avatar_url":   pullRequestEnvelope.PullRequest.User.AvatarURL,
+			"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+			"pr_title":     pullRequestEnvelope.PullRequest.Title,
+			"pr_body_md":   mtr.RenderMarkdown(pullRequestEnvelope.PullRequest.Body),
+			"head_ref":     pullRequestEnvelope.PullRequest.Head.Ref,
+			"base_ref":     pullRequestEnvelope.PullRequest.Base.Ref,
+			"action":       pullRequestEnvelope.Event.Payload.Action,
+			"merged":       pullRequestEnvelope.PullRequest.Merged,
 		}, nil
 	}
 
 	var commitEnvelope struct {
-		Kind      string `json:"kind"`
-		Repo      string `json:"repo"`
-		Ref       string `json:"ref"`
-		Commit    struct {
+		Kind   string `json:"kind"`
+		Repo   string `json:"repo"`
+		Ref    string `json:"ref"`
+		Commit struct {
 			SHA     string `json:"sha"`
 			HTMLURL string `json:"html_url"`
 			Commit  struct {
@@ -571,15 +662,15 @@ func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestam
 				repoURL = "https://github.com/" + event.Repo.Name
 			}
 			return "stream/detail/github-create.html", map[string]any{
-				"url":           url,
-				"repo_name":     event.Repo.Name,
-				"repo_url":      repoURL,
-				"profile_url":   profileURL,
-				"handle":        handle,
-				"avatar_url":    event.Actor.AvatarURL,
-				"timestamp_ui":  timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
-				"ref_type":      payload.RefType,
-				"ref":           payload.Ref,
+				"url":          url,
+				"repo_name":    event.Repo.Name,
+				"repo_url":     repoURL,
+				"profile_url":  profileURL,
+				"handle":       handle,
+				"avatar_url":   event.Actor.AvatarURL,
+				"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+				"ref_type":     payload.RefType,
+				"ref":          payload.Ref,
 			}, nil
 		}
 	}

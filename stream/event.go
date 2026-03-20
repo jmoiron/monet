@@ -213,6 +213,14 @@ func (s *EventService) GetByID(id int) (*Event, error) {
 	return &event, nil
 }
 
+func (s *EventService) GetByTypeAndSourceID(eventType, sourceID string) (*Event, error) {
+	var event Event
+	if err := s.db.Get(&event, `SELECT * FROM event WHERE type=? AND source_id=?`, eventType, sourceID); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
 func (s *EventService) CountByType(eventType string) (int, error) {
 	var count int
 	err := s.db.Get(&count, `SELECT count(*) FROM event WHERE type=?`, eventType)

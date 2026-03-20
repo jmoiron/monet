@@ -232,6 +232,52 @@ func TestRenderDetailGitHubCreateBranch(t *testing.T) {
 	assert.Equal(t, "programmable-card", ctx["ref"])
 }
 
+func TestRenderSummaryTwitterArchiveEnvelope(t *testing.T) {
+	data := `{
+		"profile": {
+			"display_name": "Jason Moiron",
+			"username": "jmoiron"
+		},
+		"archive": {
+			"tweet": {
+				"id_str": "1902761308858890440",
+				"created_at": "Thu Mar 20 10:15:00 -0400 2026",
+				"full_text": "archive tweet body"
+			}
+		}
+	}`
+
+	summary, err := RenderSummary("twitter", "", data)
+	require.NoError(t, err)
+	assert.Contains(t, summary, `fa-twitter`)
+	assert.Contains(t, summary, `@jmoiron`)
+	assert.Contains(t, summary, `archive tweet body`)
+}
+
+func TestRenderDetailTwitterArchiveEnvelope(t *testing.T) {
+	data := `{
+		"profile": {
+			"display_name": "Jason Moiron",
+			"username": "jmoiron"
+		},
+		"archive": {
+			"tweet": {
+				"id_str": "1902761308858890440",
+				"created_at": "Thu Mar 20 10:15:00 -0400 2026",
+				"full_text": "hello\nworld"
+			}
+		}
+	}`
+
+	templateName, ctx, err := RenderDetail("twitter", "tweet", "", data, "", parseTestTime("2026-03-20T14:15:00Z"))
+	require.NoError(t, err)
+	assert.Equal(t, "stream/detail/twitter.html", templateName)
+	assert.Equal(t, "Jason Moiron", ctx["display_name"])
+	assert.Equal(t, "@jmoiron", ctx["handle"])
+	assert.Equal(t, "2:15 PM · Mar 20, 2026", ctx["timestamp_ui"])
+	assert.Equal(t, "hello\nworld", ctx["text"])
+}
+
 func TestRenderSummaryGitHubPullRequestEnvelope(t *testing.T) {
 	data := `{
 		"kind":"pull_request",

@@ -81,8 +81,20 @@
 .fa-linkedin {
   --fa: "\f08c";
 }
+.fa-twitter {
+  --fa: "\f099";
+}
 
 /* Solid icons */
+.fa-arrow-down-wide-short {
+  --fa: "\f160";
+}
+.fa-arrow-up-wide-short {
+  --fa: "\f161";
+}
+.fa-arrows-spin {
+  --fa: "\e4bb";
+}
 .fa-bars {
   --fa: "\f0c9";
 }
@@ -104,11 +116,17 @@
 .fa-code-branch {
   --fa: "\f126";
 }
+.fa-code-commit {
+  --fa: "\f386";
+}
 .fa-code-compare {
   --fa: "\e13a";
 }
 .fa-code-merge {
   --fa: "\f387";
+}
+.fa-code-pull-request {
+  --fa: "\e13c";
 }
 .fa-down-left-and-up-right-to-center {
   --fa: "\f422";
@@ -127,6 +145,12 @@
 }
 .fa-right-from-bracket {
   --fa: "\f2f5";
+}
+.fa-rotate {
+  --fa: "\f2f1";
+}
+.fa-rotate-right {
+  --fa: "\f2f9";
 }
 .fa-up-right-and-down-left-from-center {
   --fa: "\f424";

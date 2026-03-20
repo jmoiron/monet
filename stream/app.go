@@ -13,6 +13,7 @@ import (
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 	"github.com/jmoiron/monet/mtr"
+	"github.com/jmoiron/monet/stream/sources"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -32,9 +33,9 @@ type App struct {
 
 func NewApp(db db.DB) *App {
 	modules := NewModuleRegistry(
-		NewBlueskyModule(),
-		NewGitHubModule(),
-		NewTwitterArchiveModule(),
+		sources.NewBluesky(),
+		sources.NewGitHub(),
+		sources.NewTwitterArchive(),
 	)
 
 	return &App{
@@ -80,6 +81,7 @@ func (a *App) Bind(r chi.Router) {
 	a.runner.Start()
 	r.Route(a.BaseURL, func(r chi.Router) {
 		r.Get("/", a.index)
+		r.Get("/event/{id:[0-9]+}", a.detail)
 		r.Get("/page/{page:[0-9]+}", a.list)
 	})
 }
@@ -195,4 +197,28 @@ func (a *App) search(w http.ResponseWriter, r *http.Request, query string) {
 		slog.Error("rendering template", "err", err)
 	}
 
+}
+
+func (a *App) detail(w http.ResponseWriter, r *http.Request) {
+	id := app.GetIntParam(r, "id", -1)
+	if id < 0 {
+		app.Http404(w)
+		return
+	}
+
+	event, err := NewEventService(a.db).GetByID(id)
+	if err != nil {
+		app.Http404(w)
+		return
+	}
+
+	reg := mtr.RegistryFromContext(r.Context())
+	err = reg.RenderWithBase(w, "base", "stream/detail.html", mtr.Ctx{
+		"title":     event.Title,
+		"event":     event,
+		"raw_event": PrettyEventData(event.Data),
+	})
+	if err != nil {
+		slog.Error("rendering stream detail", "err", err)
+	}
 }

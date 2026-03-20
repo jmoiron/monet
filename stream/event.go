@@ -1,6 +1,8 @@
 package stream
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -83,24 +85,13 @@ var eventMigration = monarch.Set{
 
 // An Event is something like a post, a git commit, a photo upload, etc.
 type Event struct {
-	// An Id is a basic auto-increment id within the local db
-	Id int
-	// Title is a title for the event
-	Title string
-	// SourceId is the id of this event in the upstream system, eg. a commit hash
-	// or a tweet ID
-	SourceId string `db:"source_id"`
-	// Timestamp is a unix timestamp of when this event happened
-	Timestamp time.Time
-	// Type is an indicator of where this came from, eg. "github" or "bluesky"
-	Type string
-	// Url is a permalink for this event
-	Url string
-
-	// Data is the full event in its original format, probably json
-	Data string
-	// SummaryRendered is a pre-rendered summary of the event, which gets displayed
-	// on the event stream list
+	Id              int
+	Title           string
+	SourceId        string `db:"source_id"`
+	Timestamp       time.Time
+	Type            string
+	Url             string
+	Data            string
 	SummaryRendered string `db:"summary_rendered"`
 }
 
@@ -205,6 +196,14 @@ func (s *EventService) Select(where string, args ...interface{}) ([]*Event, erro
 	return events, nil
 }
 
+func (s *EventService) GetByID(id int) (*Event, error) {
+	var event Event
+	if err := s.db.Get(&event, `SELECT * FROM event WHERE id=?`, id); err != nil {
+		return nil, err
+	}
+	return &event, nil
+}
+
 func (s *EventService) CountByType(eventType string) (int, error) {
 	var count int
 	err := s.db.Get(&count, `SELECT count(*) FROM event WHERE type=?`, eventType)
@@ -243,4 +242,23 @@ func (s *EventService) LatestTimestampByType(eventType string) (time.Time, error
 
 func sqliteConflict(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+}
+
+func PrettyEventData(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return ""
+	}
+
+	var value any
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+		return raw
+	}
+
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(value); err != nil {
+		return raw
+	}
+	return strings.TrimRight(buf.String(), "\n")
 }

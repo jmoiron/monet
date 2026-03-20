@@ -6,9 +6,12 @@
 
 <div class="entries">
     {{range $event := .events}}
-    <div class="entry-container">
-        {{$event.SummaryRendered | safe }}
-    </div>
+    <article class="entry-container js-clickable-row"
+        role="link"
+        tabindex="0"
+        data-href="/stream/event/{{$event.Id}}">
+            {{$event.SummaryRendered | safe }}
+    </article>
     {{end}}
 </div>
 

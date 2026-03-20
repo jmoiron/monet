@@ -1,26 +1,22 @@
 package stream
 
-import "context"
+import (
+	"context"
 
-type syncModeKey struct{}
+	"github.com/jmoiron/monet/stream/sources"
+)
 
-type SyncMode string
+type SyncMode = sources.SyncMode
 
 const (
-	SyncModeIncremental SyncMode = "incremental"
-	SyncModeFull        SyncMode = "full"
+	SyncModeIncremental = sources.SyncModeIncremental
+	SyncModeFull        = sources.SyncModeFull
 )
 
 func WithSyncMode(ctx context.Context, mode SyncMode) context.Context {
-	return context.WithValue(ctx, syncModeKey{}, mode)
+	return sources.WithSyncMode(ctx, mode)
 }
 
-func syncModeFromContext(ctx context.Context) SyncMode {
-	if ctx == nil {
-		return SyncModeIncremental
-	}
-	if mode, ok := ctx.Value(syncModeKey{}).(SyncMode); ok {
-		return mode
-	}
-	return SyncModeIncremental
+func SyncModeFromContext(ctx context.Context) SyncMode {
+	return sources.SyncModeFromContext(ctx)
 }

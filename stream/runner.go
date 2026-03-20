@@ -110,6 +110,7 @@ func (r *Runner) Run(ctx context.Context, kind string) error {
 	if err != nil {
 		return err
 	}
+	slog.Info("starting stream source run", "kind", kind, "source_id", source.ID, "enabled", source.Enabled, "schedule_minutes", source.ScheduleMinutes)
 
 	if err := r.sources.MarkRunStart(source.ID); err != nil {
 		return err
@@ -119,8 +120,12 @@ func (r *Runner) Run(ctx context.Context, kind string) error {
 	if err != nil {
 		return err
 	}
+	slog.Info("created stream run", "kind", kind, "source_id", source.ID, "run_id", runID)
 
-	result, runErr := module.Sync(ctx, source, r.events)
+	result, runErr := module.Sync(ctx, source)
+	if runErr == nil {
+		runErr = r.applyResult(module, result)
+	}
 	if finishErr := r.sources.FinishRun(runID, result, runErr); finishErr != nil {
 		slog.Error("finishing stream run", "kind", kind, "err", finishErr)
 	}
@@ -128,7 +133,55 @@ func (r *Runner) Run(ctx context.Context, kind string) error {
 		slog.Error("marking stream run result", "kind", kind, "err", markErr)
 	}
 	if runErr != nil {
+		slog.Error("stream source run failed", "kind", kind, "source_id", source.ID, "run_id", runID, "err", runErr)
 		return runErr
 	}
+	imported := 0
+	deleted := 0
+	if result != nil {
+		imported = result.Imported
+		deleted = result.Deleted
+	}
+	slog.Info("stream source run finished", "kind", kind, "source_id", source.ID, "run_id", runID, "imported", imported, "deleted", deleted)
+	return nil
+}
+
+func (r *Runner) applyResult(module Module, result *RunResult) error {
+	if result == nil {
+		slog.Info("stream source returned no result", "kind", module.Kind())
+		return nil
+	}
+	slog.Info("applying stream source result", "kind", module.Kind(), "items", len(result.Items), "prune_missing", result.PruneMissing, "prune_ids", len(result.PruneSourceIDs))
+
+	for _, item := range result.Items {
+		record, err := item.ToRecord()
+		if err != nil {
+			return err
+		}
+
+		event := &Event{
+			Title:           record.Title,
+			SourceId:        record.SourceId,
+			Timestamp:       record.Timestamp,
+			Type:            module.EventType(),
+			Url:             record.Url,
+			Data:            record.Data,
+			SummaryRendered: record.SummaryRendered,
+		}
+		if err := r.events.Upsert(event); err != nil {
+			return err
+		}
+		result.Imported++
+	}
+
+	if result.PruneMissing && len(result.PruneSourceIDs) > 0 {
+		rows, err := r.events.DeleteMissingByType(module.EventType(), result.PruneSourceIDs)
+		if err != nil {
+			return err
+		}
+		result.Deleted = int(rows)
+	}
+	slog.Info("applied stream source result", "kind", module.Kind(), "imported", result.Imported, "deleted", result.Deleted)
+
 	return nil
 }

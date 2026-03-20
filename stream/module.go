@@ -1,35 +1,15 @@
 package stream
 
 import (
-	"context"
 	"fmt"
 	"sort"
+
+	"github.com/jmoiron/monet/stream/sources"
 )
 
-type SettingField struct {
-	Name        string
-	Label       string
-	Type        string
-	Placeholder string
-	Help        string
-}
-
-type RunResult struct {
-	Imported int
-	Deleted  int
-	Details  map[string]any
-}
-
-type Module interface {
-	Kind() string
-	Name() string
-	Description() string
-	EventType() string
-	Fields() []SettingField
-	DefaultSettings() map[string]string
-	DefaultScheduleMinutes() int
-	Sync(context.Context, *StreamSource, *EventService) (*RunResult, error)
-}
+type SettingField = sources.SettingField
+type RunResult = sources.RunResult
+type Module = sources.Module
 
 type ModuleRegistry struct {
 	modules map[string]Module

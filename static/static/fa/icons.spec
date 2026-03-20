@@ -1,6 +1,7 @@
 fa-brands fa-hacker-news
 fa-brands fa-github
 fa-brands fa-bluesky
+fa-brands fa-twitter
 fa-brands fa-linkedin
 fa-brands fa-instagram
 fa-solid fa-circle-info
@@ -20,3 +21,10 @@ fa-solid fa-bars
 fa-solid fa-code-branch
 fa-solid fa-code-merge
 fa-solid fa-code-compare
+fa-solid fa-code-commit
+fa-solid fa-code-pull-request
+fa-solid fa-arrow-up-wide-short
+fa-solid fa-arrow-down-wide-short
+fa-solid fa-rotate
+fa-solid fa-rotate-right
+fa-solid fa-arrows-spin

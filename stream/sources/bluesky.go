@@ -1,10 +1,11 @@
-package stream
+package sources
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,10 +17,15 @@ type BlueskyModule struct {
 	client *http.Client
 }
 
-func NewBlueskyModule() *BlueskyModule {
-	return &BlueskyModule{
-		client: &http.Client{Timeout: 20 * time.Second},
+func NewBluesky() *BlueskyModule {
+	return &BlueskyModule{client: &http.Client{Timeout: 20 * time.Second}}
+}
+
+func (m *BlueskyModule) WithClient(client *http.Client) *BlueskyModule {
+	if client != nil {
+		m.client = client
 	}
+	return m
 }
 
 func (m *BlueskyModule) Kind() string { return "bluesky" }
@@ -55,7 +61,7 @@ func (m *BlueskyModule) DefaultSettings() map[string]string {
 
 func (m *BlueskyModule) DefaultScheduleMinutes() int { return 30 }
 
-func (m *BlueskyModule) Sync(ctx context.Context, source *StreamSource, events *EventService) (*RunResult, error) {
+func (m *BlueskyModule) Sync(ctx context.Context, source SourceConfig) (*RunResult, error) {
 	settings := source.Settings()
 	actor := strings.TrimSpace(settings["actor"])
 	appviewURL := strings.TrimRight(strings.TrimSpace(settings["appview_url"]), "/")
@@ -72,9 +78,6 @@ func (m *BlueskyModule) Sync(ctx context.Context, source *StreamSource, events *
 
 	token := ""
 	feedBaseURL := appviewURL
-
-	// Public author-feed reads do not require authentication. If credentials
-	// are supplied, fall back to an authenticated request path via the user's PDS.
 	if identifier != "" && password != "" {
 		if pdsURL == "" {
 			pdsURL = "https://bsky.social"
@@ -87,15 +90,18 @@ func (m *BlueskyModule) Sync(ctx context.Context, source *StreamSource, events *
 		feedBaseURL = pdsURL
 	}
 
-	imported := 0
 	lastSuccess := source.LastSuccessTime()
-	mode := syncModeFromContext(ctx)
+	mode := SyncModeFromContext(ctx)
 	maxPages := parsePositiveInt(settings["incremental_pages"], 3)
 	if mode == SyncModeFull {
 		maxPages = parsePositiveInt(settings["full_pages"], 12)
 	}
+	slog.Info("starting bluesky sync", "actor", actor, "appview_url", appviewURL, "auth_used", identifier != "" && password != "", "sync_mode", mode, "max_pages", maxPages, "last_success", lastSuccess)
+
+	items := make([]Item, 0, maxPages*100)
 	cursor := ""
 	for page := 0; page < maxPages; page++ {
+		slog.Info("loading bluesky feed page", "actor", actor, "page", page+1, "cursor", cursor)
 		feed, nextCursor, err := m.fetchAuthorFeed(ctx, feedBaseURL, token, actor, cursor)
 		if err != nil {
 			return nil, err
@@ -113,19 +119,17 @@ func (m *BlueskyModule) Sync(ctx context.Context, source *StreamSource, events *
 			if mode != SyncModeFull && !lastSuccess.IsZero() && event.Timestamp.Before(lastSuccess.Add(-24*time.Hour)) {
 				stop = true
 			}
-			if err := events.Upsert(event); err != nil {
-				return nil, err
-			}
-			imported++
+			items = append(items, item)
 		}
 		if stop || nextCursor == "" {
 			break
 		}
 		cursor = nextCursor
 	}
+	slog.Info("finished bluesky sync", "actor", actor, "items", len(items), "sync_mode", mode)
 
 	return &RunResult{
-		Imported: imported,
+		Items: items,
 		Details: map[string]any{
 			"actor":       actor,
 			"auth_used":   token != "",
@@ -141,12 +145,10 @@ type blueskySession struct {
 }
 
 func (m *BlueskyModule) createSession(ctx context.Context, serviceURL, identifier, password string) (*blueskySession, error) {
-	body, _ := json.Marshal(map[string]string{
-		"identifier": identifier,
-		"password":   password,
-	})
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, serviceURL+"/xrpc/com.atproto.server.createSession", bytes.NewReader(body))
+	body, _ := json.Marshal(map[string]string{"identifier": identifier, "password": password})
+	reqURL := serviceURL + "/xrpc/com.atproto.server.createSession"
+	slog.Info("loading bluesky url", "url", reqURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +159,6 @@ func (m *BlueskyModule) createSession(ctx context.Context, serviceURL, identifie
 		return nil, err
 	}
 	defer res.Body.Close()
-
 	if res.StatusCode >= 300 {
 		return nil, fmt.Errorf("bluesky session request returned %s", res.Status)
 	}
@@ -166,6 +167,7 @@ func (m *BlueskyModule) createSession(ctx context.Context, serviceURL, identifie
 	if err := json.NewDecoder(res.Body).Decode(&session); err != nil {
 		return nil, err
 	}
+	slog.Info("created bluesky session", "service_url", serviceURL, "identifier", identifier)
 	return &session, nil
 }
 
@@ -177,7 +179,9 @@ func (m *BlueskyModule) fetchAuthorFeed(ctx context.Context, serviceURL, token, 
 		values.Set("cursor", cursor)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, serviceURL+"/xrpc/app.bsky.feed.getAuthorFeed?"+values.Encode(), nil)
+	reqURL := serviceURL + "/xrpc/app.bsky.feed.getAuthorFeed?" + values.Encode()
+	slog.Info("loading bluesky url", "url", reqURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, "", err
 	}
@@ -190,7 +194,6 @@ func (m *BlueskyModule) fetchAuthorFeed(ctx context.Context, serviceURL, token, 
 		return nil, "", err
 	}
 	defer res.Body.Close()
-
 	if res.StatusCode >= 300 {
 		return nil, "", fmt.Errorf("bluesky feed request returned %s", res.Status)
 	}
@@ -202,6 +205,7 @@ func (m *BlueskyModule) fetchAuthorFeed(ctx context.Context, serviceURL, token, 
 	if err := json.NewDecoder(res.Body).Decode(&payload); err != nil {
 		return nil, "", err
 	}
+	slog.Info("loaded bluesky feed page", "actor", actor, "count", len(payload.Feed), "next_cursor", payload.Cursor != "")
 	return payload.Feed, payload.Cursor, nil
 }
 
@@ -221,6 +225,10 @@ type blueskyFeedItem struct {
 	} `json:"reason"`
 }
 
+func (i blueskyFeedItem) ToRecord() (*Record, error) {
+	return i.toEvent()
+}
+
 type blueskyAuthor struct {
 	Handle      string `json:"handle"`
 	DisplayName string `json:"displayName"`
@@ -232,7 +240,7 @@ type blueskyRecord struct {
 	CreatedAt string `json:"createdAt"`
 }
 
-func (i blueskyFeedItem) toEvent() (*Event, error) {
+func (i blueskyFeedItem) toEvent() (*Record, error) {
 	var record blueskyRecord
 	if err := json.Unmarshal(i.Post.Record, &record); err != nil {
 		return nil, err
@@ -269,11 +277,10 @@ func (i blueskyFeedItem) toEvent() (*Event, error) {
 		actor = i.Post.Author.DisplayName
 	}
 
-	return &Event{
+	return &Record{
 		Title:           title,
 		SourceId:        sourceID,
 		Timestamp:       ts,
-		Type:            "bluesky",
 		Url:             postURL,
 		Data:            string(raw),
 		SummaryRendered: renderBlueskySummary(postURL, actor, text),

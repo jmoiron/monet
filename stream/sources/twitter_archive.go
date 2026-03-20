@@ -1,9 +1,10 @@
-package stream
+package sources
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -11,9 +12,7 @@ import (
 
 type TwitterArchiveModule struct{}
 
-func NewTwitterArchiveModule() *TwitterArchiveModule {
-	return &TwitterArchiveModule{}
-}
+func NewTwitterArchive() *TwitterArchiveModule { return &TwitterArchiveModule{} }
 
 func (m *TwitterArchiveModule) Kind() string { return "twitter_archive" }
 func (m *TwitterArchiveModule) Name() string { return "Twitter Archive" }
@@ -42,7 +41,7 @@ func (m *TwitterArchiveModule) DefaultSettings() map[string]string {
 
 func (m *TwitterArchiveModule) DefaultScheduleMinutes() int { return 0 }
 
-func (m *TwitterArchiveModule) Sync(_ context.Context, source *StreamSource, events *EventService) (*RunResult, error) {
+func (m *TwitterArchiveModule) Sync(_ context.Context, source SourceConfig) (*RunResult, error) {
 	settings := source.Settings()
 	archivePath := strings.TrimSpace(settings["archive_path"])
 	username := strings.TrimSpace(settings["username"])
@@ -52,6 +51,7 @@ func (m *TwitterArchiveModule) Sync(_ context.Context, source *StreamSource, eve
 	if username == "" {
 		username = "jmoiron"
 	}
+	slog.Info("starting twitter archive sync", "archive_path", archivePath, "username", username, "prune_missing", settings["prune_missing"] == "true")
 
 	tweets, err := loadTwitterArchive(archivePath)
 	if err != nil {
@@ -59,45 +59,38 @@ func (m *TwitterArchiveModule) Sync(_ context.Context, source *StreamSource, eve
 	}
 
 	keepIDs := make([]string, 0, len(tweets))
-	imported := 0
+	items := make([]Item, 0, len(tweets))
 	for _, item := range tweets {
-		event, err := item.Tweet.toEvent(username)
+		record, err := item.Tweet.ToRecordWithUsername(username)
 		if err != nil {
 			return nil, err
 		}
-		if event.SourceId == "" {
+		if record.SourceId == "" {
 			continue
 		}
-		if err := events.Upsert(event); err != nil {
-			return nil, err
-		}
-		keepIDs = append(keepIDs, event.SourceId)
-		imported++
+		items = append(items, twitterArchiveItem{record: record})
+		keepIDs = append(keepIDs, record.SourceId)
 	}
 
-	deleted := 0
-	if settings["prune_missing"] == "true" && imported > 0 {
-		rows, err := events.DeleteMissingByType("twitter", keepIDs)
-		if err != nil {
-			return nil, err
-		}
-		deleted = int(rows)
-	}
-
-	details := map[string]any{
-		"archive_path": archivePath,
-	}
+	details := map[string]any{"archive_path": archivePath}
 	if redactPath := strings.TrimSpace(settings["redact_path"]); redactPath != "" {
+		slog.Info("loading twitter redact stats", "path", redactPath)
 		if stats, err := loadRedactStats(redactPath); err == nil {
 			details["redact_entries"] = stats.Entries
 			details["redact_likes"] = stats.Likes
+			slog.Info("loaded twitter redact stats", "path", redactPath, "entries", stats.Entries, "likes", stats.Likes)
+		} else {
+			slog.Warn("failed to load twitter redact stats", "path", redactPath, "err", err)
 		}
 	}
 
+	slog.Info("finished twitter archive sync", "archive_path", archivePath, "items", len(items), "keep_ids", len(keepIDs))
+
 	return &RunResult{
-		Imported: imported,
-		Deleted:  deleted,
-		Details:  details,
+		Items:          items,
+		PruneMissing:   settings["prune_missing"] == "true" && len(items) > 0,
+		PruneSourceIDs: keepIDs,
+		Details:        details,
 	}, nil
 }
 
@@ -119,7 +112,15 @@ func (t twitterArchiveTweet) body() string {
 	return t.Text
 }
 
-func (t twitterArchiveTweet) toEvent(username string) (*Event, error) {
+type twitterArchiveItem struct {
+	record *Record
+}
+
+func (i twitterArchiveItem) ToRecord() (*Record, error) {
+	return i.record, nil
+}
+
+func (t twitterArchiveTweet) ToRecordWithUsername(username string) (*Record, error) {
 	ts, err := time.Parse("Mon Jan 02 15:04:05 -0700 2006", t.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -130,11 +131,10 @@ func (t twitterArchiveTweet) toEvent(username string) (*Event, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Event{
+	return &Record{
 		Title:           "tweet",
 		SourceId:        t.IDStr,
 		Timestamp:       ts,
-		Type:            "twitter",
 		Url:             url,
 		Data:            string(raw),
 		SummaryRendered: renderTwitterSummary(url, body),
@@ -142,6 +142,7 @@ func (t twitterArchiveTweet) toEvent(username string) (*Event, error) {
 }
 
 func loadTwitterArchive(path string) ([]twitterArchiveEntry, error) {
+	slog.Info("loading twitter archive file", "path", path)
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -157,6 +158,7 @@ func loadTwitterArchive(path string) ([]twitterArchiveEntry, error) {
 	if err := json.Unmarshal([]byte(raw[start:]), &entries); err != nil {
 		return nil, err
 	}
+	slog.Info("loaded twitter archive file", "path", path, "entries", len(entries))
 	return entries, nil
 }
 
@@ -166,6 +168,7 @@ type redactStats struct {
 }
 
 func loadRedactStats(path string) (*redactStats, error) {
+	slog.Info("loading twitter redact file", "path", path)
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -188,5 +191,6 @@ func loadRedactStats(path string) (*redactStats, error) {
 			stats.Likes++
 		}
 	}
+	slog.Info("loaded twitter redact file", "path", path, "entries", stats.Entries, "likes", stats.Likes)
 	return stats, nil
 }

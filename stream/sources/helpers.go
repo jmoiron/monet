@@ -1,4 +1,4 @@
-package stream
+package sources
 
 import (
 	"fmt"
@@ -43,7 +43,7 @@ func renderBlueskySummary(url, actor, text string) string {
 
 func renderTwitterSummary(url, text string) string {
 	return fmt.Sprintf(
-		`<div class="entry twitter"><a href="%s"><i class="fa-brands fa-x-twitter"></i></a> <span class="message">%s</span></div>`,
+		`<div class="entry twitter"><a href="%s"><i class="fa-brands fa-twitter"></i></a> <span class="message">%s</span></div>`,
 		escape(url),
 		escape(text),
 	)

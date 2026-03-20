@@ -3,6 +3,7 @@ package sources
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -46,11 +47,13 @@ func TestRenderDetailBluesky(t *testing.T) {
 		}
 	}`
 
-	templateName, ctx, err := RenderDetail("bluesky", "post", "https://bsky.app/profile/jmoiron.bsky.social/post/3lf7abc", data, "")
+	templateName, ctx, err := RenderDetail("bluesky", "post", "https://bsky.app/profile/jmoiron.bsky.social/post/3lf7abc", data, "", parseTestTime("2026-03-19T15:04:05Z"))
 	require.NoError(t, err)
 	assert.Equal(t, "stream/detail/bluesky.html", templateName)
 	assert.Equal(t, "Jason Moiron", ctx["display_name"])
 	assert.Equal(t, "@jmoiron.bsky.social", ctx["handle"])
+	assert.Equal(t, "https://bsky.app/profile/jmoiron.bsky.social", ctx["profile_url"])
+	assert.Equal(t, "3:04 PM · Mar 19, 2026", ctx["timestamp_ui"])
 	assert.Contains(t, ctx["text"], `<a href="https://example.com/hello">hello</a>`)
 	assert.Contains(t, ctx["text"], "\nworld")
 	assert.True(t, strings.Contains(ctx["url"].(string), "/post/3lf7abc"))
@@ -87,4 +90,12 @@ func TestRenderBlueskyFacetText(t *testing.T) {
 
 	rendered := renderBlueskyFacetText("hello link world", facets)
 	assert.Equal(t, `hello <a href="https://example.com">link</a> world`, rendered)
+}
+
+func parseTestTime(value string) time.Time {
+	ts, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		panic(err)
+	}
+	return ts
 }

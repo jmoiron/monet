@@ -219,7 +219,7 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 	if sm := auth.SessionFromContext(r.Context()); sm != nil && sm.IsAuthenticated(r) {
 		rawEvent = PrettyEventData(event.Data)
 	}
-	detailTemplate, detailCtx, err := sources.RenderDetail(event.Type, event.Title, event.Url, event.Data, event.SummaryRendered)
+	detailTemplate, detailCtx, err := sources.RenderDetail(event.Type, event.Title, event.Url, event.Data, event.SummaryRendered, event.Timestamp)
 	if err != nil {
 		app.Http500("rendering stream detail content", w, err)
 		return
@@ -232,6 +232,7 @@ func (a *App) detail(w http.ResponseWriter, r *http.Request) {
 	err = reg.RenderWithBase(w, "base", "stream/detail.html", mtr.Ctx{
 		"title":           event.Title,
 		"event":           event,
+		"show_meta":       event.Type != "bluesky",
 		"detail_rendered": detailBuf.String(),
 		"raw_event":       rawEvent,
 	})

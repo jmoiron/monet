@@ -7,8 +7,9 @@
         </div>
         <div class="stream-card-identity">
             <div class="stream-card-name">{{.display_name}}</div>
-            <div class="stream-card-handle">{{.handle}}</div>
+            <div class="stream-card-handle"><a href="{{.profile_url}}" target="_blank">{{.handle}}</a></div>
         </div>
+        <div class="stream-card-timestamp">{{.timestamp_ui}}</div>
     </div>
     <div class="stream-card-body">{{.text | safe}}</div>
     {{if .embed}}
@@ -21,7 +22,7 @@
         <div class="stream-embed-content">
             <div class="stream-embed-title">{{index .embed "title"}}</div>
             <hr>
-            <div class="stream-embed-domain">{{index .embed "domain"}}</div>
+            <div class="stream-embed-domain"><i class="fa-solid fa-earth-asia"></i> {{index .embed "domain"}}</div>
         </div>
     </a>
     {{end}}

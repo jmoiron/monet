@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func RenderSummary(eventType, url, data string) (string, error) {
@@ -20,10 +21,10 @@ func RenderSummary(eventType, url, data string) (string, error) {
 	}
 }
 
-func RenderDetail(eventType, title, url, data, summaryRendered string) (string, map[string]any, error) {
+func RenderDetail(eventType, title, url, data, summaryRendered string, timestamp time.Time) (string, map[string]any, error) {
 	switch eventType {
 	case "bluesky":
-		ctx, err := renderStoredBlueskyDetail(url, data)
+		ctx, err := renderStoredBlueskyDetail(url, data, timestamp)
 		return "stream/detail/bluesky.html", ctx, err
 	default:
 		return "stream/detail/default.html", map[string]any{
@@ -66,7 +67,7 @@ func renderStoredBlueskySummary(data string) (string, error) {
 	return record.SummaryRendered, nil
 }
 
-func renderStoredBlueskyDetail(url, data string) (map[string]any, error) {
+func renderStoredBlueskyDetail(url, data string, timestamp time.Time) (map[string]any, error) {
 	var item blueskyFeedItem
 	if err := json.Unmarshal([]byte(data), &item); err != nil {
 		return nil, err
@@ -92,6 +93,8 @@ func renderStoredBlueskyDetail(url, data string) (map[string]any, error) {
 	}
 	ctx := map[string]any{
 		"url":          postURL,
+		"profile_url":  "https://bsky.app/profile/" + item.Post.Author.Handle,
+		"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
 		"display_name": displayName,
 		"handle":       handle,
 		"text":         renderBlueskyFacetText(record.Text, record.Facets),

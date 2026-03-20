@@ -1,8 +1,10 @@
 <article class="stream-detail">
+    {{if .show_meta}}
     <div class="stream-meta">
         <span class="stream-type">{{.event.Type}}</span>
         <span class="date">{{.event.Timestamp | naturalTime}}</span>
     </div>
+    {{end}}
 
     <div class="stream-detail-rendered">
         {{.detail_rendered | safe}}

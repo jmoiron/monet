@@ -63,6 +63,44 @@ func TestRenderDetailBluesky(t *testing.T) {
 	assert.Equal(t, "https://cdn.bsky.app/img/feed_thumbnail/plain/did:plc:jmoiron/bafkrei123", embed["image_url"])
 }
 
+func TestRenderDetailGitHubCommit(t *testing.T) {
+	data := `{
+		"kind": "commit",
+		"repo": "jmoiron/monet",
+		"ref": "refs/heads/master",
+		"commit_url": "https://github.com/jmoiron/monet/commit/abc123",
+		"commit": {
+			"sha": "abc123",
+			"html_url": "https://github.com/jmoiron/monet/commit/abc123",
+			"commit": {
+				"message": "Improve stream detail render\n\nAdds a custom renderer."
+			},
+			"author": {
+				"login": "jmoiron"
+			}
+		},
+		"source": {
+			"actor": {
+				"login": "jmoiron",
+				"avatar_url": "https://avatars.githubusercontent.com/u/218132?"
+			}
+		}
+	}`
+
+	templateName, ctx, err := RenderDetail("github", "commit", "https://github.com/jmoiron/monet/commit/abc123", data, "", parseTestTime("2026-03-19T15:04:05Z"))
+	require.NoError(t, err)
+	assert.Equal(t, "stream/detail/github.html", templateName)
+	assert.Equal(t, "jmoiron/monet", ctx["repo_name"])
+	assert.Equal(t, "https://github.com/jmoiron/monet", ctx["repo_url"])
+	assert.Equal(t, "master", ctx["branch"])
+	assert.Equal(t, "abc123", ctx["short_sha"])
+	assert.Equal(t, "@jmoiron", ctx["handle"])
+	assert.Equal(t, "https://github.com/jmoiron", ctx["profile_url"])
+	assert.Equal(t, "https://avatars.githubusercontent.com/u/218132?", ctx["avatar_url"])
+	assert.Equal(t, "3:04 PM · Mar 19, 2026", ctx["timestamp_ui"])
+	assert.Contains(t, ctx["message"], "Improve stream detail render")
+}
+
 func TestRenderBlueskyFacetText(t *testing.T) {
 	facets := []struct {
 		Index struct {

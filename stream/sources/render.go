@@ -26,6 +26,9 @@ func RenderDetail(eventType, title, url, data, summaryRendered string, timestamp
 	case "bluesky":
 		ctx, err := renderStoredBlueskyDetail(url, data, timestamp)
 		return "stream/detail/bluesky.html", ctx, err
+	case "github":
+		templateName, ctx, err := renderStoredGitHubDetail(title, url, data, summaryRendered, timestamp)
+		return templateName, ctx, err
 	default:
 		return "stream/detail/default.html", map[string]any{
 			"title":            title,
@@ -210,6 +213,74 @@ func renderStoredGitHubSummary(url, data string) (string, error) {
 	default:
 		return renderGithubSummary(url, event.Repo.Name, strings.TrimSpace(event.Type)), nil
 	}
+}
+
+func renderStoredGitHubDetail(title, url, data, summaryRendered string, timestamp time.Time) (string, map[string]any, error) {
+	var commitEnvelope struct {
+		Kind      string `json:"kind"`
+		Repo      string `json:"repo"`
+		Ref       string `json:"ref"`
+		Commit    struct {
+			SHA     string `json:"sha"`
+			HTMLURL string `json:"html_url"`
+			Commit  struct {
+				Message string `json:"message"`
+			} `json:"commit"`
+			Author struct {
+				Login string `json:"login"`
+			} `json:"author"`
+		} `json:"commit"`
+		CommitURL string `json:"commit_url"`
+		Source    struct {
+			Actor struct {
+				Login     string `json:"login"`
+				AvatarURL string `json:"avatar_url"`
+			} `json:"actor"`
+		} `json:"source"`
+	}
+	if err := json.Unmarshal([]byte(data), &commitEnvelope); err == nil && commitEnvelope.Kind == "commit" {
+		commitURL := commitEnvelope.CommitURL
+		if commitURL == "" {
+			commitURL = commitEnvelope.Commit.HTMLURL
+		}
+		if commitURL == "" {
+			commitURL = url
+		}
+
+		login := strings.TrimSpace(commitEnvelope.Source.Actor.Login)
+		if login == "" {
+			login = strings.TrimSpace(commitEnvelope.Commit.Author.Login)
+		}
+		profileURL := ""
+		if login != "" {
+			profileURL = "https://github.com/" + login
+			login = "@" + login
+		}
+
+		repoURL := ""
+		if strings.TrimSpace(commitEnvelope.Repo) != "" {
+			repoURL = "https://github.com/" + commitEnvelope.Repo
+		}
+
+		return "stream/detail/github.html", map[string]any{
+			"url":          commitURL,
+			"repo_name":    commitEnvelope.Repo,
+			"repo_url":     repoURL,
+			"branch":       strings.TrimPrefix(commitEnvelope.Ref, "refs/heads/"),
+			"short_sha":    shortSHA(commitEnvelope.Commit.SHA),
+			"profile_url":  profileURL,
+			"handle":       login,
+			"avatar_url":   commitEnvelope.Source.Actor.AvatarURL,
+			"timestamp_ui": timestamp.Format("3:04 PM") + " · " + timestamp.Format("Jan 2, 2006"),
+			"message":      commitEnvelope.Commit.Commit.Message,
+		}, nil
+	}
+
+	return "stream/detail/default.html", map[string]any{
+		"title":            title,
+		"url":              url,
+		"summary_rendered": summaryRendered,
+	}, nil
 }
 
 func (e githubAPIEvent) legacySummary() (summary string, url string, title string) {

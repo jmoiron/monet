@@ -36,7 +36,7 @@ func NewApp(cfg *conf.Config, db db.DB) *App {
 	return &App{
 		db:       db,
 		serv:     NewUserService(db),
-		Sessions: NewSessionManager(cfg),
+		Sessions: NewSessionManager(cfg.SessionSecret),
 	}
 }
 

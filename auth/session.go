@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/gorilla/sessions"
-	"github.com/jmoiron/monet/conf"
 )
 
 const sessionJar = "monet-session"
@@ -18,8 +17,9 @@ type SessionManager struct {
 	store sessions.Store
 }
 
-func NewSessionManager(cfg *conf.Config) *SessionManager {
-	return &SessionManager{store: sessions.NewCookieStore([]byte(cfg.SessionSecret))}
+// NewSessionManager creates a SessionManager with the given cookie secret.
+func NewSessionManager(secret string) *SessionManager {
+	return &SessionManager{store: sessions.NewCookieStore([]byte(secret))}
 }
 
 // Context adds this session manager to ctx

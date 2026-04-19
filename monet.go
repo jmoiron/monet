@@ -269,6 +269,8 @@ func index(w http.ResponseWriter, r *http.Request) {
 		"post":   posts[0],
 		"posts":  posts[1:],
 		"events": events,
+		"rss":    "/blog/rss",
+		"atom":   "/blog/atom",
 	})
 
 	if err != nil {

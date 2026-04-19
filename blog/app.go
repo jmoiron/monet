@@ -123,7 +123,7 @@ func (a *App) feed() *feeds.Feed {
 		Title:       "jmoiron.net blog",
 		Link:        &feeds.Link{Href: "http://jmoiron.net/blog"},
 		Description: "discussion about tech, footie, photos",
-		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jmoiron@jmoiron.net"},
+		Author:      &feeds.Author{Name: "Jason Moiron", Email: "jlmoiron@gmail.com"},
 		Created:     now,
 	}
 
@@ -218,6 +218,8 @@ func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
 	if count == 0 {
 		reg.RenderWithBase(w, "base", "blog/index.html", mtr.Ctx{
 			"query": query,
+			"rss":   a.FeedRSSURL,
+			"atom":  a.FeedAtomURL,
 		})
 		return
 	}
@@ -257,6 +259,8 @@ func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
 		"query":      query,
 		"posts":      posts,
 		"pagination": paginator.Render(reg, page),
+		"rss":        a.FeedRSSURL,
+		"atom":       a.FeedAtomURL,
 	})
 
 	if err != nil {
@@ -298,6 +302,8 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	err = reg.RenderWithBase(w, "base", "blog/index.html", mtr.Ctx{
 		"posts":      posts,
 		"pagination": paginator.Render(reg, page),
+		"rss":        a.FeedRSSURL,
+		"atom":       a.FeedAtomURL,
 	})
 
 	if err != nil {

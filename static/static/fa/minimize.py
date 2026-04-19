@@ -15,6 +15,8 @@ from typing import Dict, List, Optional, Set, Tuple
 from fontTools.ttLib import TTFont
 from fontTools.subset import Subsetter
 
+REPRO_TIMESTAMP = 0x7C259DC0
+
 
 # CSS Constants
 BASE_STYLES = """.fa-solid,
@@ -310,16 +312,23 @@ def generate_minimal_css(icon_infos: List[IconInfo], font_url: str = None, outpu
 def unicode_string_to_codepoint(unicode_str: str) -> int:
     """
     Convert a unicode escape string like '\\f09b' to a codepoint integer.
-    
+
+    Handles hex escapes (e.g. '\\f09b') as well as CSS literal-character
+    escapes like '\\+'.
+
     Args:
-        unicode_str: Unicode escape string (e.g., '\\f09b')
-        
+        unicode_str: Unicode escape string (e.g., '\\f09b' or '\\+')
+
     Returns:
-        Integer codepoint (e.g., 61595 for '\\f09b')
+        Integer codepoint
     """
-    # Remove the backslashes and convert from hex
     hex_part = unicode_str.replace('\\', '')
-    return int(hex_part, 16)
+    try:
+        return int(hex_part, 16)
+    except ValueError:
+        if hex_part:
+            return ord(hex_part[0])
+        raise ValueError(f"Cannot convert unicode string to codepoint: {unicode_str!r}")
 
 
 def extract_codepoints_by_family(icon_infos: List[IconInfo]) -> Dict[str, Set[int]]:
@@ -361,8 +370,8 @@ def subset_font_file(source_font_path: str, codepoints: Set[int], output_path: s
     if not source_path.exists():
         raise FileNotFoundError(f"Font file not found: {source_font_path}")
     
-    # Load the source font
-    font = TTFont(source_font_path)
+    # Prevent fontTools from stamping the current time into output files.
+    font = TTFont(source_font_path, recalcTimestamp=False)
     
     # Create subsetter and configure options
     subsetter = Subsetter()
@@ -376,6 +385,10 @@ def subset_font_file(source_font_path: str, codepoints: Set[int], output_path: s
     # Subset the font to include only the specified codepoints
     subsetter.populate(unicodes=codepoints)
     subsetter.subset(font)
+
+    if 'head' in font:
+        font['head'].created = REPRO_TIMESTAMP
+        font['head'].modified = REPRO_TIMESTAMP
     
     # Save the subset font
     font.save(output_path)
@@ -470,6 +483,10 @@ def combine_font_subsets(family_codepoints: Dict[str, Set[int]], output_path: st
                 
                 merger = Merger()
                 merged_font = merger.merge(temp_files)
+                merged_font.recalcTimestamp = False
+                if 'head' in merged_font:
+                    merged_font['head'].created = REPRO_TIMESTAMP
+                    merged_font['head'].modified = REPRO_TIMESTAMP
                 merged_font.save(output_path)
                 merged_font.close()
             

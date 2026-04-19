@@ -2,6 +2,13 @@
 export CGO_CFLAGS := -g -O2 -Wno-return-local-addr 
 # -Wno-stringop-overflow
 
+.PHONY: all build reload fmt run
+
+all:
+	$(MAKE) --no-print-directory -C static/static
+	$(MAKE) --no-print-directory -C static/static/fa
+	$(MAKE) --no-print-directory build
+
 build:
 	CGO_FLAGS=$CGO_FLAGS go build --tags="fts5"
 
@@ -15,5 +22,3 @@ fmt:
 
 run:
 	reflex -g '*.go' -s -- sh -c "GO_FLAGS=$CGO_FLAGS go build --tags=fts5 && ./monet --config=dev.cfg.json"
-
-

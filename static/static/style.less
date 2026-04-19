@@ -1118,3 +1118,88 @@ p code {
 
 .right { float: right; }
 h2 .small { font-size: 14px; }
+
+@media (max-width: 760px) {
+  .container {
+    width: auto;
+    margin: 0 18px;
+    padding: 1.25em 0;
+  }
+
+  .content {
+    border-top-width: 6px;
+  }
+
+  h1 {
+    font-size: 34px;
+    margin-bottom: 0.8em;
+
+    span {
+      font-size: 13px;
+    }
+  }
+
+  .footer {
+    .container {
+      padding-top: 0.9em;
+    }
+
+    .link-icons,
+    .byline {
+      float: none;
+      text-align: center;
+    }
+
+    .byline {
+      margin-top: 0.65em;
+    }
+  }
+
+  .frontend {
+    form input.search {
+      width: 100%;
+      box-sizing: border-box;
+    }
+  }
+
+  .blog-detail {
+    h2 {
+      font-size: 2rem;
+      line-height: 1.15;
+      margin: 0 0 0.75em;
+    }
+
+    .date {
+      float: none;
+      display: block;
+      margin-top: 1.5em;
+      text-align: left;
+    }
+  }
+
+  .blog-detail .post-content {
+    font-size: 20px;
+    line-height: 1.75;
+    max-width: 32em;
+  }
+
+  .blog-detail .post-content p,
+  .blog-detail .post-content ul,
+  .blog-detail .post-content ol,
+  .blog-detail .post-content blockquote,
+  .blog-detail .post-content pre {
+    margin-top: 1em;
+    margin-bottom: 1em;
+  }
+
+  .blog-detail .post-content img,
+  .blog-detail .post-content video,
+  .blog-detail .post-content iframe {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .blog-detail .post-content pre {
+    overflow-x: auto;
+  }
+}

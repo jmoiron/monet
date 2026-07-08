@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/chimeracoder/anaconda v2.0.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
-	github.com/go-chi/chi/v5 v5.2.2
+	github.com/go-chi/chi/v5 v5.2.4
 	github.com/go-sprout/sprout v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/feeds v1.2.0

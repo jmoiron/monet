@@ -10,7 +10,7 @@
 {{range $post := .posts}}
 <li>
 <a href="/blog/{{$post.Slug}}">{{$post.Title}}</a>
-<span class="date">{{$post.CreatedAt | naturalTime}}</span>
+<span class="date">{{$post.PublishedAt | naturalTime}}</span>
 </li>
 {{end}}
 </ul>

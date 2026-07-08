@@ -139,7 +139,7 @@ func (a *App) feed() *feeds.Feed {
 			Title:       post.Title,
 			Link:        &feeds.Link{Href: "http://jmoiron.net/blog/" + post.Slug + "/"},
 			Description: post.ContentRendered,
-			Created:     post.CreatedAt,
+			Created:     post.PublishedAt,
 		})
 	}
 

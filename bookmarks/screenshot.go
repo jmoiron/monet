@@ -1,6 +1,7 @@
 package bookmarks
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -9,7 +10,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"golang.org/x/image/draw"
 )
@@ -44,6 +47,8 @@ type GoWitnessOutput struct {
 	Title         string `json:"title"`
 	FinalURL      string `json:"final_url"`
 	StatusCode    int    `json:"status_code"`
+	Failed        bool   `json:"failed"`
+	FailedReason  string `json:"failed_reason"`
 	ContentLength int    `json:"content_length"`
 	Technologies  []struct {
 		Name       string   `json:"name"`
@@ -93,41 +98,38 @@ func (s *ScreenshotService) TakeScreenshot(url, bookmarkID string) (*ScreenshotR
 		}
 	}()
 
-	// Run gowitness command with JSONL output for metadata
-	cmd := exec.Command(s.gowitnessBin, "scan", "single",
-		"--url", url,
-		"--screenshot-path", tempDir,
-		"--screenshot-format", "jpeg",
-		"--chrome-window-x", "1280",
-		"--chrome-window-y", "939", // this is how we get 800px height unfortunately
-		"--javascript-file", "./bookmarks/accept.js",
-		// without this some scanning errors will be completely silent
-		// we aren't making the output of this command available but maybe we should
-		"--log-scan-errors",
-		"--write-jsonl",
-		"--write-jsonl-file", finalJSONPath)
+	// Pages should either screenshot quickly or fail. The default chromedp driver
+	// occasionally hangs on pages that screenshot fine with gowitness' other
+	// driver (rod), so if it produces nothing we retry once with that.
+	var tempFiles []string
+	var reason string
+	for _, driver := range []string{"chromedp", "gorod"} {
+		// the jsonl writer appends; start each attempt with a clean file
+		os.Remove(finalJSONPath)
 
-	// Log the exact command being executed for debugging
-	slog.Info("executing gowitness command",
-		"binary", s.gowitnessBin,
-		"args", cmd.Args,
-		"url", url,
-		"tempDir", tempDir)
+		output, err := s.runGowitness(url, driver, tempDir, finalJSONPath)
+		if err != nil {
+			slog.Error("gowitness command failed", "driver", driver, "error", err, "output", string(output))
+			return nil, fmt.Errorf("failed to take screenshot: %w", err)
+		}
 
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		slog.Error("gowitness command failed",
-			"error", err,
-			"output", string(output),
-			"command", cmd.String(),
-			"args", cmd.Args)
-		return nil, fmt.Errorf("failed to take screenshot: %w", err)
+		// gowitness exits 0 even when the scan fails (eg. a timeout); the reason is
+		// only in its output and in the jsonl it wrote, so surface both
+		slog.Debug("gowitness output", "driver", driver, "url", url, "output", string(output))
+
+		// Find the generated screenshot file (gowitness generates its own filename)
+		tempFiles, _ = filepath.Glob(filepath.Join(tempDir, "*.jpeg"))
+		if len(tempFiles) > 0 {
+			break
+		}
+
+		reason = failureReason(finalJSONPath, output)
+		slog.Warn("gowitness produced no screenshot",
+			"driver", driver, "url", url, "reason", reason, "output", string(output))
 	}
-
-	// Find the generated screenshot file (gowitness generates its own filename)
-	tempFiles, err := filepath.Glob(filepath.Join(tempDir, "*.jpeg"))
-	if err != nil || len(tempFiles) == 0 {
-		return nil, fmt.Errorf("no screenshot file generated in temp directory")
+	if len(tempFiles) == 0 {
+		os.Remove(finalJSONPath) // don't leave orphaned metadata for a bookmark with no screenshot
+		return nil, fmt.Errorf("no screenshot file generated (gowitness: %s)", reason)
 	}
 	tempImagePath := tempFiles[0]
 
@@ -172,6 +174,57 @@ func (s *ScreenshotService) TakeScreenshot(url, bookmarkID string) (*ScreenshotR
 
 	slog.Info("screenshot taken", "url", url, "path", finalImagePath, "jsonPath", finalJSONPath, "title", title)
 	return result, nil
+}
+
+const (
+	// per-attempt page timeout handed to gowitness
+	gowitnessTimeoutSecs = 12
+	// hard cap on a gowitness process, in case it hangs outside its own timeout
+	gowitnessKillAfter = 45 * time.Second
+)
+
+// runGowitness runs a single gowitness scan with the given driver, returning
+// its combined output.
+func (s *ScreenshotService) runGowitness(url, driver, tempDir, jsonPath string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), gowitnessKillAfter)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, s.gowitnessBin, "scan", "single",
+		"--url", url,
+		"--driver", driver,
+		"--timeout", strconv.Itoa(gowitnessTimeoutSecs),
+		"--screenshot-path", tempDir,
+		"--screenshot-format", "jpeg",
+		"--chrome-window-x", "1280",
+		"--chrome-window-y", "939", // this is how we get 800px height unfortunately
+		"--javascript-file", "./bookmarks/accept.js",
+		// without this some scanning errors will be completely silent
+		"--log-scan-errors",
+		"--write-jsonl",
+		"--write-jsonl-file", jsonPath)
+
+	slog.Info("executing gowitness command", "args", cmd.Args, "url", url, "tempDir", tempDir)
+	return cmd.CombinedOutput()
+}
+
+// failureReason works out why gowitness produced no screenshot: timeouts are
+// recorded in the jsonl, while navigation errors (dns, refused, ...) only show
+// up as an ERRO line in its output.
+func failureReason(jsonPath string, output []byte) string {
+	var failed GoWitnessOutput
+	if data, err := os.ReadFile(jsonPath); err == nil && json.Unmarshal(data, &failed) == nil && failed.FailedReason != "" {
+		return failed.FailedReason
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.Contains(lines[i], " ERRO ") {
+			if _, errPart, ok := strings.Cut(lines[i], "err="); ok {
+				return strings.Trim(errPart, `"`)
+			}
+			return strings.TrimSpace(lines[i])
+		}
+	}
+	return "unknown"
 }
 
 // DeleteScreenshot removes a screenshot file and its associated JSON metadata

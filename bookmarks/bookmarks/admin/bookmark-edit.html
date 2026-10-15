@@ -9,47 +9,73 @@
         </div>
     </div>
     <div class="bookmark-url-input-container">
-        <span class="take-snapshot-container"><i id="take-snapshot" class="fa-solid fa-camera-retro"></i></span>
         <input type="url" name="url" id="url" class="bookmark-url-input js-clear-default"
             value="{{if .bookmark.URL}}{{ .bookmark.URL}}{{else}}https://...{{end}}" data-default="https://...">
     </div>
-    <div class="bookmark-content-grid">
-        <div class="bookmark-icon-preview">
-            {{if screenshotURL .bookmark.IconPath}}
-                <a href="{{screenshotURL .bookmark.ScreenshotPath}}" target="_blank">
-                    <img src="{{screenshotURL .bookmark.IconPath}}">
+
+    <div class="bookmark-dates">
+        Created {{.bookmark.CreatedAt | naturalTime}} &middot; Updated {{.bookmark.UpdatedAt | naturalTime}}{{if gt .bookmark.Published 0}} &middot; Published {{.bookmark.PublishedAt | naturalTime}}{{end}}
+    </div>
+
+    {{$og := screenshotURL .bookmark.OGImagePath}}
+    {{$shot := screenshotURL .bookmark.ScreenshotPath}}
+    {{$kind := .bookmark.ImageKind}}
+    <div class="bookmark-card-grid">
+        <div class="bookmark-card-column">
+            {{/* the card is a read-only snapshot of the site's own metadata; the buttons over it
+                 take a screenshot, reload the card, and (with two images) flip between them */}}
+            <div class="link-card-wrap{{if not $kind}} no-image{{end}}"{{if and $og $shot}} data-carousel{{end}}>
+                <a class="link-card" href="{{.bookmark.URL}}" target="_blank" rel="noopener">
+                    <div class="link-card-media">
+                        {{if $og}}<img class="card-img{{if eq $kind "og"}} active{{end}}" data-kind="og" data-label="og:image" src="{{$og}}" alt="">{{end}}
+                        {{if $shot}}<img class="card-img{{if eq $kind "screenshot"}} active{{end}}" data-kind="screenshot" data-label="screenshot" src="{{$shot}}" alt="">{{end}}
+                    </div>
+                    <div class="link-card-content">
+                        <div class="link-card-title">{{.bookmark.CardTitle}}</div>
+                        {{if .bookmark.OGDescription}}
+                        <div class="link-card-description">{{.bookmark.OGDescription}}</div>
+                        {{else if not .bookmark.HasCard}}
+                        <div class="link-card-description link-card-none">Site metadata not loaded</div>
+                        {{end}}
+                        <hr>
+                        <div class="link-card-domain"><i class="fa-solid fa-earth-asia"></i> {{.bookmark.CardSource}}</div>
+                        {{with .bookmark.LoadedShort}}<div class="link-card-loaded" title="{{$.bookmark.OGFetchedAt}}">loaded {{.}}</div>{{end}}
+                    </div>
                 </a>
-            {{else if screenshotURL .bookmark.ScreenshotPath}}
-                <img src="{{screenshotURL .bookmark.ScreenshotPath}}">
-            {{end}}
-        </div>
-        <div class="bookmark-info">
-            <div>
-                <label for="created">Created At:</label>
-                <input type="timestamp" name="created" id="created" value="{{.bookmark.CreatedAt}}">
-                <span class="date" style="float:none;">{{.bookmark.CreatedAt | naturalTime}}</span>
-            </div>
-            <div>
-                <div>Screenshot Path: <span class="mono">{{.bookmark.ScreenshotPath}}</span>
+                <div class="card-overlay">
+                    <div class="card-controls">
+                        <button type="button" class="card-btn" id="take-snapshot" title="Take a screenshot"><i class="fa-solid fa-camera-retro"></i></button>
+                        <button type="button" class="card-btn" id="refresh-metadata" title="Reload the card from the site"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                    {{if and $og $shot}}
+                    <button type="button" class="card-btn card-nav card-nav-prev" title="Show the other image"><span class="chevron"></span></button>
+                    <button type="button" class="card-btn card-nav card-nav-next" title="Show the other image"><span class="chevron"></span></button>
+                    {{end}}
+                    {{if $kind}}
+                    <div class="card-image-info">
+                        <span class="card-image-label">{{if eq $kind "og"}}og:image{{else}}screenshot{{end}}</span>
+                        <button type="button" class="card-delete-image" title="Delete this image"><i class="fa-solid fa-circle-xmark"></i></button>
+                    </div>
+                    {{end}}
                 </div>
             </div>
-            <div>
-                <div>Icon Path: <span class="mono">{{.bookmark.IconPath}}</span>
-                </div>
+            <input type="hidden" name="image" id="image-choice" value="{{.bookmark.ImageChoice}}">
+            {{if or .bookmark.CardLoaded .bookmark.HasCard}}{{with .bookmark.CardMissing}}
+            <div class="link-card-caption">Site has no {{range $i, $m := .}}{{if $i}}, {{end}}{{$m}}{{end}}</div>
+            {{end}}{{end}}
+        </div>
+
+        <div class="description-editor">
+            <div class="editor-tabs">
+                <button type="button" class="editor-tab active" data-pane="write">Description</button>
+                <button type="button" class="editor-tab" data-pane="preview">Preview</button>
             </div>
-            <div>
-                Updated At: <span class="date" style="float:none;">{{.bookmark.UpdatedAt | naturalTime}}</span>
-            </div>
-            <div>
-                Published At: <span class="date" style="float:none;">{{.bookmark.PublishedAt | naturalTime}}</span>
-            </div>
+            <textarea class="description-input" name="description" id="description" spellcheck="true"
+                placeholder="Shown instead of the card's description">{{.bookmark.Description}}</textarea>
+            <div class="description-preview" id="description-preview" hidden></div>
         </div>
     </div>
-    <div>
-        <textarea class="split-content-input js-clear-default" name="description" id="description" spellcheck="true" data-default="Optional description...">{{
-            if .bookmark.Description}}{{.bookmark.Description}}{{else}}Optional description...{{end
-        }}</textarea>
-    </div>
+
     <div class="button-group">
       <div class="published">
           <input type="hidden" value="{{.bookmark.Published}}" name="published" id="published">
@@ -66,4 +92,8 @@
 
 <script src="/static/js/wasm_exec_1.23.4.js"></script>
 <script src="/static/js/goldmark.js"></script>
-<script>$(() => {$("#description").livePreview()});</script>
+<script>$(() => {
+    // a wide page, like the other editors; the shrink/grow buttons adjust this
+    $(".container").css("width", "1200px");
+    $("#description").markdown($("#description-preview"));
+});</script>

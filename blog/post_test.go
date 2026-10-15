@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/monet/pkg/vfs"
+	"github.com/jmoiron/monet/uploads"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +17,10 @@ func TestPost(t *testing.T) {
 	db, err := sqlx.Connect("sqlite3", ":memory:")
 	assert.NoError(err)
 
-	assert.NoError(NewApp(db).Migrate())
+	fss := vfs.NewRegistry(vfs.NewURLMapper(nil))
+	// blog migrations reference the upload table
+	assert.NoError(uploads.NewApp(db, fss).Migrate())
+	assert.NoError(NewApp(db, fss).Migrate())
 
 	serv := NewPostService(db)
 

@@ -2,7 +2,6 @@ package pages
 
 import (
 	"embed"
-	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -81,7 +80,7 @@ func (a *App) page(w http.ResponseWriter, r *http.Request) {
 
 	reg := mtr.RegistryFromContext(r.Context())
 	err = reg.RenderWithBase(w, "base", "pages/page.html", mtr.Ctx{
-		"title": fmt.Sprintf(p.Title),
+		"title": p.Title,
 		"page":  template.HTML(p.ContentRendered),
 	})
 

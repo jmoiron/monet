@@ -73,25 +73,21 @@ func (a *App) Register(reg *mtr.Registry) {
 				return app.FmtTimestamp(t.Unix())
 			},
 			"screenshotURL": func(screenshotPath string) string {
-				slog.Debug("screenshotURL: called", "path", screenshotPath, "fss", a.fss != nil)
 				if a.fss == nil {
 					slog.Debug("screenshotURL: no fss")
 					return ""
 				}
 				if screenshotPath == "" {
-					slog.Debug("screenshotURL: empty path")
 					return ""
 				}
 				// Extract filename from the screenshot path
 				filename := path.Base(screenshotPath)
-				slog.Debug("screenshotURL: processing", "path", screenshotPath, "filename", filename)
 				// Get the URL for the specific screenshot file
 				screenshotURL, err := a.fss.Mapper().GetURL("screenshots", filename)
 				if err != nil {
 					slog.Debug("screenshotURL: GetURL failed", "error", err)
 					return ""
 				}
-				slog.Debug("screenshotURL: success", "url", screenshotURL)
 				return screenshotURL
 			},
 		}),

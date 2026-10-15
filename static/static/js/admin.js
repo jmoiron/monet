@@ -496,50 +496,83 @@ $(function() {
       }
     });
 
-    $("#take-snapshot").on("click", (e) => {
-        // swap the camera out with a small spinner
-        // load the image
-        // show the camera green if success, red if fail
-        var $this = $(e.target);
-        var id = $("#id").val();
-        var container = $this.parent();
-        var spinner = $(`<span class="loader-small"></span>`);
-        console.log($this);
-        container.html("");
-        // container.remove($this);
-        container.append(spinner);
-        console.log(container);
+    // The buttons over the bookmark card. While one is working its icon is swapped
+    // for a spinner; fn gets a function that restores the button.
+    function withSpinner($btn, fn) {
+        if ($btn.prop("disabled")) { return; }
+        $btn.prop("disabled", true);
+        $btn.children("i").hide();
+        $btn.append(`<span class="loader-small"></span>`);
+        fn(() => {
+            $btn.children(".loader-small").remove();
+            $btn.children("i").show();
+            $btn.prop("disabled", false);
+        });
+    }
 
-        // Make fetch call to screenshot API
-        fetch(`/admin/bookmarks/ss/${id}`)
-            .then(response => response.json())
-            .then(data => {
-                console.log("Screenshot response:", data);
-                if (data.success) {
-                    // Update title if provided
-                    if (data.title && data.title.length > 0) {
-                        $("#title").val(data.title);
+    // run a request that returns {success, error}; reload the page to show the
+    // result on success, otherwise report the error and restore the button
+    function cardAction($btn, url, what, options) {
+        withSpinner($btn, (restore) => {
+            fetch(url, options)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.warning) { alert(`${what}: ${data.warning}`); }
+                        window.location.reload();
+                        return;
                     }
-                    // Update description if provided
-                    if (data.description && data.description.length > 0) {
-                        $("#description").val(data.description);
-                    }
-                    
-                    // Refresh the page to show the screenshot and updated fields
-                    window.location.reload();
-                } else {
-                    // Show error and restore camera icon
-                    console.error("Screenshot failed:", data.error);
-                    container.html("");
-                    container.append($this);
-                }
-            })
-            .catch(error => {
-                console.error("Screenshot failed:", error);
-                // Restore the camera icon even on error
-                container.html("");
-                container.append($this);
-            });
+                    console.error(`${what} failed:`, data.error);
+                    alert(`${what} failed: ${data.error}`);
+                    restore();
+                })
+                .catch(error => {
+                    console.error(`${what} failed:`, error);
+                    alert(`${what} failed: ${error}`);
+                    restore();
+                });
+        });
+    }
+
+    $("#take-snapshot").on("click", function() {
+        cardAction($(this), `/admin/bookmarks/ss/${$("#id").val()}`, "Screenshot");
+    });
+
+    $("#refresh-metadata").on("click", function() {
+        cardAction($(this), `/admin/bookmarks/metadata/${$("#id").val()}`, "Reloading the card");
+    });
+
+    // Delete the image the card is showing, from the record and from disk.
+    $(".card-delete-image").on("click", function() {
+        var kind = $(".link-card-wrap .card-img.active").attr("data-kind");
+        var name = kind === "og" ? "og:image" : "screenshot";
+        if (!confirm(`Delete this ${name}? The file is removed from disk.`)) { return; }
+        cardAction($(this), `/admin/bookmarks/image/${$("#id").val()}/${kind}`, `Deleting the ${name}`, {method: "POST"});
+    });
+
+    // With both an og:image and a screenshot the card flips between them. What is
+    // showing is what gets saved (the hidden "image" field) and so what the
+    // public pages show.
+    $(".link-card-wrap[data-carousel] .card-nav").on("click", function() {
+        var wrap = $(this).closest(".link-card-wrap");
+        var imgs = wrap.find(".card-img");
+        var next = imgs.filter(":not(.active)").first();
+        imgs.removeClass("active");
+        next.addClass("active");
+        wrap.find(".card-image-label").text(next.attr("data-label"));
+        $("#image-choice").val(next.attr("data-kind"));
+    });
+
+    // Description / Preview tabs. The preview is kept current by the markdown
+    // plugin whether or not it is showing.
+    $(".editor-tab").on("click", function() {
+        var $tab = $(this);
+        var preview = $tab.attr("data-pane") === "preview";
+        $(".editor-tab").removeClass("active");
+        $tab.addClass("active");
+        $("#description").prop("hidden", preview);
+        $("#description-preview").prop("hidden", !preview);
+        if (!preview) { $("#description").trigger("focus"); }
     });
 
     // Clear default values before form submission

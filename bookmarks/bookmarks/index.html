@@ -9,10 +9,10 @@
 <ul class="shortlist listpage">
 {{range $bookmark := .bookmarks}}
 <li class="bookmark-item">
-{{if screenshotURL $bookmark.IconPath}}
+{{with screenshotURL $bookmark.ThumbPath}}
 <div class="bookmark-icon">
-<a href="{{screenshotURL $bookmark.ScreenshotPath}}" target="_blank">
-<img src="{{screenshotURL $bookmark.IconPath}}" alt="Screenshot of {{$bookmark.Title}}">
+<a href="{{screenshotURL $bookmark.DisplayImagePath}}" target="_blank">
+<img src="{{.}}" alt="Preview of {{$bookmark.Title}}">
 </a>
 </div>
 {{end}}
@@ -26,6 +26,8 @@
 <span class="date">{{$bookmark.CreatedAt | naturalTime}}</span>
 {{if $bookmark.Description}}
 <div class="description">{{$bookmark.DescriptionRendered | safe}}</div>
+{{else if $bookmark.OGDescription}}
+<div class="description">{{$bookmark.OGDescription}}</div>
 {{end}}
 </div>
 </li>

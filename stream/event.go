@@ -83,6 +83,34 @@ var eventMigration = monarch.Set{
 		}, {
 			Up:   `ALTER TABLE event ADD COLUMN hidden integer NOT NULL DEFAULT 0;`,
 			Down: `UPDATE event SET hidden=0;`,
+		}, {
+			// event_fts is an external content table, so its triggers must name the
+			// event's rowid on every insert and delete. Without it the index picks
+			// its own rowids, 'delete' targets the wrong entry and the index is
+			// corrupted. Recreate the triggers correctly and rebuild to heal any
+			// existing damage; the statements are idempotent so a failure partway
+			// can be re-run.
+			Up: `
+				DROP TRIGGER IF EXISTS event_i;
+				DROP TRIGGER IF EXISTS event_d;
+				DROP TRIGGER IF EXISTS event_u;
+				CREATE TRIGGER event_i AFTER INSERT ON event BEGIN
+					INSERT INTO event_fts (rowid, id, title, type, url, timestamp, data) VALUES
+						(new.id, new.id, new.title, new.type, new.url, new.timestamp, new.data);
+				END;
+				CREATE TRIGGER event_d AFTER DELETE ON event BEGIN
+					INSERT INTO event_fts (event_fts, rowid, id, title, type, url, timestamp, data) VALUES
+						('delete', old.id, old.id, old.title, old.type, old.url, old.timestamp, old.data);
+				END;
+				CREATE TRIGGER event_u AFTER UPDATE ON event BEGIN
+					INSERT INTO event_fts (event_fts, rowid, id, title, type, url, timestamp, data) VALUES
+						('delete', old.id, old.id, old.title, old.type, old.url, old.timestamp, old.data);
+					INSERT INTO event_fts (rowid, id, title, type, url, timestamp, data) VALUES
+						(new.id, new.id, new.title, new.type, new.url, new.timestamp, new.data);
+				END;
+				INSERT INTO event_fts(event_fts) VALUES ('rebuild');`,
+			// the previous triggers were the bug; downgrading keeps the fixed ones
+			Down: `SELECT 1;`,
 		},
 	},
 }

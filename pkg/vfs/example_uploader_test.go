@@ -3,12 +3,16 @@ package vfs_test
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/jmoiron/monet/pkg/vfs"
 )
 
 // Example showing how to use the uploader functionality
 func ExampleUploader() {
+	dir, _ := os.MkdirTemp("", "uploads")
+	defer os.RemoveAll(dir)
+
 	// Create a URL mapper
 	urlMap := map[string]string{
 		"uploads": "/files",
@@ -20,7 +24,7 @@ func ExampleUploader() {
 	registry := vfs.NewRegistry(urlMapper)
 
 	// Add a filesystem path for uploads
-	err := registry.AddPath("uploads", "/tmp/uploads")
+	err := registry.AddPath("uploads", dir)
 	if err != nil {
 		panic(err)
 	}
@@ -50,12 +54,15 @@ func ExampleUploader() {
 
 // Example showing how to create an uploader manually
 func ExampleNewUploader() {
+	dir, _ := os.MkdirTemp("", "uploads")
+	defer os.RemoveAll(dir)
+
 	// Create a URL mapper and filesystem
 	urlMap := map[string]string{"uploads": "/files"}
 	urlMapper := vfs.NewURLMapper(urlMap)
 
 	registry := vfs.NewRegistry(urlMapper)
-	registry.AddPath("uploads", "/tmp/uploads")
+	registry.AddPath("uploads", dir)
 
 	// Get the filesystem
 	fs, _ := registry.Get("uploads")

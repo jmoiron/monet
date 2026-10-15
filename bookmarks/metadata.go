@@ -366,7 +366,9 @@ func LoadCard(ctx context.Context, client *http.Client, b *Bookmark, imgDir stri
 	if m.Title == "" && m.Description == "" && m.SiteName == "" && m.ImageURL == "" {
 		return nil, fmt.Errorf("%s: page has no title, description or image metadata", b.URL)
 	}
-	slog.Debug("bookmark metadata", "url", b.URL, "meta", m)
+	// at info: when a card comes out wrong, this is what the site actually gave us
+	slog.Info("fetched card metadata", "url", b.URL, "final_url", m.FinalURL,
+		"title", m.Title, "site_name", m.SiteName, "has_description", m.Description != "", "image", m.ImageURL)
 
 	var updated []string
 	set := func(name string, dst *string, val string) {
@@ -403,6 +405,9 @@ func LoadCard(ctx context.Context, client *http.Client, b *Bookmark, imgDir stri
 				}
 				b.OGImagePath = path
 				updated = append(updated, "og_image")
+				if fi, err := os.Stat(path); err == nil {
+					slog.Info("saved card image", "url", m.ImageURL, "path", path, "bytes", fi.Size())
+				}
 			}
 		}
 	}

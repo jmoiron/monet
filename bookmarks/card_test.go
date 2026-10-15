@@ -425,3 +425,15 @@ func TestLoadedShort(t *testing.T) {
 	old := time.Date(now.Year()-2, time.March, 4, 12, 0, 0, 0, time.Local)
 	assert.Equal(old.Format("Jan 2, 2006"), (&Bookmark{OGFetchedAt: old}).LoadedShort(), "other years show the year")
 }
+
+func TestCardMissingNeverReportsImage(t *testing.T) {
+	assert := assert.New(t)
+	assert.Equal([]string{"title", "description"}, (&Bookmark{}).CardMissing())
+	assert.Equal([]string{"description"}, (&Bookmark{OGTitle: "t"}).CardMissing())
+	assert.Empty((&Bookmark{OGTitle: "t", OGDescription: "d"}).CardMissing())
+
+	// we may hold no image file for lots of reasons (deleted, failed download,
+	// showing the screenshot), none of which mean the site had no image
+	assert.NotContains((&Bookmark{OGTitle: "t", OGDescription: "d"}).CardMissing(), "image")
+	assert.NotContains((&Bookmark{}).CardMissing(), "image")
+}

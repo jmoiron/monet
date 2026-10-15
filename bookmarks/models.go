@@ -349,9 +349,11 @@ func (b *Bookmark) CardLoaded() bool {
 	return b.OGFetchedAt.Unix() > 0
 }
 
-// CardMissing names the parts of the card the site didn't provide, for
-// presenting partial loads: "title", "description" and "image". A missing site
-// name isn't listed because the domain stands in for it.
+// CardMissing names the text parts of the card the site didn't provide, for
+// presenting partial loads: "title" and "description". A missing site name isn't
+// listed because the domain stands in for it, and neither is the image: whether
+// we hold a file says nothing about whether the site had one (it may have been
+// deleted, or failed to download, or we may be showing the screenshot).
 func (b *Bookmark) CardMissing() []string {
 	var missing []string
 	if b.OGTitle == "" {
@@ -359,9 +361,6 @@ func (b *Bookmark) CardMissing() []string {
 	}
 	if b.OGDescription == "" {
 		missing = append(missing, "description")
-	}
-	if b.OGImagePath == "" {
-		missing = append(missing, "image")
 	}
 	return missing
 }

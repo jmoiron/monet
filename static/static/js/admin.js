@@ -518,17 +518,18 @@ $(function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        if (data.warning) { alert(`${what}: ${data.warning}`); }
+                        // the page reloads to show the result, which would wipe a flash shown now
+                        if (data.warning) { $.flashNext(`${what}: ${data.warning}`, "warning"); }
                         window.location.reload();
                         return;
                     }
                     console.error(`${what} failed:`, data.error);
-                    alert(`${what} failed: ${data.error}`);
+                    $.flash(`${what} failed: ${data.error}`, "error");
                     restore();
                 })
                 .catch(error => {
                     console.error(`${what} failed:`, error);
-                    alert(`${what} failed: ${error}`);
+                    $.flash(`${what} failed: ${error}`, "error");
                     restore();
                 });
         });

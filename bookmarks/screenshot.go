@@ -100,36 +100,43 @@ func (s *ScreenshotService) TakeScreenshot(url, bookmarkID string) (*ScreenshotR
 
 	// Pages should either screenshot quickly or fail. The default chromedp driver
 	// occasionally hangs on pages that screenshot fine with gowitness' other
-	// driver (rod), so if it produces nothing we retry once with that.
+	// driver (rod), so if a driver produces nothing, whether it ran and found no
+	// page or crashed outright, we try the other one.
 	var tempFiles []string
-	var reason string
+	var reasons []string
 	for _, driver := range []string{"chromedp", "gorod"} {
 		// the jsonl writer appends; start each attempt with a clean file
 		os.Remove(finalJSONPath)
 
+		start := time.Now()
 		output, err := s.runGowitness(url, driver, tempDir, finalJSONPath)
+		var reason string
 		if err != nil {
-			slog.Error("gowitness command failed", "driver", driver, "error", err, "output", string(output))
-			return nil, fmt.Errorf("failed to take screenshot: %w", err)
+			// gowitness failed to run at all (bad setup, no browser, killed...).
+			// It reports why in prose after a dump of its usage text.
+			reason = commandFailureReason(output, err)
+			slog.Warn("gowitness command failed", "driver", driver, "url", url, "took", time.Since(start).Round(time.Millisecond),
+				"error", err, "reason", reason, "output_tail", tailText(output, 800))
+		} else {
+			// gowitness exits 0 even when the scan fails (eg. a timeout); the reason is
+			// only in its output and in the jsonl it wrote, so surface both
+			slog.Debug("gowitness output", "driver", driver, "url", url, "output", string(output))
+
+			// Find the generated screenshot file (gowitness generates its own filename)
+			tempFiles, _ = filepath.Glob(filepath.Join(tempDir, "*.jpeg"))
+			if len(tempFiles) > 0 {
+				break
+			}
+			reason = failureReason(finalJSONPath, output)
+			slog.Warn("gowitness produced no screenshot",
+				"driver", driver, "url", url, "took", time.Since(start).Round(time.Millisecond),
+				"reason", reason, "output", string(output))
 		}
-
-		// gowitness exits 0 even when the scan fails (eg. a timeout); the reason is
-		// only in its output and in the jsonl it wrote, so surface both
-		slog.Debug("gowitness output", "driver", driver, "url", url, "output", string(output))
-
-		// Find the generated screenshot file (gowitness generates its own filename)
-		tempFiles, _ = filepath.Glob(filepath.Join(tempDir, "*.jpeg"))
-		if len(tempFiles) > 0 {
-			break
-		}
-
-		reason = failureReason(finalJSONPath, output)
-		slog.Warn("gowitness produced no screenshot",
-			"driver", driver, "url", url, "reason", reason, "output", string(output))
+		reasons = append(reasons, driver+": "+reason)
 	}
 	if len(tempFiles) == 0 {
 		os.Remove(finalJSONPath) // don't leave orphaned metadata for a bookmark with no screenshot
-		return nil, fmt.Errorf("no screenshot file generated (gowitness: %s)", reason)
+		return nil, fmt.Errorf("no screenshot file generated (gowitness: %s)", strings.Join(reasons, "; "))
 	}
 	tempImagePath := tempFiles[0]
 
@@ -215,6 +222,14 @@ func failureReason(jsonPath string, output []byte) string {
 	if data, err := os.ReadFile(jsonPath); err == nil && json.Unmarshal(data, &failed) == nil && failed.FailedReason != "" {
 		return failed.FailedReason
 	}
+	if r := lastErroLine(output); r != "" {
+		return r
+	}
+	return "unknown"
+}
+
+// lastErroLine is the reason from the last "ERRO ... err=..." line gowitness logged.
+func lastErroLine(output []byte) string {
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 	for i := len(lines) - 1; i >= 0; i-- {
 		if strings.Contains(lines[i], " ERRO ") {
@@ -224,7 +239,43 @@ func failureReason(jsonPath string, output []byte) string {
 			return strings.TrimSpace(lines[i])
 		}
 	}
-	return "unknown"
+	return ""
+}
+
+// commandFailureReason explains a gowitness run that exited non-zero. cobra prints
+// the command's whole usage text and then "The error was:" followed by the
+// message, wrapped to a fixed width and padded; older gowitness versions can
+// leave that message empty.
+func commandFailureReason(output []byte, err error) string {
+	if _, after, ok := strings.Cut(string(output), "The error was:"); ok {
+		var parts []string
+		for _, line := range strings.Split(after, "\n") {
+			if l := strings.TrimSpace(line); l != "" {
+				parts = append(parts, l)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, " ")
+		}
+		return fmt.Sprintf("%v, and gowitness gave no error text (run the command by hand with -D to see why)", err)
+	}
+	if r := lastErroLine(output); r != "" {
+		return r
+	}
+	if strings.Contains(err.Error(), "killed") {
+		return fmt.Sprintf("killed after %s without finishing", gowitnessKillAfter)
+	}
+	return err.Error()
+}
+
+// tailText is the last n bytes of output, trimmed, for logging without the
+// usage text gowitness prints ahead of its error.
+func tailText(output []byte, n int) string {
+	text := strings.TrimSpace(string(output))
+	if len(text) <= n {
+		return text
+	}
+	return "..." + text[len(text)-n:]
 }
 
 // DeleteScreenshot removes a screenshot file and its associated JSON metadata

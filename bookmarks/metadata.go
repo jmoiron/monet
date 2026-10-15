@@ -2,10 +2,16 @@ package bookmarks
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -40,10 +46,124 @@ type PageMetadata struct {
 
 // newBrowserClient returns an http.Client that keeps cookies and follows
 // redirects like a browser does; some sites bounce through a cookie-setting
-// redirect and loop forever without a jar.
+// redirect and loop forever without a jar. It also fetches missing
+// intermediate certificates the way browsers do (see verifyWithAIA).
 func newBrowserClient() *http.Client {
+	return newBrowserClientRoots(nil)
+}
+
+// newBrowserClientRoots is newBrowserClient with an explicit root pool (nil
+// means the system roots); it exists so tests can trust a private CA.
+func newBrowserClientRoots(roots *x509.CertPool) *http.Client {
 	jar, _ := cookiejar.New(&cookiejar.Options{PublicSuffixList: publicsuffix.List})
-	return &http.Client{Jar: jar, Timeout: metadataTimeout}
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	// Verification is done by verifyWithAIA instead of by crypto/tls, so that it
+	// can fetch intermediates that servers forgot to send. It is not disabled.
+	// (Connections made through a proxy bypass this dialer and keep Go's
+	// default, strict verification.)
+	tr.DialTLSContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		conn := tls.Client(raw, &tls.Config{
+			ServerName:         host,
+			NextProtos:         []string{"h2", "http/1.1"},
+			InsecureSkipVerify: true, // see above: verified in VerifyConnection
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				// use the dialed host, not cs.ServerName, which is empty for IP addresses
+				return verifyWithAIA(cs.PeerCertificates, host, roots)
+			},
+		})
+		if err := conn.HandshakeContext(ctx); err != nil {
+			raw.Close()
+			return nil, err
+		}
+		return conn, nil
+	}
+	tr.ForceAttemptHTTP2 = true
+	return &http.Client{Jar: jar, Timeout: metadataTimeout, Transport: tr}
+}
+
+const (
+	maxAIAFetches  = 4
+	maxAIACertSize = 64 << 10
+)
+
+var aiaClient = &http.Client{Timeout: 5 * time.Second}
+
+// verifyWithAIA verifies the server's certificate chain against roots (system
+// roots if nil) and host. Many servers send an incomplete chain; browsers cope
+// by following the certificate's "CA Issuers" (AIA) URL to fetch the missing
+// intermediate, and Go's crypto/tls does not, so we do the same here when the
+// chain as sent doesn't verify.
+func verifyWithAIA(certs []*x509.Certificate, host string, roots *x509.CertPool) error {
+	if len(certs) == 0 {
+		return errors.New("tls: server sent no certificates")
+	}
+	leaf := certs[0]
+	intermediates := x509.NewCertPool()
+	for _, c := range certs[1:] {
+		intermediates.AddCert(c)
+	}
+	opts := x509.VerifyOptions{
+		DNSName:       host,
+		Roots:         roots,
+		Intermediates: intermediates,
+	}
+
+	_, err := leaf.Verify(opts)
+	if err == nil {
+		return nil
+	}
+	var unknown x509.UnknownAuthorityError
+	if !errors.As(err, &unknown) {
+		return err // expired, wrong host, etc: fetching won't help
+	}
+
+	// walk up the AIA links from the leaf, adding what we find, and retry
+	cur := leaf
+	for i := 0; i < maxAIAFetches; i++ {
+		next := fetchIssuer(cur)
+		if next == nil {
+			break
+		}
+		intermediates.AddCert(next)
+		if _, verr := leaf.Verify(opts); verr == nil {
+			return nil
+		}
+		cur = next
+	}
+	return err
+}
+
+// fetchIssuer downloads the issuer certificate named by c's AIA extension.
+func fetchIssuer(c *x509.Certificate) *x509.Certificate {
+	for _, u := range c.IssuingCertificateURL {
+		resp, err := aiaClient.Get(u)
+		if err != nil {
+			slog.Debug("fetching issuer certificate", "url", u, "error", err)
+			continue
+		}
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxAIACertSize))
+		resp.Body.Close()
+		if err != nil || resp.StatusCode != http.StatusOK {
+			continue
+		}
+		if cert, err := x509.ParseCertificate(data); err == nil { // DER, the usual case
+			return cert
+		}
+		if block, _ := pem.Decode(data); block != nil {
+			if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+				return cert
+			}
+		}
+	}
+	return nil
 }
 
 // setBrowserHeaders makes a request look like a top-level browser navigation.

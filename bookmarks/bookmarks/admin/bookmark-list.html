@@ -3,11 +3,15 @@
 <ul class="shortlist listpage">
 {{range $bookmark := .bookmarks}}
     <li class="bookmark-item admin-bookmark-item">
-        {{if screenshotURL $bookmark.IconPath}}
+        {{with screenshotURL $bookmark.IconPath}}
         <div class="bookmark-icon">
-            <img src="{{screenshotURL $bookmark.IconPath}}" alt="Screenshot of {{$bookmark.Title}}">
+            <img src="{{.}}" alt="Screenshot of {{$bookmark.Title}}">
         </div>
-        {{end}}
+        {{else}}{{with screenshotURL $bookmark.OGImagePath}}
+        <div class="bookmark-icon">
+            <img src="{{.}}" alt="Preview image for {{$bookmark.Title}}">
+        </div>
+        {{end}}{{end}}
         <div class="bookmark-content">
             <div class="bookmark-title-line">
                 <a href="/admin/bookmarks/edit/{{$bookmark.ID}}">{{$bookmark.Title}}</a>

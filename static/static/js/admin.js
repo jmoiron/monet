@@ -546,7 +546,8 @@ $(function() {
         var $this = $(e.target);
         var id = $("#id").val();
         var container = $this.parent();
-        container.html($(`<span class="loader-small"></span>`));
+        container.html("");
+        container.append($(`<span class="loader-small"></span>`));
 
         fetch(`/admin/bookmarks/metadata/${id}`)
             .then(response => response.json())

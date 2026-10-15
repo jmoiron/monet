@@ -6,7 +6,10 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -137,8 +140,75 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
-	query = db.SafeQuery(query)
+const (
+	viewList  = "list"
+	viewCards = "cards"
+
+	viewCookie = "bookmarks_view"
+)
+
+// listView is how the bookmarks are laid out: "list" or "cards". Following a
+// ?view= link picks one and remembers it in a cookie, so that it carries over
+// to searches and other pages, which have no way of passing it along.
+func (a *App) listView(w http.ResponseWriter, req *http.Request) string {
+	w.Header().Add("Vary", "Cookie")
+	if v := req.URL.Query().Get("view"); v == viewList || v == viewCards {
+		cookiePath := strings.TrimSuffix(a.BaseURL, "/")
+		if cookiePath == "" {
+			cookiePath = "/"
+		}
+		http.SetCookie(w, &http.Cookie{
+			Name:     viewCookie,
+			Value:    v,
+			Path:     cookiePath,
+			MaxAge:   365 * 24 * 60 * 60,
+			SameSite: http.SameSiteLaxMode,
+		})
+		return v
+	}
+	if c, err := req.Cookie(viewCookie); err == nil && c.Value == viewCards {
+		return viewCards
+	}
+	return viewList
+}
+
+// viewLinks are the addresses of this same page in each view
+func viewLinks(req *http.Request) map[string]string {
+	links := map[string]string{}
+	for _, v := range []string{viewList, viewCards} {
+		q := url.Values{"view": {v}}
+		if query := req.URL.Query().Get("q"); query != "" {
+			q.Set("q", query)
+		}
+		links[v] = req.URL.Path + "?" + q.Encode()
+	}
+	return links
+}
+
+// pageLinkFn makes the page links of a paginator, which keep a search going
+func (a *App) pageLinkFn(query string) mtr.LinkFn {
+	base := path.Join(a.BaseURL, "page")
+	return func(p int) string {
+		link := path.Join(base, strconv.Itoa(p))
+		if query != "" {
+			link += "?" + url.Values{"q": {query}}.Encode()
+		}
+		return link
+	}
+}
+
+// renderList renders the list page in the view the reader chose
+func (a *App) renderList(w http.ResponseWriter, req *http.Request, ctx mtr.Ctx) {
+	ctx["view"] = a.listView(w, req)
+	ctx["viewLinks"] = viewLinks(req)
+	reg := mtr.RegistryFromContext(req.Context())
+	if err := reg.RenderWithBase(w, "base", "bookmarks/index.html", ctx); err != nil {
+		slog.Error("rendering template", "err", err)
+	}
+}
+
+func (a *App) search(w http.ResponseWriter, req *http.Request, rawQuery string) {
+	query := db.SafeQuery(rawQuery)
 
 	serv := NewBookmarkService(a.db)
 	count, err := serv.SearchCount(query)
@@ -150,17 +220,14 @@ func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
 	reg := mtr.RegistryFromContext(req.Context())
 
 	if count == 0 {
-		reg.RenderWithBase(w, "base", "bookmarks/index.html", mtr.Ctx{
-			"query": query,
-		})
+		a.renderList(w, req, mtr.Ctx{"query": query})
 		return
 	}
 
 	pageNum := app.GetIntParam(req, "page", 1)
 	slog.Debug("loading search page", "page", pageNum)
 
-	pageBase := path.Join(a.BaseURL, "page")
-	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(pageBase))
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(a.pageLinkFn(rawQuery))
 	page := paginator.Page(pageNum)
 
 	bookmarks, err := serv.Search(query, a.PageSize, page.StartOffset)
@@ -169,15 +236,11 @@ func (a *App) search(w http.ResponseWriter, req *http.Request, query string) {
 		return
 	}
 
-	err = reg.RenderWithBase(w, "base", "bookmarks/index.html", mtr.Ctx{
+	a.renderList(w, req, mtr.Ctx{
 		"query":      query,
 		"bookmarks":  bookmarks,
 		"pagination": paginator.Render(reg, page),
 	})
-
-	if err != nil {
-		slog.Error("rendering template", "err", err)
-	}
 }
 
 func (a *App) list(w http.ResponseWriter, req *http.Request) {
@@ -197,8 +260,7 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	pageNum := app.GetIntParam(req, "page", 1)
 	slog.Debug("loading page", "page", pageNum)
 
-	pageBase := path.Join(a.BaseURL, "page")
-	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(pageBase))
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(a.pageLinkFn(""))
 	page := paginator.Page(pageNum)
 
 	q := fmt.Sprintf(`WHERE published > 0 ORDER BY created_at DESC LIMIT %d OFFSET %d`, a.PageSize, page.StartOffset)
@@ -210,14 +272,10 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	}
 
 	reg := mtr.RegistryFromContext(req.Context())
-	err = reg.RenderWithBase(w, "base", "bookmarks/index.html", mtr.Ctx{
+	a.renderList(w, req, mtr.Ctx{
 		"bookmarks":  bookmarks,
 		"pagination": paginator.Render(reg, page),
 	})
-
-	if err != nil {
-		slog.Error("rendering template", "err", err)
-	}
 }
 
 func (a *App) index(w http.ResponseWriter, req *http.Request) {

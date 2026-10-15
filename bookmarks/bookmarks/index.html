@@ -1,29 +1,55 @@
 {{if .query}}<h3><a href="/bookmarks/">All Bookmarks</a></h3>{{end}}
 
-<form action="/bookmarks/" method="GET">
-    <input type="text" name="q" class="search js-clear-default"
-           data-default="Search bookmarks..."
-           value="{{if .query}}{{.query}}{{else}}Search bookmarks...{{end}}">
-</form>
+<div class="bookmark-toolbar">
+    <form action="/bookmarks/" method="GET">
+        <input type="text" name="q" class="search js-clear-default"
+               data-default="Search bookmarks..."
+               value="{{if .query}}{{.query}}{{else}}Search bookmarks...{{end}}">
+    </form>
+    <div class="view-toggle">
+        <a href="{{index .viewLinks "cards"}}" rel="nofollow" title="Cards"{{if eq .view "cards"}} class="active" aria-current="true"{{end}}><i class="fa-solid fa-table-cells-large"></i></a>
+        <a href="{{index .viewLinks "list"}}" rel="nofollow" title="List"{{if eq .view "list"}} class="active" aria-current="true"{{end}}><i class="fa-solid fa-list"></i></a>
+    </div>
+</div>
 
+{{if eq .view "cards"}}
+<div class="bookmark-cards">
+{{range $bookmark := .bookmarks}}
+    {{/* the title link stretches over the whole card; links in the description sit above it */}}
+    <div class="link-card bookmark-card">
+        {{with screenshotURL $bookmark.DisplayImagePath}}
+        <div class="link-card-media"><img src="{{.}}" alt="" loading="lazy"></div>
+        {{end}}
+        <div class="link-card-content">
+            <div class="link-card-title"><a href="{{$bookmark.URL}}" target="_blank" rel="noopener">{{or $bookmark.Title $bookmark.CardTitle}}</a></div>
+            {{if $bookmark.Description}}
+            <div class="link-card-description">{{$bookmark.DescriptionRendered | safe}}</div>
+            {{else if $bookmark.OGDescription}}
+            <div class="link-card-description">{{$bookmark.OGDescription}}</div>
+            {{end}}
+            <hr>
+            <div class="link-card-foot">
+                <span class="link-card-domain"><i class="fa-solid fa-earth-asia"></i> {{$bookmark.CardSource}}</span>
+                <span class="link-card-date">{{$bookmark.CreatedAt | naturalTime}}</span>
+            </div>
+        </div>
+    </div>
+{{end}}
+</div>
+{{else}}
 <ul class="shortlist listpage">
 {{range $bookmark := .bookmarks}}
 <li class="bookmark-item">
-{{with screenshotURL $bookmark.ThumbPath}}
 <div class="bookmark-icon">
-<a href="{{screenshotURL $bookmark.DisplayImagePath}}" target="_blank">
-<img src="{{.}}" alt="Preview of {{$bookmark.Title}}">
+<a href="{{$bookmark.URL}}" target="_blank" rel="noopener" title="Open {{$bookmark.Domain}}">
+{{with screenshotURL $bookmark.ThumbPath}}<img src="{{.}}" alt="Preview of {{$bookmark.Title}}" loading="lazy">{{else}}<span class="bookmark-icon-empty">No image</span>{{end}}
 </a>
 </div>
-{{end}}
 <div class="bookmark-content">
-<a href="/bookmarks/{{$bookmark.ID}}">{{$bookmark.Title}}</a>
-<span class="bookmark-url">
-<a href="{{$bookmark.URL}}" target="_blank" class="external-link">
-<i class="fa-solid fa-link"></i>
-</a>
-</span>
+<div class="bookmark-title-line">
+<a href="{{$bookmark.URL}}" target="_blank" rel="noopener">{{$bookmark.Title}}</a>
 <span class="date">{{$bookmark.CreatedAt | naturalTime}}</span>
+</div>
 {{if $bookmark.Description}}
 <div class="description">{{$bookmark.DescriptionRendered | safe}}</div>
 {{else if $bookmark.OGDescription}}
@@ -33,5 +59,6 @@
 </li>
 {{end}}
 </ul>
+{{end}}
 
 {{.pagination}}

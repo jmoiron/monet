@@ -138,7 +138,7 @@ p code {
 
 // A link preview card (the site's own title/description/image), in the style
 // of the embedded link cards on the bluesky stream items.
-.link-card {
+.link-card, .bookmark-card {
   display: block;
   text-decoration: none;
   color: inherit;
@@ -272,6 +272,82 @@ p code {
     }
   }
 
+  // search box and the cards/list switch
+  .bookmark-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    form { flex: 1; min-width: 0; }
+    input.search { width: 100%; box-sizing: border-box; }
+
+    .view-toggle {
+      display: flex;
+      flex: none;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+
+      a {
+        padding: 8px 12px;
+        color: #aaa;
+        line-height: 1;
+        &:hover { color: @bluehover; }
+        &.active { background: #f3f5f8; color: #333; }
+        & + a { border-left: 1px solid #ddd; }
+      }
+    }
+  }
+
+  // the cards view: two columns of the link cards
+  .bookmark-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    padding: 15px 0;
+
+    .bookmark-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+
+      .link-card-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+      // keeps the footers of a row of cards level
+      hr { margin-top: auto; }
+      .link-card-title a {
+        color: inherit;
+        font-weight: 600;
+        &:hover { color: @bluelink; }
+        // the whole card is the link
+        &::after { content: ""; position: absolute; inset: 0; }
+      }
+      .link-card-description a {
+        position: relative;
+        padding: 0;
+        margin: 0;
+      }
+      .link-card-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: .75rem;
+        color: #667788;
+        font-size: .95rem;
+      }
+      .link-card-domain {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .link-card-date { flex: none; color: #99a; font-size: .8rem; }
+    }
+  }
+
   ul.shortlist { list-style: none; margin: 0; padding: 5px 0;
     li { padding: 5px;
       a { color: #000; padding: 5px 10px; margin-left: 5px;
@@ -289,15 +365,35 @@ p code {
       border-bottom: 1px solid #eee;
       a { padding: 0; }
 
+      // the image is a link to the bookmarked site
       .bookmark-icon {
         flex-shrink: 0;
         width: 200px;
+        a { display: block; line-height: 0; }
         img {
           border: 1px solid #ddd;
           border-radius: 3px;
           width: 200px;
           height: 125px;
           object-fit: cover;
+        }
+        a:hover img, a:hover .bookmark-icon-empty { border-color: @bluelink; }
+
+        // same size as an image, so titles stay in line when there isn't one
+        .bookmark-icon-empty {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-sizing: border-box;
+          width: 200px;
+          height: 125px;
+          border: 1px dashed #ddd;
+          border-radius: 3px;
+          background: #fafafa;
+          color: #aab;
+          font-size: .85rem;
+          font-weight: normal;
+          line-height: 1;
         }
       }
 
@@ -307,22 +403,26 @@ p code {
 
         a { margin-left: 0; } // Override default margin
 
-        .bookmark-url {
-          .external-link {
-            color: #999;
-            font-size: 1em;
-            text-decoration: none;
-            &:hover {
-              color: @bluelink;
-            }
-          }
-        }
+        // title and date share the top line: the title takes the remaining
+        // width (and wraps in it), the date keeps its own
+        .bookmark-title-line {
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
 
-        .date {
-          display: block;
-          margin-top: 5px;
-          font-size: 0.8em;
-          color: #999;
+          > a:first-child {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-weight: bold;
+            overflow-wrap: anywhere;
+          }
+
+          .date {
+            flex: none;
+            white-space: nowrap;
+            font-size: 0.8em;
+            color: #999;
+          }
         }
 
         .description {

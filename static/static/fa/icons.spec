@@ -34,3 +34,5 @@ fa-solid fa-rotate-right
 fa-solid fa-arrows-spin
 fa-solid fa-earth-asia
 fa-solid fa-trash-can
+fa-solid fa-table-cells-large
+fa-solid fa-list

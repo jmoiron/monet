@@ -44,6 +44,8 @@ type GoWitnessOutput struct {
 	Title         string `json:"title"`
 	FinalURL      string `json:"final_url"`
 	StatusCode    int    `json:"status_code"`
+	Failed        bool   `json:"failed"`
+	FailedReason  string `json:"failed_reason"`
 	ContentLength int    `json:"content_length"`
 	Technologies  []struct {
 		Name       string   `json:"name"`
@@ -124,10 +126,21 @@ func (s *ScreenshotService) TakeScreenshot(url, bookmarkID string) (*ScreenshotR
 		return nil, fmt.Errorf("failed to take screenshot: %w", err)
 	}
 
+	// gowitness exits 0 even when the scan fails (eg. a timeout); the reason is
+	// only in its output and in the jsonl it wrote, so surface both
+	slog.Debug("gowitness output", "url", url, "output", string(output))
+
 	// Find the generated screenshot file (gowitness generates its own filename)
 	tempFiles, err := filepath.Glob(filepath.Join(tempDir, "*.jpeg"))
 	if err != nil || len(tempFiles) == 0 {
-		return nil, fmt.Errorf("no screenshot file generated in temp directory")
+		reason := "unknown"
+		var failed GoWitnessOutput
+		if data, rerr := os.ReadFile(finalJSONPath); rerr == nil && json.Unmarshal(data, &failed) == nil && failed.FailedReason != "" {
+			reason = failed.FailedReason
+		}
+		slog.Error("gowitness produced no screenshot",
+			"url", url, "reason", reason, "output", string(output))
+		return nil, fmt.Errorf("no screenshot file generated (gowitness: %s)", reason)
 	}
 	tempImagePath := tempFiles[0]
 

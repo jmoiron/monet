@@ -542,6 +542,33 @@ $(function() {
             });
     });
 
+    $("#refresh-metadata").on("click", (e) => {
+        var $this = $(e.target);
+        var id = $("#id").val();
+        var container = $this.parent();
+        container.html($(`<span class="loader-small"></span>`));
+
+        fetch(`/admin/bookmarks/metadata/${id}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.updated.length > 0) {
+                    // reload to show the newly populated fields
+                    window.location.reload();
+                    return;
+                }
+                if (!data.success) {
+                    console.error("Metadata refresh failed:", data.error);
+                }
+                container.html("");
+                container.append($this);
+            })
+            .catch(error => {
+                console.error("Metadata refresh failed:", error);
+                container.html("");
+                container.append($this);
+            });
+    });
+
     // Clear default values before form submission
     $("form").on("submit", function() {
         $(".js-clear-default", this).each(function() {

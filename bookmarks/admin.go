@@ -2,15 +2,18 @@ package bookmarks
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
@@ -58,6 +61,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/bookmarks/create/", a.create)
 	r.Post("/bookmarks/edit/{id:[^/]+}", a.save)
 	r.Get("/bookmarks/ss/{id:[^/]+}", a.screenshot)
+	r.Get("/bookmarks/metadata/{id:[^/]+}", a.refreshMetadata)
 	r.Get("/bookmarks/delete/{id:[^/]+}", a.delete)
 }
 
@@ -205,6 +209,8 @@ func (a *Admin) create(w http.ResponseWriter, r *http.Request) {
 	b.URL = url
 	b.Title = r.Form.Get("title")
 
+	a.populateMetadata(r.Context(), &b)
+
 	err = serv.Save(&b)
 	if err != nil {
 		app.Http500("saving bookmark", w, err)
@@ -214,6 +220,91 @@ func (a *Admin) create(w http.ResponseWriter, r *http.Request) {
 	// Redirect to edit page
 	editUrl := fmt.Sprintf("/admin/bookmarks/edit/%s", b.ID)
 	http.Redirect(w, r, editUrl, http.StatusFound)
+}
+
+// populateMetadata loads the bookmarked page and fills in any title,
+// description, site name and og:image that the bookmark doesn't already have;
+// existing values are never overwritten. It returns the names of the fields it
+// set. Failures are logged and otherwise ignored.
+func (a *Admin) populateMetadata(ctx context.Context, b *Bookmark) []string {
+	var updated []string
+	client := newBrowserClient()
+	m, err := FetchMetadata(ctx, client, b.URL)
+	if err != nil {
+		slog.Warn("loading bookmark metadata", "url", b.URL, "error", err)
+		return updated
+	}
+	slog.Debug("bookmark metadata", "url", b.URL, "meta", m)
+
+	if (b.Title == "" || b.Title == b.URL) && m.Title != "" {
+		b.Title = m.Title
+		updated = append(updated, "title")
+	}
+	if b.Description == "" && m.Description != "" {
+		b.Description = m.Description
+		updated = append(updated, "description")
+	}
+	if b.SiteName == "" && m.SiteName != "" {
+		b.SiteName = m.SiteName
+		updated = append(updated, "site_name")
+	}
+
+	// treat an og image whose file has gone missing as empty
+	if b.OGImagePath != "" {
+		if _, err := os.Stat(b.OGImagePath); err == nil {
+			return updated
+		}
+	}
+	if m.ImageURL == "" {
+		return updated
+	}
+	dir, err := a.fss.GetPath("screenshots")
+	if err != nil {
+		slog.Warn("no screenshots path for og:image", "error", err)
+		return updated
+	}
+	// the bookmark may have no ID yet (Save treats that as an insert), so name the file independently
+	path, err := DownloadImage(ctx, client, m.ImageURL, m.FinalURL, dir, uuid.New().String()+"-og")
+	if err != nil {
+		slog.Warn("downloading og:image", "url", m.ImageURL, "error", err)
+		return updated
+	}
+	b.OGImagePath = path
+	return append(updated, "og_image")
+}
+
+type MetadataResponse struct {
+	Success bool     `json:"success"`
+	Updated []string `json:"updated"`
+	Error   string   `json:"error,omitempty"`
+}
+
+// refreshMetadata re-runs the metadata fetch for an existing bookmark, filling
+// in only the fields that are currently empty.
+func (a *Admin) refreshMetadata(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	fail := func(code int, msg string) {
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(MetadataResponse{Error: msg})
+	}
+
+	serv := NewBookmarkService(a.db)
+	b, err := serv.GetByID(chi.URLParam(r, "id"))
+	if err != nil {
+		fail(http.StatusNotFound, "bookmark not found")
+		return
+	}
+
+	updated := a.populateMetadata(r.Context(), b)
+	if len(updated) > 0 {
+		if err := serv.Save(b); err != nil {
+			slog.Error("saving refreshed bookmark metadata", "id", b.ID, "error", err)
+			fail(http.StatusInternalServerError, "saving bookmark: "+err.Error())
+			return
+		}
+	}
+	slog.Info("refreshed bookmark metadata", "id", b.ID, "updated", updated)
+	json.NewEncoder(w).Encode(MetadataResponse{Success: true, Updated: updated})
 }
 
 func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
@@ -290,6 +381,7 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 	// Take screenshot
 	result, err := screenshotService.TakeScreenshot(bookmark.URL, bookmark.ID)
 	if err != nil {
+		slog.Error("taking screenshot", "id", bookmark.ID, "url", bookmark.URL, "error", err)
 		response := ScreenshotResponse{
 			Success: false,
 			Error:   fmt.Sprintf("failed to take screenshot: %v", err),

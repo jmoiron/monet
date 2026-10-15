@@ -10,17 +10,23 @@
     </div>
     <div class="bookmark-url-input-container">
         <span class="take-snapshot-container"><i id="take-snapshot" class="fa-solid fa-camera-retro"></i></span>
+        <span class="refresh-metadata-container"><i id="refresh-metadata" class="fa-solid fa-rotate-right" title="Reload title, description and image from the site (fills empty fields only)"></i></span>
         <input type="url" name="url" id="url" class="bookmark-url-input js-clear-default"
             value="{{if .bookmark.URL}}{{ .bookmark.URL}}{{else}}https://...{{end}}" data-default="https://...">
     </div>
     <div class="bookmark-content-grid">
         <div class="bookmark-icon-preview">
-            {{if screenshotURL .bookmark.IconPath}}
-                <a href="{{screenshotURL .bookmark.ScreenshotPath}}" target="_blank">
-                    <img src="{{screenshotURL .bookmark.IconPath}}">
+            {{with screenshotURL .bookmark.IconPath}}
+                <a href="{{screenshotURL $.bookmark.ScreenshotPath}}" target="_blank">
+                    <img src="{{.}}">
                 </a>
-            {{else if screenshotURL .bookmark.ScreenshotPath}}
-                <img src="{{screenshotURL .bookmark.ScreenshotPath}}">
+            {{else}}{{with screenshotURL .bookmark.ScreenshotPath}}
+                <img src="{{.}}">
+            {{end}}{{end}}
+            {{with screenshotURL .bookmark.OGImagePath}}
+                <a href="{{.}}" target="_blank">
+                    <img src="{{.}}" title="og:image">
+                </a>
             {{end}}
         </div>
         <div class="bookmark-info">
@@ -36,6 +42,12 @@
             <div>
                 <div>Icon Path: <span class="mono">{{.bookmark.IconPath}}</span>
                 </div>
+            </div>
+            <div>
+                <div>Site Name: <span class="mono">{{.bookmark.SiteName}}</span></div>
+            </div>
+            <div>
+                <div>OG Image Path: <span class="mono">{{.bookmark.OGImagePath}}</span></div>
             </div>
             <div>
                 Updated At: <span class="date" style="float:none;">{{.bookmark.UpdatedAt | naturalTime}}</span>

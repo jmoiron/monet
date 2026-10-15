@@ -7,13 +7,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"github.com/jmoiron/monet/app"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/mtr"
@@ -62,6 +58,7 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/bookmarks/edit/{id:[^/]+}", a.save)
 	r.Get("/bookmarks/ss/{id:[^/]+}", a.screenshot)
 	r.Get("/bookmarks/metadata/{id:[^/]+}", a.refreshMetadata)
+	r.Post("/bookmarks/image/{id:[^/]+}/{kind:og|screenshot}", a.deleteImage)
 	r.Get("/bookmarks/delete/{id:[^/]+}", a.delete)
 }
 
@@ -158,20 +155,7 @@ func (a *Admin) save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b.URL = r.Form.Get("url")
-	b.Title = r.Form.Get("title")
-	b.Description = r.Form.Get("description")
-
-	formPub, _ := strconv.Atoi(r.Form.Get("published"))
-	if b.Published != formPub {
-		b.Published = formPub
-		if b.Published == 0 {
-			var t time.Time
-			b.PublishedAt = t
-		} else {
-			b.PublishedAt = time.Now()
-		}
-	}
+	b.applyForm(r.Form)
 
 	if err := serv.Save(b); err != nil {
 		app.Http500("saving bookmark", w, err)
@@ -209,7 +193,7 @@ func (a *Admin) create(w http.ResponseWriter, r *http.Request) {
 	b.URL = url
 	b.Title = r.Form.Get("title")
 
-	a.populateMetadata(r.Context(), &b)
+	a.loadCard(r.Context(), &b, false)
 
 	err = serv.Save(&b)
 	if err != nil {
@@ -222,55 +206,19 @@ func (a *Admin) create(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, editUrl, http.StatusFound)
 }
 
-// populateMetadata loads the bookmarked page and fills in any title,
-// description, site name and og:image that the bookmark doesn't already have;
-// existing values are never overwritten. It returns the names of the fields it
-// set. Failures are logged and otherwise ignored.
-func (a *Admin) populateMetadata(ctx context.Context, b *Bookmark) []string {
-	var updated []string
-	client := newBrowserClient()
-	m, err := FetchMetadata(ctx, client, b.URL)
-	if err != nil {
-		slog.Warn("loading bookmark metadata", "url", b.URL, "error", err)
-		return updated
-	}
-	slog.Debug("bookmark metadata", "url", b.URL, "meta", m)
-
-	if (b.Title == "" || b.Title == b.URL) && m.Title != "" {
-		b.Title = m.Title
-		updated = append(updated, "title")
-	}
-	if b.Description == "" && m.Description != "" {
-		b.Description = m.Description
-		updated = append(updated, "description")
-	}
-	if b.SiteName == "" && m.SiteName != "" {
-		b.SiteName = m.SiteName
-		updated = append(updated, "site_name")
-	}
-
-	// treat an og image whose file has gone missing as empty
-	if b.OGImagePath != "" {
-		if _, err := os.Stat(b.OGImagePath); err == nil {
-			return updated
-		}
-	}
-	if m.ImageURL == "" {
-		return updated
-	}
+// loadCard loads the bookmark's card (see LoadCard). Failures are logged and
+// returned; creating a bookmark carries on without a card.
+func (a *Admin) loadCard(ctx context.Context, b *Bookmark, overwrite bool) ([]string, error) {
 	dir, err := a.fss.GetPath("screenshots")
 	if err != nil {
-		slog.Warn("no screenshots path for og:image", "error", err)
-		return updated
+		return nil, fmt.Errorf("no screenshots path for card image: %w", err)
 	}
-	// the bookmark may have no ID yet (Save treats that as an insert), so name the file independently
-	path, err := DownloadImage(ctx, client, m.ImageURL, m.FinalURL, dir, uuid.New().String()+"-og")
+	updated, err := LoadCard(ctx, newBrowserClient(), b, dir, overwrite)
 	if err != nil {
-		slog.Warn("downloading og:image", "url", m.ImageURL, "error", err)
-		return updated
+		slog.Warn("loading bookmark card", "url", b.URL, "error", err)
+		return nil, err
 	}
-	b.OGImagePath = path
-	return append(updated, "og_image")
+	return updated, nil
 }
 
 type MetadataResponse struct {
@@ -279,8 +227,8 @@ type MetadataResponse struct {
 	Error   string   `json:"error,omitempty"`
 }
 
-// refreshMetadata re-runs the metadata fetch for an existing bookmark, filling
-// in only the fields that are currently empty.
+// refreshMetadata reloads the bookmark's card from its site, replacing the
+// stored card with the site's current metadata.
 func (a *Admin) refreshMetadata(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	fail := func(code int, msg string) {
@@ -295,16 +243,67 @@ func (a *Admin) refreshMetadata(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated := a.populateMetadata(r.Context(), b)
-	if len(updated) > 0 {
-		if err := serv.Save(b); err != nil {
-			slog.Error("saving refreshed bookmark metadata", "id", b.ID, "error", err)
-			fail(http.StatusInternalServerError, "saving bookmark: "+err.Error())
-			return
-		}
+	updated, err := a.loadCard(r.Context(), b, true)
+	if err != nil {
+		fail(http.StatusBadGateway, err.Error())
+		return
 	}
-	slog.Info("refreshed bookmark metadata", "id", b.ID, "updated", updated)
+	if err := serv.Save(b); err != nil {
+		slog.Error("saving reloaded bookmark card", "id", b.ID, "error", err)
+		fail(http.StatusInternalServerError, "saving bookmark: "+err.Error())
+		return
+	}
+	slog.Info("reloaded bookmark card", "id", b.ID, "updated", updated)
 	json.NewEncoder(w).Encode(MetadataResponse{Success: true, Updated: updated})
+}
+
+type ImageDeleteResponse struct {
+	Success bool   `json:"success"`
+	Warning string `json:"warning,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// deleteImage removes one of the bookmark's images, both from the record and
+// from disk. The record is saved first: if removing a file then fails, the worst
+// case is an orphaned file, rather than a record pointing at an image that's gone.
+func (a *Admin) deleteImage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	fail := func(code int, msg string) {
+		w.WriteHeader(code)
+		json.NewEncoder(w).Encode(ImageDeleteResponse{Error: msg})
+	}
+
+	serv := NewBookmarkService(a.db)
+	b, err := serv.GetByID(chi.URLParam(r, "id"))
+	if err != nil {
+		fail(http.StatusNotFound, "bookmark not found")
+		return
+	}
+	dir, err := a.fss.GetPath("screenshots")
+	if err != nil {
+		fail(http.StatusInternalServerError, "screenshots directory not configured")
+		return
+	}
+
+	kind := chi.URLParam(r, "kind")
+	files, err := b.ClearImage(kind)
+	if err != nil {
+		fail(http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := serv.Save(b); err != nil {
+		slog.Error("saving bookmark after clearing image", "id", b.ID, "kind", kind, "error", err)
+		fail(http.StatusInternalServerError, "saving bookmark: "+err.Error())
+		return
+	}
+
+	resp := ImageDeleteResponse{Success: true}
+	if err := RemoveFiles(dir, files); err != nil {
+		slog.Warn("removing image files", "id", b.ID, "kind", kind, "files", files, "error", err)
+		resp.Warning = "removed from the bookmark, but not every file could be deleted: " + err.Error()
+	}
+	slog.Info("deleted bookmark image", "id", b.ID, "kind", kind, "files", files)
+	json.NewEncoder(w).Encode(resp)
 }
 
 func (a *Admin) delete(w http.ResponseWriter, r *http.Request) {
@@ -408,15 +407,16 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 		bookmark.Title = result.Title
 	}
 
-	// If description is empty, try to extract it from the screenshot's JSON file
+	// The page's meta description belongs on the card, not in the bookmark's own
+	// description; if the card has none yet, take it from the screenshot's JSON file
 	var extractedDescription string
-	if bookmark.Description == "" {
+	if bookmark.OGDescription == "" {
 		if desc, err := serv.GetDescription(bookmark); err != nil {
 			slog.Warn("failed to extract meta description", "error", err)
 		} else if desc != "" {
-			bookmark.Description = desc
+			bookmark.OGDescription = desc
 			extractedDescription = desc
-			slog.Info("auto-filled description from meta tag", "bookmark_id", bookmark.ID, "description", desc)
+			slog.Info("filled card description from meta tag", "bookmark_id", bookmark.ID, "description", desc)
 		}
 	}
 

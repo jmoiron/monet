@@ -88,22 +88,196 @@
     flex-grow: 1;
     font-size: 16px;
   }
-  .bookmark-content-grid {
+  // The link card (see .link-card in style.less) beside the description editor.
+  // The controls are siblings of the card's link, in an overlay the size of its
+  // image area, so clicking them never follows the link.
+  .bookmark-card-grid {
     display: grid;
-    grid-template-columns: 256px 1fr;
+    grid-template-columns: minmax(280px, 520px) minmax(240px, 1fr);
     gap: 20px;
-    margin: 10px 0;
+    margin: 10px 0 14px;
+    align-items: stretch;
+    @media (max-width: 800px) { grid-template-columns: 1fr; }
   }
 
-  .bookmark-icon-preview {
-    border: 1px solid #ddd;
-    padding: 5px;
-    width: 256px;
-    img {
-      width: 100%;
-      height: auto;
-      max-width: 256px;
+  @card-empty-height: 72px;      // the image area when there is no image
+
+  .link-card-wrap {
+    position: relative;
+
+    .card-img {
+      display: none;
+      &.active { display: block; }
+      &[data-kind="screenshot"] { object-position: top center; }
     }
+
+    &.no-image .link-card-media {
+      aspect-ratio: auto;
+      height: @card-empty-height;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      &::after { content: "No image"; color: #aab; font-size: .85rem; }
+    }
+
+    .card-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      aspect-ratio: 1.91 / 1;
+      pointer-events: none;
+      > * { pointer-events: auto; }
+    }
+    &.no-image .card-overlay { aspect-ratio: auto; height: @card-empty-height; }
+
+    .card-controls {
+      position: absolute;
+      top: 10px; left: 10px;
+      display: flex;
+      gap: 6px;
+    }
+
+    // Translucent dark with a light glyph and a hairline light edge reads
+    // against both pale and dark images, so it needs no knowledge of the image.
+    .card-btn {
+      width: 30px; height: 30px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, .3);
+      border-radius: 8px;
+      background: rgba(24, 26, 30, .62);
+      color: #f4f4f4;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+      &:hover { background: rgba(24, 26, 30, .85); color: #fff; }
+      &:disabled { cursor: progress; }
+      i { pointer-events: none; padding: 0; }
+      .loader-small {
+        width: 14px; height: 14px; margin: 0;
+        border-color: rgba(255, 255, 255, .35);
+        border-top-color: #fff;
+        &::after { display: none; }
+      }
+    }
+
+    .card-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      &.card-nav-prev { left: 10px; }
+      &.card-nav-next { right: 10px; }
+      .chevron {
+        display: block;
+        width: 8px; height: 8px;
+        border: solid currentColor;
+        border-width: 0 2px 2px 0;
+      }
+      &.card-nav-prev .chevron { transform: translateX(2px) rotate(135deg); }
+      &.card-nav-next .chevron { transform: translateX(-2px) rotate(-45deg); }
+    }
+
+    .card-image-info {
+      position: absolute;
+      left: 10px; bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-image-label {
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(24, 26, 30, .62);
+      border: 1px solid rgba(255, 255, 255, .3);
+      color: #f4f4f4;
+      font-size: .75rem;
+      pointer-events: none;
+    }
+
+    // The same circled x that deletes things in the lists (grey, red on hover),
+    // lightened and shadowed so it reads on any image.
+    .card-delete-image {
+      padding: 0;
+      border: 0;
+      background: none;
+      color: #eee;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, .7)) drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+      &:hover { color: #fa2a00; }
+      &:disabled { cursor: progress; }
+      i { pointer-events: none; }
+      .loader-small {
+        width: 16px; height: 16px; border-width: 2px;
+        border-color: rgba(255, 255, 255, .4);
+        border-top-color: #fff;
+        &::after { display: none; }
+      }
+    }
+  }
+
+  .link-card-none { color: #99a; font-style: italic; }
+
+  .link-card-caption {
+    margin-top: 6px;
+    color: #999;
+    font-size: 0.85em;
+    .card-missing { font-style: italic; }
+  }
+
+  .description-editor {
+    display: flex;
+    flex-direction: column;
+    min-height: 300px;
+
+    .editor-tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 8px;
+    }
+    .editor-tab {
+      padding: 6px 12px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: none;
+      font: inherit;
+      color: #999;
+      cursor: pointer;
+      &:hover { color: #000; }
+      &.active { color: #000; font-weight: bold; border-bottom-color: @bluelink; }
+    }
+
+    .description-input {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+      box-sizing: border-box;
+      resize: none;
+      border: 1px dashed #ddd;
+      color: #444;
+      font-size: 16px;
+    }
+    .description-preview {
+      flex: 1;
+      overflow: auto;
+      padding: 0 12px;
+      border: 1px dashed #ddd;
+      background: #fbfbfb;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+  }
+
+  .bookmark-dates {
+    margin: 0 0 12px;
+    color: #999;
+    font-size: .85em;
   }
 }
 

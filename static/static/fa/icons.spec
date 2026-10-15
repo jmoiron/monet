@@ -33,3 +33,4 @@ fa-solid fa-rotate
 fa-solid fa-rotate-right
 fa-solid fa-arrows-spin
 fa-solid fa-earth-asia
+fa-solid fa-trash-can

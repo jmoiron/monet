@@ -80,7 +80,7 @@ func TestParseSiteName(t *testing.T) {
 		`<meta property="og:site_name" content="OG">`:                                              "OG",
 		`<meta name="application-name" content="App">`:                                             "App",
 		`<script type="application/ld+json">{"@graph":[{"@type":"WebSite","name":"LD"}]}</script>`: "LD",
-		`<title>nothing</title>`:                                                                   "example.com",
+		`<title>nothing</title>`:                                                                   "", // no hostname fallback; Bookmark.CardSource() does that at display time
 	}
 	for page, want := range cases {
 		m, err := parseMetadata(strings.NewReader(page), base)

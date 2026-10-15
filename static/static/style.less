@@ -136,6 +136,81 @@ p code {
   .user-controls { float: left; text-align: right; color: #aaa; font-size: 16px; }
 }
 
+// A link preview card (the site's own title/description/image), in the style
+// of the embedded link cards on the bluesky stream items.
+.link-card {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  font-weight: normal; // the card is a link, and links are bold site-wide
+  border: 1px solid #d7dee7;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fff 0%, #fafcff 100%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .03), 0 8px 18px rgba(17, 133, 254, .06);
+
+  &:hover {
+    color: inherit;
+    border-color: #b9cde5;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, .04), 0 12px 24px rgba(17, 133, 254, .1);
+  }
+
+  // fixed proportions so that swapping between images doesn't move the card
+  .link-card-media {
+    aspect-ratio: 1.91 / 1;
+    background: #eef1f5;
+    overflow: hidden;
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .link-card-content { padding: 1rem 1.1rem; }
+
+  .link-card-title {
+    font-weight: 600;
+    color: #1e2732;
+    line-height: 1.4;
+  }
+
+  .link-card-description {
+    margin-top: .4rem;
+    color: #44515f;
+    font-size: .95rem;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid #e3eaf2;
+    margin: .8rem 0 .75rem;
+  }
+
+  .link-card-domain {
+    color: #667788;
+    font-size: .95rem;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+
+  .link-card-loaded {
+    margin-top: .15rem;
+    text-align: right;
+    color: #99a;
+    font-size: .8rem;
+  }
+
+}
+
 .left-panel { float: left; width: (@site-width/2); }
 .right-panel { float: right; width: (@site-width/2); }
 
@@ -253,6 +328,9 @@ p code {
         .description {
           margin-top: 10px;
           line-height: 1.4;
+
+          // links in running text are inline; the row-link spacing above is not for them
+          a { padding: 0; margin: 0; }
         }
       }
     }
@@ -279,9 +357,11 @@ p code {
         border-bottom: 1px solid #eee;
         position: relative;
 
+        // the image is the link to the bookmarked site
         .bookmark-icon {
           flex-shrink: 0;
           width: 200px;
+          a { display: block; padding: 0; margin: 0; line-height: 0; }
           img {
             border: 1px solid #ddd;
             border-radius: 3px;
@@ -289,43 +369,60 @@ p code {
             height: 125px;
             object-fit: cover;
           }
+          a:hover img, a:hover .bookmark-icon-empty { border-color: @bluelink; }
+
+          // same size as an image, so titles stay in line when there isn't one
+          .bookmark-icon-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            width: 200px;
+            height: 125px;
+            border: 1px dashed #ddd;
+            border-radius: 3px;
+            background: #fafafa;
+            color: #aab;
+            font-size: .85rem;
+            font-weight: normal;
+            line-height: 1;
+          }
         }
 
         .bookmark-content {
           flex: 1;
           min-width: 0;
 
+          // title, date and delete share the top line: the title takes the
+          // remaining width (and wraps in it), the date and delete keep their own
           .bookmark-title-line {
             display: flex;
-            align-items: center;
+            align-items: baseline;
             gap: 10px;
 
             > a:first-child {
+              flex: 1 1 auto;
+              min-width: 0;
               margin-left: 0;
               padding: 0;
               font-weight: bold;
+              overflow-wrap: anywhere;
             }
 
-            .external-link {
+            .date {
+              flex: none;
+              float: none;
+              margin: 0;
+              white-space: nowrap;
+              font-size: 0.8em;
               color: #999;
-              font-size: 1em;
-              text-decoration: none;
-              &:hover {
-                color: @bluelink;
-              }
             }
-          }
-
-          .date {
-            display: block;
-            margin-top: 5px;
-            font-size: 0.8em;
-            color: #999;
           }
 
           .status {
-            display: inline;
-            margin-left: 10px;
+            display: block;
+            margin-top: 3px;
+            font-size: 0.85em;
             font-style: italic;
             color: #666;
           }
@@ -334,19 +431,26 @@ p code {
             margin-top: 10px;
             line-height: 1.4;
             font-size: 0.9em;
+
+            // links in running text are inline; the row-link spacing is not for them
+            a { padding: 0; margin: 0; }
           }
         }
 
-        // Override the delete button positioning for this layout
+        // Override the delete button positioning for this layout. It is always
+        // laid out and only its visibility changes on hover, so that showing it
+        // doesn't change the height of the title line and reflow the row.
         a.del {
           position: static;
+          flex: none;
           margin: 0;
-          margin-left: auto;
           font-size: 18px;
+          display: inline-block;
+          visibility: hidden;
         }
 
         &:hover a.del {
-          display: inline-block;
+          visibility: visible;
           color: #999;
           &:hover { color: #fa2a00; }
         }

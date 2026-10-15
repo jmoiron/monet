@@ -23,6 +23,10 @@
         <div class="bookmark-description">
             {{.bookmark.DescriptionRendered | safe}}
         </div>
+        {{else if .bookmark.OGDescription}}
+        <div class="bookmark-description">
+            {{.bookmark.OGDescription}}
+        </div>
         {{end}}
     </div>
 </article>

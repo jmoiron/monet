@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
@@ -299,10 +300,7 @@ func parseMetadata(r io.Reader, base *url.URL) (*PageMetadata, error) {
 	if m.SiteName == "" {
 		m.SiteName = jsonLDSiteName(jsonLD)
 	}
-	if m.SiteName == "" {
-		// last resort: the hostname, which is at least recognizable
-		m.SiteName = strings.TrimPrefix(strings.ToLower(base.Hostname()), "www.")
-	}
+
 	if m.Title == "" {
 		m.Title = strings.Join(strings.Fields(docTitle), " ")
 	}
@@ -348,6 +346,69 @@ func jsonLDSiteName(blocks []string) string {
 		}
 	}
 	return ""
+}
+
+// LoadCard fetches b.URL and stores the site's metadata on b as its card:
+// og title, description, site name and image, stamped with the fetch time.
+//
+// With overwrite (a reload) fresh values replace the stored ones; without it
+// only empty fields are filled. Either way a field the site didn't provide is
+// left alone, and if the page yields no metadata at all nothing is changed and
+// an error is returned. The bookmark's own Title is set from the card only when
+// it is empty (or just the URL); its Description is never touched.
+//
+// Images are saved in imgDir. It returns the names of the fields that changed.
+func LoadCard(ctx context.Context, client *http.Client, b *Bookmark, imgDir string, overwrite bool) ([]string, error) {
+	m, err := FetchMetadata(ctx, client, b.URL)
+	if err != nil {
+		return nil, err
+	}
+	if m.Title == "" && m.Description == "" && m.SiteName == "" && m.ImageURL == "" {
+		return nil, fmt.Errorf("%s: page has no title, description or image metadata", b.URL)
+	}
+	slog.Debug("bookmark metadata", "url", b.URL, "meta", m)
+
+	var updated []string
+	set := func(name string, dst *string, val string) {
+		if val == "" || *dst == val || (!overwrite && *dst != "") {
+			return
+		}
+		*dst = val
+		updated = append(updated, name)
+	}
+	set("og_title", &b.OGTitle, m.Title)
+	set("og_description", &b.OGDescription, m.Description)
+	set("site_name", &b.SiteName, m.SiteName)
+
+	if b.Title == "" || b.Title == b.URL {
+		set("title", &b.Title, m.Title)
+	}
+
+	if m.ImageURL != "" {
+		have := false
+		if b.OGImagePath != "" {
+			_, statErr := os.Stat(b.OGImagePath)
+			have = statErr == nil
+		}
+		if overwrite || !have {
+			// the bookmark may have no ID yet (Save treats that as an insert), so name the file independently
+			path, err := DownloadImage(ctx, client, m.ImageURL, m.FinalURL, imgDir, uuid.New().String()+"-og")
+			if err != nil {
+				slog.Warn("downloading og:image", "url", m.ImageURL, "error", err)
+			} else {
+				if old := b.OGImagePath; old != "" && old != path {
+					if err := os.Remove(old); err != nil && !os.IsNotExist(err) {
+						slog.Warn("removing replaced og:image", "path", old, "error", err)
+					}
+				}
+				b.OGImagePath = path
+				updated = append(updated, "og_image")
+			}
+		}
+	}
+
+	b.OGFetchedAt = time.Now()
+	return updated, nil
 }
 
 // DownloadImage fetches imageURL and saves it as <dir>/<name>.<ext>, where ext

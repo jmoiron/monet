@@ -66,6 +66,35 @@ var postMigrations = monarch.Set{
 		}, {
 			Up:   `ALTER TABLE post ADD COLUMN og_image text default '';`,
 			Down: `ALTER TABLE post DROP COLUMN og_image;`,
+		}, {
+			// post_fts is an external content table, so its triggers must name the
+			// post's rowid on every insert and delete. Without it the index picks
+			// its own rowids, 'delete' targets the wrong entry and the index is
+			// corrupted ("database disk image is malformed"), which Save used to
+			// paper over by rebuilding the index after each write. Recreate the
+			// triggers correctly and rebuild to heal any existing damage; the
+			// statements are idempotent so a failure partway can be re-run.
+			Up: `
+				DROP TRIGGER IF EXISTS post_i;
+				DROP TRIGGER IF EXISTS post_d;
+				DROP TRIGGER IF EXISTS post_u;
+				CREATE TRIGGER post_i AFTER INSERT ON post BEGIN
+					INSERT INTO post_fts (rowid, id, title, slug, content, published) VALUES
+						(new.id, new.id, new.title, new.slug, new.content, new.published);
+				END;
+				CREATE TRIGGER post_d AFTER DELETE ON post BEGIN
+					INSERT INTO post_fts (post_fts, rowid, id, title, slug, content, published) VALUES
+						('delete', old.id, old.id, old.title, old.slug, old.content, old.published);
+				END;
+				CREATE TRIGGER post_u AFTER UPDATE ON post BEGIN
+					INSERT INTO post_fts (post_fts, rowid, id, title, slug, content, published) VALUES
+						('delete', old.id, old.id, old.title, old.slug, old.content, old.published);
+					INSERT INTO post_fts (rowid, id, title, slug, content, published) VALUES
+						(new.id, new.id, new.title, new.slug, new.content, new.published);
+				END;
+				INSERT INTO post_fts(post_fts) VALUES ('rebuild');`,
+			// the previous triggers were the bug; downgrading keeps the fixed ones
+			Down: `SELECT 1;`,
 		},
 	},
 }
@@ -345,10 +374,6 @@ func (s *PostService) Save(p *Post) error {
 		if err != nil {
 			return err
 		}
-
-		// attempt to re-build the full text search index, which seems to
-		// get corrupted by our update triggers for some reason
-		tx.Exec(`insert into post_fts(post_fts) values ('rebuild')`)
 
 		return nil
 	})

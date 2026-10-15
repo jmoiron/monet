@@ -22,13 +22,25 @@ const (
 )
 
 type Admin struct {
-	db      db.DB
-	fss     vfs.Registry
-	BaseURL string
+	db         db.DB
+	fss        vfs.Registry
+	chromePath string
+	BaseURL    string
 }
 
 func NewBookmarkAdmin(db db.DB, fss vfs.Registry) *Admin {
 	return &Admin{db: db, fss: fss}
+}
+
+// WithChromePath sets the browser binary screenshots are taken with.
+func (a *Admin) WithChromePath(path string) *Admin {
+	a.chromePath = path
+	return a
+}
+
+// newScreenshotService is the screenshot service for the screenshots directory dir.
+func (a *Admin) newScreenshotService(dir string) *ScreenshotService {
+	return NewScreenshotService(dir, "gowitness", true).WithChromePath(a.chromePath)
 }
 
 // newBookmarkServiceWithScreenshots creates a BookmarkService with screenshot capabilities
@@ -43,7 +55,7 @@ func (a *Admin) newBookmarkServiceWithScreenshots() *BookmarkService {
 	}
 
 	// Create and set screenshot service
-	screenshotService := NewScreenshotService(screenshotsPath, "gowitness", true)
+	screenshotService := a.newScreenshotService(screenshotsPath)
 	serv.SetScreenshotService(screenshotService)
 
 	return serv
@@ -375,7 +387,7 @@ func (a *Admin) screenshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create screenshot service with FSS-managed directory
-	screenshotService := NewScreenshotService(screenshotsPath, "gowitness", true)
+	screenshotService := a.newScreenshotService(screenshotsPath)
 
 	// Take screenshot
 	result, err := screenshotService.TakeScreenshot(bookmark.URL, bookmark.ID)

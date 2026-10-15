@@ -20,6 +20,7 @@ import (
 type ScreenshotService struct {
 	screenshotDir string
 	gowitnessBin  string
+	chromePath    string
 	enabled       bool
 }
 
@@ -29,6 +30,13 @@ func NewScreenshotService(screenshotDir, gowitnessBin string, enabled bool) *Scr
 		gowitnessBin:  gowitnessBin,
 		enabled:       enabled,
 	}
+}
+
+// WithChromePath sets the browser binary gowitness is told to use; empty leaves
+// the choice to gowitness.
+func (s *ScreenshotService) WithChromePath(path string) *ScreenshotService {
+	s.chromePath = path
+	return s
 }
 
 // ScreenshotResult contains the results of taking a screenshot
@@ -196,7 +204,7 @@ func (s *ScreenshotService) runGowitness(url, driver, tempDir, jsonPath string) 
 	ctx, cancel := context.WithTimeout(context.Background(), gowitnessKillAfter)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, s.gowitnessBin, "scan", "single",
+	args := []string{"scan", "single",
 		"--url", url,
 		"--driver", driver,
 		"--timeout", strconv.Itoa(gowitnessTimeoutSecs),
@@ -208,7 +216,11 @@ func (s *ScreenshotService) runGowitness(url, driver, tempDir, jsonPath string) 
 		// without this some scanning errors will be completely silent
 		"--log-scan-errors",
 		"--write-jsonl",
-		"--write-jsonl-file", jsonPath)
+		"--write-jsonl-file", jsonPath}
+	if s.chromePath != "" {
+		args = append(args, "--chrome-path", s.chromePath)
+	}
+	cmd := exec.CommandContext(ctx, s.gowitnessBin, args...)
 
 	slog.Info("executing gowitness command", "args", cmd.Args, "url", url, "tempDir", tempDir)
 	return cmd.CombinedOutput()

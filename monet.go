@@ -141,7 +141,7 @@ func main() {
 		authApp      = auth.NewApp(config, dbh)
 		adminApp     = admin.NewApp(dbh, authApp.Sessions).WithBaseURL("/admin/")
 		blogApp      = blog.NewApp(dbh, fss).WithBaseURL("/blog/")
-		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/").WithFSS(fss)
+		bookmarksApp = bookmarks.NewApp(dbh).WithBaseURL("/bookmarks/").WithFSS(fss).WithChromePath(config.ChromePath)
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
 		pagesApp     = pages.NewApp(dbh)
 		uploadApp    = uploads.NewApp(dbh, fss)

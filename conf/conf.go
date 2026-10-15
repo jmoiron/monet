@@ -33,6 +33,12 @@ type Config struct {
 
 	// Paths are named full paths to directories for things like media, uploads, etc
 	FSS FSSConfig
+
+	// ChromePath is the Chrome or Chromium binary gowitness should use to take
+	// bookmark screenshots (its --chrome-path). Empty means gowitness finds one
+	// itself. It can be a wrapper script, eg. to add --no-sandbox when the
+	// browser's own sandbox can't start.
+	ChromePath string
 }
 
 // String returns the config as a string.

@@ -359,7 +359,7 @@ func jsonLDSiteName(blocks []string) string {
 //
 // Images are saved in imgDir. It returns the names of the fields that changed.
 func LoadCard(ctx context.Context, client *http.Client, b *Bookmark, imgDir string, overwrite bool) ([]string, error) {
-	m, err := FetchMetadata(ctx, client, b.URL)
+	m, err := FetchCardMetadata(ctx, client, b.URL)
 	if err != nil {
 		return nil, err
 	}

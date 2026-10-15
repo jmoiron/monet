@@ -29,8 +29,9 @@ type App struct {
 	screenshotService *ScreenshotService
 	fss               vfs.Registry
 
-	BaseURL  string
-	PageSize int
+	BaseURL    string
+	PageSize   int
+	chromePath string
 }
 
 func NewApp(db db.DB) *App {
@@ -44,6 +45,12 @@ func (a *App) WithScreenshotService(service *ScreenshotService) *App {
 
 func (a *App) WithFSS(fss vfs.Registry) *App {
 	a.fss = fss
+	return a
+}
+
+// WithChromePath sets the browser binary screenshots are taken with (see conf.Config.ChromePath).
+func (a *App) WithChromePath(path string) *App {
+	a.chromePath = path
 	return a
 }
 
@@ -110,7 +117,7 @@ func (a *App) Migrate() error {
 }
 
 func (a *App) GetAdmin() (app.Admin, error) {
-	return NewBookmarkAdmin(a.db, a.fss), nil
+	return NewBookmarkAdmin(a.db, a.fss).WithChromePath(a.chromePath), nil
 }
 
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {

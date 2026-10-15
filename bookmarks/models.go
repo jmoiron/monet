@@ -77,6 +77,14 @@ var bookmarkMigrations = monarch.Set{
 			Up:   `ALTER TABLE bookmark ADD COLUMN icon_path text DEFAULT '';`,
 			Down: `ALTER TABLE bookmark DROP COLUMN icon_path;`,
 		},
+		{
+			Up:   `ALTER TABLE bookmark ADD COLUMN site_name text DEFAULT '';`,
+			Down: `ALTER TABLE bookmark DROP COLUMN site_name;`,
+		},
+		{
+			Up:   `ALTER TABLE bookmark ADD COLUMN og_image_path text DEFAULT '';`,
+			Down: `ALTER TABLE bookmark DROP COLUMN og_image_path;`,
+		},
 	},
 }
 
@@ -88,6 +96,8 @@ type Bookmark struct {
 	DescriptionRendered string `db:"description_rendered"`
 	ScreenshotPath      string `db:"screenshot_path"`
 	IconPath            string `db:"icon_path"`
+	SiteName            string `db:"site_name"`
+	OGImagePath         string `db:"og_image_path"`
 	Published           int
 	CreatedAt           time.Time `db:"created_at"`
 	UpdatedAt           time.Time `db:"updated_at"`
@@ -169,8 +179,8 @@ func (s *BookmarkService) Select(query string, args ...interface{}) ([]Bookmark,
 
 func (s *BookmarkService) Insert(b *Bookmark) error {
 	q := `INSERT INTO bookmark
-		(id, url, title, description, description_rendered, screenshot_path, icon_path, published) VALUES
-		(:id, :url, :title, :description, :description_rendered, :screenshot_path, :icon_path, :published);
+		(id, url, title, description, description_rendered, screenshot_path, icon_path, site_name, og_image_path, published) VALUES
+		(:id, :url, :title, :description, :description_rendered, :screenshot_path, :icon_path, :site_name, :og_image_path, :published);
 	`
 	b.preSave()
 	s.createIconIfNeeded(b)
@@ -204,7 +214,8 @@ func (s *BookmarkService) Save(b *Bookmark) error {
 	return db.With(s.db, func(tx *sqlx.Tx) error {
 		q := `UPDATE bookmark SET
 			url=:url, title=:title, description=:description, description_rendered=:description_rendered,
-			screenshot_path=:screenshot_path, icon_path=:icon_path, published=:published, updated_at=:updated_at,
+			screenshot_path=:screenshot_path, icon_path=:icon_path, site_name=:site_name,
+			og_image_path=:og_image_path, published=:published, updated_at=:updated_at,
 			published_at=:published_at
 		WHERE id=:id`
 		update, err := tx.PrepareNamed(q)

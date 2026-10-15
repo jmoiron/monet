@@ -2,7 +2,7 @@
 export CGO_CFLAGS := -g -O2 -Wno-return-local-addr 
 # -Wno-stringop-overflow
 
-.PHONY: all build reload fmt run
+.PHONY: all build test reload fmt run
 
 all:
 	$(MAKE) --no-print-directory -C static/static
@@ -10,7 +10,10 @@ all:
 	$(MAKE) --no-print-directory build
 
 build:
-	CGO_FLAGS=$CGO_FLAGS go build --tags="fts5"
+	go build --tags="fts5"
+
+test:
+	go test --tags="fts5" ./...
 
 reload:
 	./monet --load-posts backup/posts.json
@@ -21,4 +24,4 @@ fmt:
 	goimports -w $(shell git ls-files '*.go')
 
 run:
-	reflex -g '*.go' -s -- sh -c "GO_FLAGS=$CGO_FLAGS go build --tags=fts5 && ./monet --config=dev.cfg.json"
+	reflex -g '*.go' -s -- sh -c "go build --tags=fts5 && ./monet --config=dev.cfg.json"

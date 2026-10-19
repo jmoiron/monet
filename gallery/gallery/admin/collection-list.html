@@ -1,0 +1,29 @@
+<h2>Collections</h2>
+
+<p class="gallery-nav">
+    <a href="/admin/gallery/"><i class="fa-solid fa-table-cells-large"></i> Photos</a>
+    <a href="/admin/gallery/map/"><i class="fa-solid fa-location-dot"></i> Map</a>
+    <a class="current" href="/admin/gallery/collections/"><i class="fa-solid fa-layer-group"></i> Collections</a>
+</p>
+
+{{if .collections}}
+<div class="photo-grid collection-grid">
+{{range $c := .collections}}
+    <div class="photo-tile collection-tile{{if eq $c.Published 0}} unpublished{{end}}">
+        <a href="/admin/gallery/collections/{{$c.ID}}">
+            {{if $c.Cover}}<img src="{{photoURL $c.Cover}}" alt="" loading="lazy">{{end}}
+        </a>
+        <span class="collection-name">{{$c.Title}} <small>{{$c.Count}}</small></span>
+        <a class="del" href="/admin/gallery/collections/delete/{{$c.ID}}" onclick="return confirm('Delete this collection? Its photos stay in the gallery.')"><i class="fa-solid fa-circle-xmark"></i></a>
+    </div>
+{{end}}
+</div>
+{{else}}
+<p>No collections yet.</p>
+{{end}}
+
+<p class="new-collection-row">
+    <button type="button" class="new-collection-button more-button"><i class="fa-solid fa-plus"></i> New collection</button>
+</p>
+
+{{.newCollection}}

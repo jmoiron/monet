@@ -478,6 +478,8 @@ $(function() {
         var qs = window.location.search;
         $("ul.paginator a").each(function() {
             var $this = $(this);
+            // a paginator that keeps the query itself (the gallery's) is left alone
+            if ($this.attr("href").indexOf("?") !== -1) return;
             $this.attr("href", $this.attr("href") + qs);
         });
     }

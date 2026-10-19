@@ -8,13 +8,15 @@
         "uploads": "./images",
         "static": "./static",
         "images": "./images",
-        "screenshots": "./images/ss/"
+        "screenshots": "./images/ss/",
+        "photos": "./images/photos/"
       },
       "URLs": {
         "blog-files": "/i/",
         "uploads": "/i/",
         "images": "/i/",
-        "screenshots": "/i/ss/"
+        "screenshots": "/i/ss/",
+        "photos": "/i/photos/"
       }
     }
 }

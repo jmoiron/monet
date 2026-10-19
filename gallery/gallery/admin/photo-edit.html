@@ -1,0 +1,30 @@
+{{if .message}}<script>$(function() { $.flash({{.message}}); });</script>{{end}}
+
+<form method="POST" action="" class="photo-form">
+    <p><a href="/admin/gallery/">&larr; Gallery</a></p>
+
+    <a href="{{photoURL .photo.File}}" target="_blank"><img class="photo-large" src="{{photoURL .photo.DisplayFile}}" alt=""></a>
+
+    <div>
+        <input type="text" name="title" class="photo-title-input" placeholder="Title" value="{{.photo.Title}}">
+    </div>
+    <div>
+        <textarea name="caption" class="photo-caption-input" placeholder="Caption">{{.photo.Caption}}</textarea>
+    </div>
+
+    <dl class="photo-facts">{{range photoFacts .photo}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+    <p class="photo-source-line">{{if eq .photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{.photo.Source}}{{end}}{{if .photo.SourceID}} {{.photo.SourceID}}{{end}}{{range .albums}} · in {{.Title}}{{end}}</p>
+
+    <div class="button-group">
+      <div class="published">
+          <input type="hidden" value="{{.photo.Published}}" name="published" id="published">
+          <a class="published-toggle-button published-{{.photo.Published}}">Published
+              <i class="icon {{if gt .photo.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
+          </a>
+      </div>
+      <div class="buttons">
+          <input class="save-button" type="submit" value="Save">
+      </div>
+      <div class="clear"></div>
+    </div>
+</form>

@@ -1,0 +1,71 @@
+{{/* The dialog for a new collection, drawn by Admin.newCollectionForm; pages put it in with {{.newCollection}} */}}
+<div id="new-collection-modal" class="rename-modal">
+    <div class="modal-content">
+        <a href="#" class="modal-close" title="Close"><i class="fa-solid fa-circle-xmark"></i></a>
+        <h3>New collection</h3>
+        <p class="modal-note"></p>
+        <form id="new-collection-form" action="/admin/gallery/collections/" method="POST">
+            <div class="form-group">
+                <label for="new-collection-title">Title</label>
+                <input type="text" id="new-collection-title" name="title" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="new-collection-description">Description</label>
+                <textarea id="new-collection-description" name="description"></textarea>
+            </div>
+            <div class="modal-buttons">
+                <button type="button" class="modal-cancel">Cancel</button>
+                <button type="submit" class="modal-submit">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+$(() => {
+    const modal = document.getElementById('new-collection-modal');
+    const form = document.getElementById('new-collection-form');
+    const note = modal.querySelector('.modal-note');
+    let ids = [];
+
+    const open = (picked) => {
+        ids = picked;
+        form.reset();
+        note.style.display = ids.length === 0 ? 'none' : '';
+        note.textContent = ids.length + ' photo' + (ids.length === 1 ? '' : 's');
+        modal.style.display = 'block';
+        form.elements['title'].focus();
+    };
+    const close = () => { modal.style.display = 'none'; };
+
+    // any button of the class opens it; one that says so starts from the selected photos
+    document.addEventListener('click', (e) => {
+        const button = e.target.closest('.new-collection-button');
+        if (!button) return;
+        e.preventDefault();
+        const picked = button.hasAttribute('data-from-selection')
+            ? Array.from(document.querySelectorAll('.photo-select:checked')).map(box => box.value)
+            : [];
+        open(picked);
+    });
+    modal.addEventListener('mousedown', (e) => { if (e.target === modal) close(); });
+    modal.querySelector('.modal-cancel').addEventListener('click', close);
+    modal.querySelector('.modal-close').addEventListener('click', (e) => { e.preventDefault(); close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.style.display === 'block') close(); });
+
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const body = new URLSearchParams();
+        body.append('title', form.elements['title'].value);
+        body.append('description', form.elements['description'].value);
+        ids.forEach(id => body.append('ids', id));
+        fetch(form.action, {method: 'POST', body})
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) { throw new Error(res.error || 'failed'); }
+                window.location.href = res.url;
+            })
+            .catch(err => $.flash('Could not create the collection: ' + err.message, 'error'));
+    });
+});
+</script>

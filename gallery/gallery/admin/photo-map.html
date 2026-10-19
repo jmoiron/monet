@@ -1,0 +1,85 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+
+<h2>Gallery</h2>
+
+<p class="gallery-nav">
+    <a href="/admin/gallery/{{.query}}"><i class="fa-solid fa-table-cells-large"></i> Photos</a>
+    <a class="current" href="/admin/gallery/map/{{.query}}"><i class="fa-solid fa-location-dot"></i> Map</a>
+    <a href="/admin/gallery/collections/"><i class="fa-solid fa-layer-group"></i> Collections</a>
+</p>
+
+{{.filterBar}}
+
+<div id="photo-map" class="photo-map" style="height: 65vh; min-height: 360px"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script>
+$(() => {
+    if (typeof L === 'undefined') {
+        $.flash('The map library did not load', 'error');
+        return;
+    }
+    L.Icon.Default.imagePath = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/';
+
+    const map = L.map('photo-map').setView([20, 0], 2);
+    // leaflet measures its box once, when it is made; the page can still be
+    // settling then (styles, fonts), which leaves a small map in a corner
+    new ResizeObserver(() => map.invalidateSize()).observe(document.getElementById('photo-map'));
+    // leaflet only hears escape while the map has the focus; anywhere on the page will do
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') map.closePopup(); });
+    const loaded = document.readyState === 'complete' ? Promise.resolve()
+        : new Promise(resolve => window.addEventListener('load', resolve, {once: true}));
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    const esc = (s) => $('<div>').text(s || '').html();
+    const SIZE = 120, COLS = 3, FEW = 6, GAP = 4;
+    // leaflet limits a popup to 300px unless told otherwise
+    const POPUP = {minWidth: 0, maxWidth: COLS * (SIZE + GAP)};
+    // a photo, at a fixed size: a popup measures itself before its images load
+    const thumb = (s) => '<a class="map-photo" href="/admin/gallery/edit/' + s.id + '" title="' +
+        esc([s.title, s.date].filter(Boolean).join(' · ')) + '">' +
+        '<img class="map-thumb" width="' + SIZE + '" height="' + SIZE + '" src="' + esc(s.thumb) + '" alt=""></a>';
+    const popupFor = (spots) => {
+        const cols = Math.min(spots.length, COLS);
+        return '<div class="map-popup" style="width:' + (cols * (SIZE + GAP)) + 'px">' + spots.map(thumb).join('') + '</div>';
+    };
+
+    loaded
+        .then(() => { map.invalidateSize(); return fetch('/admin/gallery/map.json' + {{.query}}); })
+        .then(r => r.json())
+        .then(spots => {
+            // a few photos in a group open together; more zoom in towards them
+            const group = L.markerClusterGroup({zoomToBoundsOnClick: false});
+            group.on('clusterclick', (e) => {
+                const markers = e.layer.getAllChildMarkers();
+                if (markers.length <= FEW) {
+                    L.popup(POPUP).setLatLng(e.layer.getLatLng())
+                        .setContent(popupFor(markers.map(m => m.spot))).openOn(map);
+                    return;
+                }
+                const bounds = e.layer.getBounds();
+                if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
+                    e.layer.spiderfy(); // all in one place: zooming can't separate them
+                } else {
+                    e.layer.zoomToBounds({padding: [30, 30]});
+                }
+            });
+            spots.forEach(s => {
+                const m = L.marker([s.lat, s.lng]).bindPopup(popupFor([s]), POPUP);
+                m.spot = s;
+                group.addLayer(m);
+            });
+            map.addLayer(group);
+            if (spots.length > 0) {
+                map.fitBounds(group.getBounds().pad(0.1), {maxZoom: 14});
+            }
+        })
+        .catch(err => $.flash('Could not load the photos: ' + err.message, 'error'));
+});
+</script>

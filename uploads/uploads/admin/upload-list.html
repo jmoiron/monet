@@ -69,6 +69,7 @@
 <!-- Rename Modal -->
 <div id="rename-modal" class="rename-modal">
     <div class="modal-content">
+        <a href="#" class="modal-close" title="Close"><i class="fa-solid fa-circle-xmark"></i></a>
         <h3>Rename File</h3>
         <form id="rename-form">
             <input type="hidden" id="rename-upload-id">
@@ -158,6 +159,11 @@ $(() => {
         if (e.target === this) {
             $('#rename-modal').hide();
         }
+    });
+
+    $('#rename-modal .modal-close').on('click', function(e) {
+        e.preventDefault();
+        $('#rename-modal').hide();
     });
 
     $('#rename-cancel').on('click', function(e) {

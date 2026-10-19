@@ -107,6 +107,12 @@
 .fa-bars {
   --fa: "\f0c9";
 }
+.fa-calendar-days {
+  --fa: "\f073";
+}
+.fa-camera {
+  --fa: "\f030";
+}
 .fa-camera-retro {
   --fa: "\f083";
 }
@@ -152,11 +158,20 @@
 .fa-images {
   --fa: "\f302";
 }
+.fa-layer-group {
+  --fa: "\f5fd";
+}
 .fa-link {
   --fa: "\f0c1";
 }
 .fa-list {
   --fa: "\f03a";
+}
+.fa-location-dot {
+  --fa: "\f3c5";
+}
+.fa-plus {
+  --fa: "\+";
 }
 .fa-right-from-bracket {
   --fa: "\f2f5";

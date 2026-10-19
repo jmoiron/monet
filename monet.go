@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"errors"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/jmoiron/monet/conf"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
+	"github.com/jmoiron/monet/gallery"
 	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pages"
 	"github.com/jmoiron/monet/pkg/hotswap"
@@ -50,6 +52,8 @@ type options struct {
 	LoadPosts  string
 	LoadEvents string
 	LoadPages  string
+
+	LoadInstagram string
 
 	ShowMigration bool
 	Downgrade     string
@@ -112,6 +116,10 @@ func main() {
 	// set up filesystems
 	fss := vfs.NewRegistry(vfs.NewURLMapper(config.FSS.URLs))
 	for name, path := range config.FSS.Paths {
+		if name == gallery.FSName {
+			// the gallery's files are its own, so it may make the directory
+			must(os.MkdirAll(path, 0o755), "creating photos path", "path", path)
+		}
 		must(fss.AddPath(name, path), "loading paths")
 	}
 
@@ -145,6 +153,7 @@ func main() {
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
 		pagesApp     = pages.NewApp(dbh)
 		uploadApp    = uploads.NewApp(dbh, fss)
+		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/")
 	)
 
 	// pages should be last as it binds to /*
@@ -153,7 +162,7 @@ func main() {
 	// be migrated before some of the other apps. It would be an
 	// interesting challenge for this to be determined automatically
 	// but probably not necessary
-	apps := []app.App{authApp, adminApp, uploadApp, blogApp, bookmarksApp, streamApp, pagesApp}
+	apps := []app.App{authApp, adminApp, uploadApp, blogApp, bookmarksApp, streamApp, galleryApp, pagesApp}
 
 	reg := mtr.NewRegistry()
 	reg.AddBaseFS("base", "templates/base.html", templates)
@@ -164,10 +173,10 @@ func main() {
 		app.Register(reg)
 	}
 
-	adminOrder := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, pagesApp, uploadApp}
+	adminOrder := []app.App{authApp, adminApp, blogApp, bookmarksApp, streamApp, galleryApp, pagesApp, uploadApp}
 	adminApp.Collect(adminOrder...)
 
-	if runUtil(&opts, dbh) {
+	if runUtil(&opts, dbh, fss) {
 		return
 	}
 
@@ -347,6 +356,24 @@ func loadEvents(dbh db.DB, path string) error {
 	return loadPath(stream.NewLoader(dbh), path)
 }
 
+func loadInstagram(dbh db.DB, fss vfs.Registry, path string) error {
+	svc, err := gallery.NewPhotoServiceFromFSS(dbh, fss)
+	if err != nil {
+		return err
+	}
+	rep, err := gallery.NewInstagramImporter(svc).ImportPath(context.Background(), path)
+	if rep != nil {
+		fmt.Println(rep)
+		for _, m := range rep.Missing {
+			fmt.Printf("  missing from the export: %s\n", m)
+		}
+		for _, f := range rep.Failed {
+			fmt.Printf("  failed: %s\n", f)
+		}
+	}
+	return err
+}
+
 func loadPosts(dbh db.DB, path string) error {
 	return loadPath(blog.NewLoader(dbh), path)
 }
@@ -370,12 +397,13 @@ func parseOpts(opts *options) {
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
 	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")
 	pflag.StringVar(&opts.LoadPages, "load-pages", "", "load pages from json")
+	pflag.StringVar(&opts.LoadInstagram, "load-instagram", "", "load photos from an instagram export (the zip, or the directory it unzips to); safe to repeat with newer exports")
 	pflag.BoolVar(&opts.ShowMigration, "migrations", false, "show migration state for each application")
 	pflag.StringVar(&opts.Downgrade, "downgrade", "", "downgrade an app by one migration version")
 	pflag.Parse()
 }
 
-func runUtil(opts *options, db db.DB) bool {
+func runUtil(opts *options, db db.DB, fss vfs.Registry) bool {
 	switch {
 	case len(opts.AddUser) > 0:
 		if err := addUser(db, opts.AddUser); err != nil {
@@ -392,6 +420,11 @@ func runUtil(opts *options, db db.DB) bool {
 	case len(opts.LoadPages) > 0:
 		if err := loadPages(db, opts.LoadPages); err != nil {
 			fmt.Printf("ERror: %s\n", err)
+		}
+	case len(opts.LoadInstagram) > 0:
+		if err := loadInstagram(db, fss, opts.LoadInstagram); err != nil {
+			fmt.Printf("Error: %s\n", err)
+			os.Exit(1)
 		}
 	default:
 		return false

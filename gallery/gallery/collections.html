@@ -1,0 +1,15 @@
+<h2>Collections</h2>
+<p class="photo-back"><a href="/gallery/">&larr; Photos</a></p>
+
+{{if .collections}}
+<div class="photo-grid collection-grid">
+{{range $c := .collections}}
+    <a class="photo-tile collection-tile" href="/gallery/collections/{{$c.Slug}}">
+        {{if $c.Cover}}<img src="{{photoURL $c.Cover}}" alt="" loading="lazy">{{end}}
+        <span class="collection-name">{{$c.Title}} <small>{{$c.Count}}</small></span>
+    </a>
+{{end}}
+</div>
+{{else}}
+<p>There are no collections yet.</p>
+{{end}}

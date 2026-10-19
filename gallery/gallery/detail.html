@@ -1,0 +1,14 @@
+<div class="photo-detail">
+    {{if .photo.Title}}<h2>{{.photo.Title}}</h2>{{end}}
+    <p class="photo-back"><a href="/gallery/">&larr; Photos</a></p>
+
+    <a href="{{photoURL .photo.File}}"><img class="photo-large" src="{{photoURL .photo.DisplayFile}}" alt="{{if .photo.Title}}{{.photo.Title}}{{else}}{{.photo.Caption}}{{end}}"></a>
+
+    {{if .photo.Caption}}<p class="photo-caption">{{.photo.Caption}}</p>{{end}}
+
+    <dl class="photo-facts">{{range photoFacts .photo}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+
+    {{if .albums}}
+    <p class="photo-albums">In {{range $i, $a := .albums}}{{if $i}}, {{end}}<a href="/gallery/collections/{{$a.Slug}}">{{$a.Title}}</a>{{end}}</p>
+    {{end}}
+</div>

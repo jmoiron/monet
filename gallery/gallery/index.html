@@ -1,0 +1,16 @@
+<h2>Photos</h2>
+{{if .hasCollections}}<p class="photo-back"><a href="/gallery/collections">Collections &rarr;</a></p>{{end}}
+
+{{if .photos}}
+<div class="photo-grid">
+{{range $photo := .photos}}
+    <a class="photo-tile" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
+        <img src="{{photoURL $photo.ThumbFile}}" alt="{{if $photo.Title}}{{$photo.Title}}{{else}}{{$photo.Caption}}{{end}}" width="{{$photo.Width}}" height="{{$photo.Height}}" loading="lazy">
+    </a>
+{{end}}
+</div>
+{{else}}
+<p>There are no photos yet.</p>
+{{end}}
+
+{{.pagination}}

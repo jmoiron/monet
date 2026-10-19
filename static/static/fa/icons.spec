@@ -36,3 +36,8 @@ fa-solid fa-earth-asia
 fa-solid fa-trash-can
 fa-solid fa-table-cells-large
 fa-solid fa-list
+fa-solid fa-location-dot
+fa-solid fa-layer-group
+fa-solid fa-calendar-days
+fa-solid fa-plus
+fa-solid fa-camera

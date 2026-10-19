@@ -13,6 +13,10 @@ $(() => {
             accept: '*',
             maxFileSize: 64 * 1024 * 1024, // 64MB
             dragOverClass: 'drag-over',
+            // overlay: the element is hidden until a file is dragged into the
+            // window, when it covers the page and the whole window takes the drop
+            overlay: false,
+            trigger: null, // a selector for something that opens the file chooser
             progressContainer: null, // Auto-create if null
             onSuccess: function(response, filename) {
                 console.log('Upload successful:', filename, response);
@@ -32,6 +36,7 @@ $(() => {
                 dropZone: 'Drag & drop files here or click to upload',
                 hint: 'Select files to upload',
                 uploading: 'Uploading...',
+                processing: 'Processing...',
                 complete: 'Complete',
                 failed: 'Failed',
                 error: 'Error'
@@ -49,6 +54,9 @@ $(() => {
             let $progressContainer = null;
             let uploadCounter = 0;
 
+            // set when the window is being watched for files being dragged in
+            let endWindowDrag = () => {};
+
             // Initialize the upload area
             init();
 
@@ -56,18 +64,25 @@ $(() => {
                 setupDropZone();
                 setupProgressContainer();
                 bindEvents();
+                if (settings.overlay) {
+                    bindWindowDrag();
+                }
             }
 
             function setupDropZone() {
-                $container.addClass('upload-drop-zone');
-                $container.html(`
+                if (settings.overlay) {
+                    $container.addClass('upload-overlay');
+                } else {
+                    $container.addClass('upload-drop-zone');
+                }
+                $container.html(`<div class="${settings.overlay ? 'upload-drop-zone upload-overlay-box' : 'upload-zone-content'}">
                     <div class="upload-icon">
                         <i class="${settings.icons.upload}"></i>
                     </div>
                     <div class="upload-text">${settings.text.dropZone}</div>
                     <div class="upload-hint">${settings.text.hint}</div>
                     <input type="file" class="upload-file-input" ${settings.multiple ? 'multiple' : ''} ${settings.accept !== '*' ? 'accept="' + settings.accept + '"' : ''} style="display: none;">
-                `);
+                </div>`);
             }
 
             function setupProgressContainer() {
@@ -84,11 +99,19 @@ $(() => {
                 const $fileInput = $container.find('input.upload-file-input');
 
                 // Click to upload
-                $container.on('click', function(e) {
-                    if (!$(e.target).is('input[type="file"]')) {
+                if (!settings.overlay) {
+                    $container.on('click', function(e) {
+                        if (!$(e.target).is('input[type="file"]')) {
+                            $fileInput.trigger("click");
+                        }
+                    });
+                }
+                if (settings.trigger) {
+                    $(settings.trigger).on('click', function(e) {
+                        e.preventDefault();
                         $fileInput.trigger("click");
-                    }
-                });
+                    });
+                }
 
                 // File input change
                 $fileInput.on('change', function(e) {
@@ -98,15 +121,16 @@ $(() => {
                 });
 
                 // Drag & drop events
+                // (an overlay lets these through: the window is counting them)
                 $container.on('dragover', function(e) {
                     e.preventDefault();
-                    e.stopPropagation();
+                    if (!settings.overlay) e.stopPropagation();
                     $container.addClass(settings.dragOverClass);
                 });
 
                 $container.on('dragleave', function(e) {
                     e.preventDefault();
-                    e.stopPropagation();
+                    if (!settings.overlay) e.stopPropagation();
                     // Only remove if leaving the container itself
                     if (!$container[0].contains(e.relatedTarget)) {
                         $container.removeClass(settings.dragOverClass);
@@ -117,9 +141,39 @@ $(() => {
                     e.preventDefault();
                     e.stopPropagation();
                     $container.removeClass(settings.dragOverClass);
+                    endWindowDrag();
 
                     const files = Array.from(e.dataTransfer.files);
                     uploadFiles(files);
+                });
+            }
+
+            // Shows the overlay while files are being dragged anywhere over the
+            // window. Drags of text or links are not files, and are left alone.
+            function bindWindowDrag() {
+                let depth = 0;
+                const hasFiles = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+                const show = on => $container.toggleClass('active', on);
+
+                endWindowDrag = () => { depth = 0; show(false); };
+
+                document.addEventListener('dragenter', e => {
+                    if (!hasFiles(e)) return;
+                    depth++;
+                    show(true);
+                });
+                document.addEventListener('dragleave', e => {
+                    if (!hasFiles(e)) return;
+                    depth = Math.max(0, depth - 1);
+                    if (depth === 0) show(false);
+                });
+                document.addEventListener('dragover', e => {
+                    if (hasFiles(e)) e.preventDefault();
+                });
+                // a drop that misses the overlay must not open the file in the tab
+                document.addEventListener('drop', e => {
+                    if (hasFiles(e)) e.preventDefault();
+                    endWindowDrag();
                 });
             }
 
@@ -155,12 +209,13 @@ $(() => {
 
                     uploadFile(file, uploadId)
                         .then(response => {
-                            updateProgressItem(uploadId, 100, 'success', settings.text.complete);
+                            updateProgressItem(uploadId, 100, 'success', response.message || settings.text.complete);
                             successful++;
                             settings.onSuccess(response, file.name);
                         })
                         .catch(error => {
-                            updateProgressItem(uploadId, 0, 'error', settings.text.error);
+                            updateProgressItem(uploadId, 0, 'error',
+                                error && error.message ? settings.text.error + ': ' + error.message : settings.text.error);
                             failed++;
                             settings.onError(error, file.name);
                         })
@@ -187,6 +242,11 @@ $(() => {
                         }
                     });
 
+                    // the file is all there; the server may take a while to do something with it
+                    xhr.upload.addEventListener('load', function() {
+                        updateProgressItem(uploadId, 100, '', settings.text.processing);
+                    });
+
                     xhr.addEventListener('load', function() {
                         if (xhr.status >= 200 && xhr.status < 300) {
                             try {
@@ -200,7 +260,10 @@ $(() => {
                                 reject(new Error('Invalid response format'));
                             }
                         } else {
-                            reject(new Error('HTTP ' + xhr.status + ': ' + xhr.statusText));
+                            // a handler that says why (as json) is believed over the bare status
+                            let reason = '';
+                            try { reason = JSON.parse(xhr.responseText).error || ''; } catch (e) {}
+                            reject(new Error(reason || 'HTTP ' + xhr.status + ': ' + xhr.statusText));
                         }
                     });
 

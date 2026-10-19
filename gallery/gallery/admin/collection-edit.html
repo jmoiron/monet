@@ -1,0 +1,53 @@
+{{if .message}}<script>$(function() { $.flash({{.message}}); });</script>{{end}}
+
+<form method="POST" action="" class="photo-form">
+    <p><a href="/admin/gallery/collections/">&larr; Collections</a>
+       {{if gt .collection.Published 0}}· <a href="/gallery/collections/{{.collection.Slug}}">view</a>{{end}}</p>
+
+    <div><input type="text" name="title" class="photo-title-input" placeholder="Title" value="{{.collection.Title}}"></div>
+    <div><textarea name="description" class="photo-caption-input" placeholder="Description">{{.collection.Description}}</textarea></div>
+
+    <div class="button-group">
+      <div class="published">
+          <input type="hidden" value="{{.collection.Published}}" name="published" id="published">
+          <a class="published-toggle-button published-{{.collection.Published}}">Published
+              <i class="icon {{if gt .collection.Published 0}}icon-check{{else}}icon-remove{{end}}"></i>
+          </a>
+      </div>
+      <div class="buttons"><input class="save-button" type="submit" value="Save"></div>
+      <div class="clear"></div>
+    </div>
+</form>
+
+<p class="photo-count">{{len .photos}} photo{{if ne (len .photos) 1}}s{{end}}</p>
+<div class="photo-grid admin-photo-grid">
+{{range $photo := .photos}}
+    <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}" data-id="{{$photo.ID}}">
+        <a href="/admin/gallery/edit/{{$photo.ID}}" title="{{$photo.Caption}}">
+            <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
+        </a>
+        <a class="del remove-photo" href="#" title="Remove from the collection"><i class="fa-solid fa-circle-xmark"></i></a>
+    </div>
+{{else}}
+    <p>Nothing here yet. Select photos in the <a href="/admin/gallery/">gallery</a> and add them.</p>
+{{end}}
+</div>
+
+<script>
+$(() => {
+    $('.remove-photo').on('click', function(e) {
+        e.preventDefault();
+        const $tile = $(this).closest('.photo-tile');
+        const body = new FormData();
+        body.append('ids', $tile.data('id'));
+        fetch('/admin/gallery/collections/{{.collection.ID}}/remove', {method: 'POST', body})
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) { throw new Error(res.error || 'failed'); }
+                $tile.remove();
+                $.flash(res.message);
+            })
+            .catch(err => $.flash('Could not remove: ' + err.message, 'error'));
+    });
+});
+</script>

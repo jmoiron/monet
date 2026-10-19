@@ -1,0 +1,9 @@
+    <h3><a href="{{.fullUrl}}">{{.title}}</a></h3>
+
+    <div class="photo-panel">
+    {{range $photo := .photos}}
+        <a href="gallery/edit/{{$photo.ID}}"><img src="{{photoURL $photo.ThumbFile}}" alt=""></a>
+    {{else}}
+        <p><a href="gallery/">Add photos</a></p>
+    {{end}}
+    </div>

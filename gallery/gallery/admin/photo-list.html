@@ -1,0 +1,107 @@
+<h2>Gallery</h2>
+<div id="photo-upload-area"></div>
+
+<p class="gallery-nav">
+    <a class="current" href="/admin/gallery/{{.query}}"><i class="fa-solid fa-table-cells-large"></i> Photos</a>
+    <a href="/admin/gallery/map/{{.query}}"><i class="fa-solid fa-location-dot"></i> Map</a>
+    <a href="/admin/gallery/collections/"><i class="fa-solid fa-layer-group"></i> Collections</a>
+    <span class="gallery-actions">
+        <a href="/admin/gallery/insta/"><i class="fa-brands fa-instagram"></i> Import</a>
+        <a href="#" id="photo-upload-button"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</a>
+    </span>
+</p>
+
+{{.filterBar}}
+
+<div class="selection-float" hidden>
+    <button type="button" class="new-collection-button more-button" data-from-selection><i class="fa-solid fa-plus"></i> New collection</button>
+</div>
+<div class="photo-grid admin-photo-grid">
+{{range $photo := .photos}}
+    <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}">
+        <input type="checkbox" class="photo-select" value="{{$photo.ID}}" title="Select">
+        <a href="/admin/gallery/edit/{{$photo.ID}}" title="{{$photo.Caption}}">
+            <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
+        </a>
+        <span class="photo-source">{{if eq $photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq $photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{$photo.Source}}{{end}}</span>
+        <a class="del" href="/admin/gallery/delete/{{$photo.ID}}" onclick="return confirm('Delete this photo and its files?')"><i class="fa-solid fa-circle-xmark"></i></a>
+    </div>
+{{end}}
+</div>
+
+{{.pagination}}
+
+{{.newCollection}}
+
+{{if .collections}}
+<div id="selection-bar" class="selection-bar" hidden>
+    <span class="selection-count"></span>
+    <a href="#" class="selection-all">select page</a>
+    <a href="#" class="selection-none">clear</a>
+    <select id="selection-collection">
+        {{range .collections}}<option value="{{.ID}}">{{.Title}}</option>{{end}}
+    </select>
+    <button type="button" id="selection-add" class="save-button">Add to collection</button>
+</div>
+{{end}}
+
+<script src="/static/upload.js"></script>
+<script>
+$(() => {
+    $('#photo-upload-area').upload({
+        url: '/admin/gallery/upload/',
+        overlay: true,
+        trigger: '#photo-upload-button',
+        accept: '.jpg,.jpeg,.png,.gif,.webp',
+        maxFileSize: 256 * 1024 * 1024,
+        text: {
+            dropZone: 'Drop photos to upload them',
+            hint: 'JPEG, PNG, GIF or WebP, up to 256 MB each'
+        },
+        onSuccess: () => {},
+        onError: () => {},
+        onComplete: (successful, failed) => {
+            if (failed > 0) {
+                // stay, so that the reasons can be read
+                $.flash(failed + ' of ' + (successful + failed) + ' photos could not be added', 'error');
+            } else {
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+    });
+
+    // choosing photos to put in a collection
+    const $bar = $('#selection-bar');
+    const chosen = () => $('.photo-select').filter(function() { return this.checked; });
+    const refresh = () => {
+        const n = chosen().length;
+        $bar.find('.selection-count').text(n + ' selected');
+        $('#selection-bar, .selection-float').each(function() { this.hidden = n === 0; });
+    };
+    $('.photo-select').on('change', refresh);
+    $bar.find('.selection-all').on('click', (e) => {
+        e.preventDefault();
+        $('.photo-select').each(function() { this.checked = true; });
+        refresh();
+    });
+    $bar.find('.selection-none').on('click', (e) => {
+        e.preventDefault();
+        $('.photo-select').each(function() { this.checked = false; });
+        refresh();
+    });
+    $('#selection-add').on('click', () => {
+        const body = new FormData();
+        chosen().each(function() { body.append('ids', this.value); });
+        const id = $('#selection-collection').val();
+        fetch('/admin/gallery/collections/' + id + '/add', {method: 'POST', body})
+            .then(r => r.json())
+            .then(res => {
+                if (!res.success) { throw new Error(res.error || 'failed'); }
+                $.flash(res.message);
+                $('.photo-select').each(function() { this.checked = false; });
+                refresh();
+            })
+            .catch(err => $.flash('Could not add: ' + err.message, 'error'));
+    });
+});
+</script>

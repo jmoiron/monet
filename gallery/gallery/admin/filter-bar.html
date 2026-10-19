@@ -1,0 +1,30 @@
+{{/* The filter bar of the gallery pages, drawn by Admin.filterCtx: pages put it where it goes with {{.filterBar}} */}}
+<form method="GET" action="{{.action}}" class="photo-filter">
+    <select name="source" title="Source">
+        <option value="">All sources</option>
+        {{range .sources}}<option value="{{.}}"{{if eq . $.filter.Source}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+    <span class="date-filter">
+        <select name="year" title="Year">
+            <option value="">Any year</option>
+            {{range .years}}{{if .Year}}<option value="{{.Year}}"{{if eq .Year $.filter.Year}} selected{{end}}>{{.Year}} ({{.Count}})</option>{{end}}{{end}}
+        </select>
+        <button type="button" class="date-toggle" title="Pick a span of days"><i class="fa-solid fa-calendar-days"></i><span class="date-label"></span></button>
+        <input type="hidden" name="from" value="{{if not .filter.Year}}{{.filter.FromDate}}{{end}}">
+        <input type="hidden" name="to" value="{{if not .filter.Year}}{{.filter.ToDate}}{{end}}">
+        <div class="date-popover" hidden></div>
+    </span>
+    {{if .collections}}<select name="collection" title="Collection">
+        <option value="">Any collection</option>
+        {{range .collections}}<option value="{{.ID}}"{{if eq .ID $.filter.Collection}} selected{{end}}>{{.Title}}</option>{{end}}
+    </select>{{end}}
+    {{if .gps}}<select name="gps" title="GPS">
+        <option value="">Any GPS</option>
+        <option value="has"{{if eq $.filter.GPS "has"}} selected{{end}}>Has GPS</option>
+        <option value="lacks"{{if eq $.filter.GPS "lacks"}} selected{{end}}>Lacks GPS</option>
+    </select>{{end}}
+    <input class="save-button" type="submit" value="Filter">
+    {{if not .filter.IsZero}}<a href="{{.action}}">clear</a>{{end}}
+    <span class="photo-filter-count">{{.count}} photo{{if ne .count 1}}s{{end}}</span>
+</form>
+<script src="/static/daterange.js"></script>

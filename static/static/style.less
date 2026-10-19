@@ -596,11 +596,13 @@ p code {
 }
 .admin {
   #title { margin-bottom: 5px; }
-  .buttons { float: right; input { font-size: 16px; }}
+  .buttons { float: right; }
   .extras { display: none; }
   .more-button { .color-button(#4DBCE9, #fff); }
   .preview-button { .color-button(#FE4365, #fff); }
   .save-button { .color-button(darken(@rawrind, 15%), #fff); }
+  // whatever they are made of, they are the same size
+  .more-button, .preview-button, .save-button { font-family: @body-font; font-size: 16px; line-height: 1.6; }
   label { color: #000; }
   .extras { padding: 1em 0; border-top: 1px solid #eee;
     input { color: #444; }
@@ -1322,5 +1324,195 @@ p code {
 
 .right { float: right; }
 h2 .small { font-size: 14px; }
+
+// the gallery: a grid of thumbnails, and a photo with what is known about it
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+  padding: 10px 0;
+
+  .photo-tile {
+    position: relative;
+    display: block;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 3px;
+    background: #eef1f5;
+
+    img { display: block; width: 100%; height: 100%; object-fit: cover; }
+    a:first-child { display: block; height: 100%; }
+    &:hover img { opacity: .9; }
+  }
+
+  // in the admin: the way a photo is hidden, where it came from, and delete
+  .photo-tile.unpublished img { opacity: .4; }
+  .photo-source {
+    position: absolute; left: 6px; bottom: 6px;
+    padding: 1px 7px; border-radius: 10px;
+    background: rgba(0, 0, 0, .55); color: #fff; font-size: .75rem;
+  }
+  .photo-tile .del {
+    position: absolute; top: 4px; right: 6px;
+    font-size: 22px; line-height: 1; color: #fff;
+    text-shadow: 0 0 3px rgba(0, 0, 0, .7);
+    visibility: hidden;
+    &:hover { color: #fa2a00; }
+  }
+  .photo-tile:hover .del { visibility: visible; }
+}
+
+.insta-result { margin: 20px 0; .insta-problems { color: #a60; font-size: .9em; } }
+.photo-count { color: #999; font-size: .9em; margin: 0; }
+
+.photo-large { display: block; max-width: 100%; height: auto; margin: 10px auto; border-radius: 3px; }
+.photo-caption { line-height: 1.5; white-space: pre-line; }
+
+.photo-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 15px 0;
+  dt { color: #999; }
+  dd { margin: 0; }
+}
+
+.photo-form {
+  .photo-title-input { width: 100%; box-sizing: border-box; font-weight: bold; font-size: 1.2em; }
+  .photo-caption-input { width: 100%; box-sizing: border-box; min-height: 6em; }
+  .photo-source-line { color: #999; font-size: .85em; }
+}
+
+.photo-panel {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  img { display: block; width: 64px; height: 64px; object-fit: cover; border-radius: 2px; }
+}
+
+// gallery admin: views, filters, choosing photos, the map, collections
+.gallery-nav {
+  margin: 0 0 12px;
+  a { margin-right: 16px; color: #999; &:hover { color: @bluehover; } }
+  a.current { color: inherit; font-weight: bold; &:hover { color: @bluehover; } }
+  i { margin-right: 4px; }
+}
+
+// inputs as the rest of the admin has them
+.photo-filter, .selection-bar {
+  select {
+    font-family: @body-font; font-size: 1em; color: #444;
+    border: 1px solid #ccc; border-radius: 3px; padding: 3px 6px;
+    background-color: #fff; max-width: 100%;
+  }
+  select:focus { outline: none; border-color: @bluelink; }
+}
+
+.photo-filter {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin: 0 0 10px;
+  label { color: #999; font-size: .9em; }
+  .photo-filter-count { color: #999; font-size: .9em; }
+}
+.gallery-nav .gallery-actions { float: right; a { margin: 0 0 0 16px; } }
+
+// a year and a span of days: the span drops down from a calendar button
+.date-filter {
+  position: relative; display: inline-flex; align-items: center; gap: 6px;
+
+  .date-toggle {
+    font-family: @body-font; font-size: 1em; color: #777;
+    background: #fff; border: 1px solid #ccc; border-radius: 3px; padding: 3px 8px;
+    cursor: pointer;
+    &:hover { border-color: #999; }
+    .date-label { margin-left: 6px; color: #444; }
+    .date-label:empty { display: none; }
+  }
+  &.has-dates .date-toggle { border-color: @bluelink; color: @bluelink; }
+
+  .date-popover {
+    position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 2000;
+    padding: 10px 12px; background: #fff; color: #444;
+    border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
+    &[hidden] { display: none; }
+  }
+  .dr-head, .dr-foot { display: flex; align-items: center; gap: 4px; }
+  .dr-head { margin-bottom: 8px; }
+  .dr-foot { margin-top: 8px; justify-content: flex-end; }
+  .dr-hint { flex: 1; text-align: center; color: #999; font-size: .85em; }
+  .dr-head button, .dr-foot button {
+    font-family: @body-font; font-size: 1em; color: #666;
+    background: #fff; border: 1px solid #ddd; border-radius: 3px; padding: 1px 9px; cursor: pointer;
+    &:hover { border-color: @bluelink; color: @bluelink; }
+  }
+  .dr-months { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+  .date-popover { max-width: 92vw; box-sizing: border-box; }
+  .dr-title { text-align: center; font-weight: bold; margin-bottom: 4px; }
+  .dr-grid {
+    display: grid; grid-template-columns: repeat(7, 32px); grid-auto-rows: 28px;
+    align-items: center; justify-items: center;
+  }
+  .dr-dow { color: #999; font-size: .8em; }
+  .dr-day {
+    width: 100%; height: 100%; padding: 0; border: 0; border-radius: 0;
+    font-family: @body-font; font-size: .9em; color: #444; background: transparent; cursor: pointer;
+    &:hover { background: #eef1f5; }
+    &.dr-in { background: lighten(@bluelink, 52%); }
+    &.dr-edge { background: @bluelink; color: #fff; border-radius: 3px; }
+  }
+}
+
+.photo-grid .photo-select {
+  position: absolute; top: 6px; left: 6px; z-index: 1;
+  width: 18px; height: 18px; margin: 0;
+  opacity: 0;
+  &:checked { opacity: 1; }
+}
+.photo-grid .photo-tile:hover .photo-select { opacity: 1; }
+// no hover on a touch screen: always show the checkbox
+@media (hover: none) { .photo-grid .photo-select { opacity: .8; } }
+
+.selection-bar {
+  position: sticky; bottom: 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  padding: 10px 14px; margin-top: 10px;
+  background: #fff; border-top: 1px solid #ddd; box-shadow: 0 -2px 6px rgba(0, 0, 0, .08);
+  &[hidden] { display: none; }
+  .selection-count { font-weight: bold; }
+}
+
+// "new collection": a button that sticks beside the content while photos are
+// selected, and the dialog it opens
+.new-collection-button i { margin-right: 4px; }
+.new-collection-row { text-align: right; margin-top: 20px; }
+// (zero high, right where the photos start, so that the button is level with their first row)
+.selection-float {
+  position: sticky; top: 20px; height: 0; z-index: 50;
+  &[hidden] { display: none; }
+  .new-collection-button { position: absolute; top: 10px; left: ~"calc(100% + 16px)"; white-space: nowrap; }
+}
+// too narrow to sit beside the content: over its corner
+@media (max-width: 960px) {
+  .selection-float .new-collection-button { position: fixed; top: auto; left: auto; right: 12px; bottom: 90px; }
+}
+
+.photo-map {
+  height: 65vh; min-height: 360px;
+  // what shows through a seam between tiles: the land colour of openstreetmap's
+  // tiles, rather than something that reads as a white line
+  border-radius: 3px; background: #f2efe9;
+  .map-popup { display: flex; flex-wrap: wrap; gap: 4px; }
+  .map-photo { display: block; line-height: 0; }
+  .map-thumb { display: block; width: 120px; height: 120px; max-width: none; object-fit: cover; border-radius: 2px; }
+}
+
+.collection-grid {
+  .collection-tile img { opacity: .85; }
+  .collection-name {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 18px 10px 8px; color: #fff; font-weight: bold;
+    background: linear-gradient(transparent, rgba(0, 0, 0, .65));
+    small { font-weight: normal; opacity: .85; }
+  }
+}
+
 
 @import "mobile.less";

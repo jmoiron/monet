@@ -5,3 +5,4 @@ config.json
 node_modules
 monet
 __pycache__
+images/

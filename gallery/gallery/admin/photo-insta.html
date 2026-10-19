@@ -1,0 +1,42 @@
+<h2>Import from Instagram</h2>
+<p><a href="/admin/gallery/">&larr; Gallery</a></p>
+
+<p>Import from an Instagram data export. Importing is idempotent.</p>
+
+<div id="insta-upload-area"></div>
+
+<div id="insta-result" class="insta-result" hidden>
+    <h3>Imported</h3>
+    <p class="insta-summary"></p>
+    <ul class="insta-problems"></ul>
+    <p><a href="/admin/gallery/">See the photos</a></p>
+</div>
+
+<script src="/static/upload.js"></script>
+<script>
+$(() => {
+    $('#insta-upload-area').upload({
+        url: '/admin/gallery/insta/',
+        multiple: false,
+        accept: '.zip,application/zip',
+        maxFileSize: {{.maxBytes}},
+        text: {
+            dropZone: 'Drag & drop an Instagram export (.zip) here, or click to choose',
+            hint: 'Importing starts when the file has arrived, and a large export takes a while',
+            processing: 'Importing...'
+        },
+        onSuccess: (response) => {
+            const rep = response.report || {};
+            const problems = (rep.missing || []).map(m => 'missing from the export: ' + m)
+                .concat((rep.failed || []).map(f => 'failed: ' + f));
+            $('#insta-result .insta-summary').text(response.message);
+            const $list = $('#insta-result .insta-problems').empty();
+            problems.forEach(p => $list.append($('<li>').text(p)));
+            $('#insta-result').removeAttr('hidden');
+            $.flash(response.message, problems.length ? 'warning' : undefined);
+        },
+        onError: (error) => $.flash('Import failed: ' + error.message, 'error'),
+        onComplete: () => {}
+    });
+});
+</script>

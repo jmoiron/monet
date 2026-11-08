@@ -472,6 +472,10 @@ func (m *GitHubModule) fetchCompareCommits(ctx context.Context, token, repo, bef
 	}
 	defer res.Body.Close()
 
+	if res.StatusCode == http.StatusNotFound {
+		slog.Warn("github compare unavailable", "repo", repo, "before", before, "head", head, "status", res.Status)
+		return nil, nil
+	}
 	if res.StatusCode >= 300 {
 		return nil, fmt.Errorf("github compare api returned %s", res.Status)
 	}

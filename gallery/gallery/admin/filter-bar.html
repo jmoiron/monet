@@ -14,7 +14,7 @@
         <input type="hidden" name="to" value="{{if not .filter.Year}}{{.filter.ToDate}}{{end}}">
         <div class="date-popover" hidden></div>
     </span>
-    {{if .collections}}<select name="collection" title="Collection">
+    {{if and .collections (not .noCollection)}}<select name="collection" title="Collection">
         <option value="">Any collection</option>
         {{range .collections}}<option value="{{.ID}}"{{if eq .ID $.filter.Collection}} selected{{end}}>{{.Title}}</option>{{end}}
     </select>{{end}}

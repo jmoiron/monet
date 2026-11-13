@@ -1,7 +1,7 @@
 {{if .message}}<script>$(function() { $.flash({{.message}}); });</script>{{end}}
 
 <form method="POST" action="" class="photo-form">
-    <p><a href="/admin/gallery/">&larr; Gallery</a></p>
+    {{if not .modal}}<p><a href="/admin/gallery/">&larr; Gallery</a></p>{{end}}
 
     <a href="{{photoURL .photo.File}}" target="_blank"><img class="photo-large" src="{{photoURL .photo.DisplayFile}}" alt=""></a>
 

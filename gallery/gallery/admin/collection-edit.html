@@ -19,35 +19,80 @@
     </div>
 </form>
 
-<p class="photo-count">{{len .photos}} photo{{if ne (len .photos) 1}}s{{end}}</p>
+<h3 id="members">In this collection</h3>
+<p class="photo-count">{{.count}} photo{{if ne .count 1}}s{{end}}</p>
 <div class="photo-grid admin-photo-grid">
 {{range $photo := .photos}}
     <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}" data-id="{{$photo.ID}}">
         <a href="/admin/gallery/edit/{{$photo.ID}}" title="{{$photo.Caption}}">
             <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
         </a>
-        <a class="del remove-photo" href="#" title="Remove from the collection"><i class="fa-solid fa-circle-xmark"></i></a>
+        <a class="del change-photo" data-action="remove" href="#" title="Remove from the collection"><i class="fa-solid fa-circle-xmark"></i></a>
     </div>
-{{else}}
-    <p>Nothing here yet. Select photos in the <a href="/admin/gallery/">gallery</a> and add them.</p>
 {{end}}
 </div>
+{{.pagination}}
 
+<h3 id="others">Add photos</h3>
+{{.filterBar}}
+<div class="photo-grid admin-photo-grid" id="others-grid">
+{{range $photo := .others}}
+    <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}">
+        <input type="checkbox" class="photo-select" value="{{$photo.ID}}" title="Select">
+        <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
+        <a class="photo-open" href="/admin/gallery/edit/{{$photo.ID}}" title="Details"><i class="fa-solid fa-up-right-from-square"></i></a>
+    </div>
+{{end}}
+</div>
+{{.otherPagination}}
+
+<div id="selection-bar" class="selection-bar" hidden>
+    <span class="selection-count"></span>
+    <a href="#" class="selection-all">select page</a>
+    <a href="#" class="selection-none">clear</a>
+    <button type="button" id="selection-add" class="save-button">Add to {{.collection.Title}}</button>
+</div>
+
+<script src="/static/photo-modal.js"></script>
 <script>
 $(() => {
-    $('.remove-photo').on('click', function(e) {
-        e.preventDefault();
-        const $tile = $(this).closest('.photo-tile');
+    const post = (action, ids) => {
         const body = new FormData();
-        body.append('ids', $tile.data('id'));
-        fetch('/admin/gallery/collections/{{.collection.ID}}/remove', {method: 'POST', body})
+        ids.forEach(id => body.append('ids', id));
+        return fetch('/admin/gallery/collections/{{.collection.ID}}/' + action, {method: 'POST', body})
             .then(r => r.json())
             .then(res => {
                 if (!res.success) { throw new Error(res.error || 'failed'); }
-                $tile.remove();
                 $.flash(res.message);
+                setTimeout(() => window.location.reload(), 400);
             })
-            .catch(err => $.flash('Could not remove: ' + err.message, 'error'));
+            .catch(err => $.flash('Could not ' + action + ': ' + err.message, 'error'));
+    };
+
+    $('.change-photo').on('click', function(e) {
+        e.preventDefault();
+        post($(this).data('action'), [$(this).closest('.photo-tile').data('id')]);
     });
+
+    // choosing photos to add
+    const $bar = $('#selection-bar');
+    const $boxes = $('#others-grid .photo-select');
+    const chosen = () => $boxes.filter(function() { return this.checked; });
+    const refresh = () => {
+        const n = chosen().length;
+        $bar.find('.selection-count').text(n + ' selected');
+        $bar[0].hidden = n === 0;
+    };
+    // the photo is the target of the click, as well as the box
+    $('#others-grid .photo-tile').on('click', function(e) {
+        if ($(e.target).closest('.photo-open, .photo-select').length) { return; }
+        const box = $(this).find('.photo-select')[0];
+        box.checked = !box.checked;
+        refresh();
+    });
+    $boxes.on('change', refresh);
+    $bar.find('.selection-all').on('click', (e) => { e.preventDefault(); $boxes.each(function() { this.checked = true; }); refresh(); });
+    $bar.find('.selection-none').on('click', (e) => { e.preventDefault(); $boxes.each(function() { this.checked = false; }); refresh(); });
+    $('#selection-add').on('click', () => post('add', chosen().map(function() { return this.value; }).get()));
 });
 </script>

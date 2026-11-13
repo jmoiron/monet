@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -109,21 +110,93 @@ func (a *Admin) showCollection(w http.ResponseWriter, r *http.Request, id, messa
 		app.Http404(w)
 		return
 	}
-	photos, err := albums.Photos(album.ID, false)
+	svc, err := a.service()
+	if err != nil {
+		app.Http500("gallery not configured", w, err)
+		return
+	}
+	reg := mtr.RegistryFromContext(r.Context())
+	q := r.URL.Query()
+	filter := ParseFilter(q)
+	filter.Collection = "" // the other photos are by definition not in this one
+	base := "/admin/gallery/collections/" + album.ID
+
+	// the photos in the collection
+	inWhere, inArgs := Filter{Collection: album.ID}.Where()
+	inCount, err := svc.Count(inWhere, inArgs...)
+	if err != nil {
+		app.Http500("counting photos", w, err)
+		return
+	}
+	inPager := mtr.NewPaginator(adminPageSize, inCount).WithLinkFn(func(p int) string {
+		return pageLink(base, q, "page", p) + "#members"
+	})
+	inPage := inPager.Page(queryInt(q, "page", 1))
+	photos, err := svc.Select(inWhere+`ORDER BY (SELECT position FROM album_photo WHERE album_id = ? AND photo_id = photo.id), `+sortTime+` DESC, id LIMIT ? OFFSET ?`,
+		append(inArgs, album.ID, adminPageSize, inPage.StartOffset)...)
 	if err != nil {
 		app.Http500("loading photos", w, err)
 		return
 	}
-	reg := mtr.RegistryFromContext(r.Context())
-	err = reg.RenderWithBase(w, "admin-base", "gallery/admin/collection-edit.html", mtr.Ctx{
-		"title":      album.Title,
-		"collection": album,
-		"photos":     photos,
-		"message":    message,
-	})
+
+	// the photos that are not, narrowed by the filter
+	where, args := filter.Where()
+	notIn := `id NOT IN (SELECT photo_id FROM album_photo WHERE album_id = ?)`
+	if where == "" {
+		where = `WHERE ` + notIn + ` `
+	} else {
+		where += `AND ` + notIn + ` `
+	}
+	args = append(args, album.ID)
+	outCount, err := svc.Count(where, args...)
 	if err != nil {
+		app.Http500("counting photos", w, err)
+		return
+	}
+	outPager := mtr.NewPaginator(adminPageSize, outCount).WithLinkFn(func(p int) string {
+		return pageLink(base, q, "opage", p) + "#others"
+	})
+	outPage := outPager.Page(queryInt(q, "opage", 1))
+	others, err := svc.Select(where+OrderNewest+` LIMIT ? OFFSET ?`, append(args, adminPageSize, outPage.StartOffset)...)
+	if err != nil {
+		app.Http500("loading photos", w, err)
+		return
+	}
+
+	ctx, err := a.filterCtx(r, svc, filter, filterBar{Action: base, GPS: true, Count: outCount, NoCollection: true})
+	if err != nil {
+		app.Http500("loading filters", w, err)
+		return
+	}
+	ctx["title"] = album.Title
+	ctx["collection"] = album
+	ctx["photos"] = photos
+	ctx["count"] = inCount
+	ctx["pagination"] = inPager.Render(reg, inPage)
+	ctx["others"] = others
+	ctx["otherPagination"] = outPager.Render(reg, outPage)
+	ctx["message"] = message
+	if err := reg.RenderWithBase(w, "admin-base", "gallery/admin/collection-edit.html", ctx); err != nil {
 		slog.Error("rendering collection", "err", err)
 	}
+}
+
+// queryInt reads a positive integer from a query string.
+func queryInt(q url.Values, name string, def int) int {
+	if n, err := strconv.Atoi(q.Get(name)); err == nil && n > 0 {
+		return n
+	}
+	return def
+}
+
+// pageLink is base with the query q, but with page number n in the parameter name.
+func pageLink(base string, q url.Values, name string, n int) string {
+	v := url.Values{}
+	for k, vs := range q {
+		v[k] = vs
+	}
+	v.Set(name, strconv.Itoa(n))
+	return base + "?" + v.Encode()
 }
 
 func (a *Admin) saveCollection(w http.ResponseWriter, r *http.Request) {

@@ -152,6 +152,8 @@ type filterBar struct {
 	Action string // where the form goes
 	GPS    bool   // whether to offer the GPS filter
 	Count  int    // how many photos match, shown after the button
+	// NoCollection leaves the collection filter out, for pages that are about one.
+	NoCollection bool
 }
 
 // filterCtx is the context of a page with the filter bar: the bar itself, as
@@ -170,13 +172,14 @@ func (a *Admin) filterCtx(r *http.Request, svc *PhotoService, f Filter, bar filt
 	var b bytes.Buffer
 	reg := mtr.RegistryFromContext(r.Context())
 	err = reg.Render(&b, "gallery/admin/filter-bar.html", mtr.Ctx{
-		"filter":      f,
-		"years":       years,
-		"collections": collections,
-		"sources":     []string{SourceInstagram, SourceUpload},
-		"action":      bar.Action,
-		"gps":         bar.GPS,
-		"count":       bar.Count,
+		"filter":       f,
+		"years":        years,
+		"collections":  collections,
+		"sources":      []string{SourceInstagram, SourceUpload},
+		"action":       bar.Action,
+		"gps":          bar.GPS,
+		"count":        bar.Count,
+		"noCollection": bar.NoCollection,
 	})
 	if err != nil {
 		return nil, err
@@ -528,11 +531,18 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, svc *PhotoServi
 		slog.Error("loading albums of photo", "err", err)
 	}
 	reg := mtr.RegistryFromContext(r.Context())
-	err = reg.RenderWithBase(w, "admin-base", "gallery/admin/photo-edit.html", mtr.Ctx{
+	ctx := mtr.Ctx{
 		"photo":   p,
 		"albums":  albums,
 		"message": message,
-	})
+	}
+	// the modal wants the form alone, to put in its own frame
+	if r.URL.Query().Get("modal") == "1" {
+		ctx["modal"] = true
+		err = reg.Render(w, "gallery/admin/photo-edit.html", ctx)
+	} else {
+		err = reg.RenderWithBase(w, "admin-base", "gallery/admin/photo-edit.html", ctx)
+	}
 	if err != nil {
 		slog.Error("rendering edit", "err", err)
 	}

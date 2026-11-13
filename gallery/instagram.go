@@ -81,41 +81,97 @@ func (r *ImportReport) String() string {
 // ImportPath imports the export at path, which is either the zip file or the
 // directory it unzips to.
 func (im *InstagramImporter) ImportPath(ctx context.Context, p string) (*ImportReport, error) {
+	sess, err := im.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer sess.Close()
+	return sess.Run(ctx, nil)
+}
+
+// Import imports the export in fsys.
+func (im *InstagramImporter) Import(ctx context.Context, fsys fs.FS) (*ImportReport, error) {
+	sess, err := im.openFS(fsys, nil)
+	if err != nil {
+		return nil, err
+	}
+	return sess.Run(ctx, nil)
+}
+
+// An ImportSession is an export that has been opened and read through, so that
+// how much there is to import is known before any of it is. It must be closed.
+type ImportSession struct {
+	im       *InstagramImporter
+	root     fs.FS
+	posts    []igPost
+	insights map[string]igStats
+	closer   func() error
+
+	// Posts and Media are what the export holds; Media is what Run steps through
+	// (videos included, as they are stepped over)
+	Posts, Media int
+}
+
+// Open reads the export at path (the zip, or the directory it unzips to) far
+// enough to know what is in it.
+func (im *InstagramImporter) Open(p string) (*ImportSession, error) {
 	st, err := os.Stat(p)
 	if err != nil {
 		return nil, err
 	}
 	if st.IsDir() {
-		return im.Import(ctx, os.DirFS(p))
+		return im.openFS(os.DirFS(p), nil)
 	}
 	zr, err := zip.OpenReader(p)
 	if err != nil {
 		return nil, fmt.Errorf("opening %s: %w", p, err)
 	}
-	defer zr.Close()
-	return im.Import(ctx, zr)
+	sess, err := im.openFS(zr, zr.Close)
+	if err != nil {
+		zr.Close()
+		return nil, err
+	}
+	return sess, nil
 }
 
-// Import imports the export in fsys.
-func (im *InstagramImporter) Import(ctx context.Context, fsys fs.FS) (*ImportReport, error) {
+func (im *InstagramImporter) openFS(fsys fs.FS, closer func() error) (*ImportSession, error) {
 	root, err := exportRoot(fsys)
 	if err != nil {
 		return nil, err
 	}
-
 	posts, err := readPosts(root)
 	if err != nil {
 		return nil, err
 	}
-	insights := readInsights(root)
+	sess := &ImportSession{im: im, root: root, posts: posts, insights: readInsights(root), closer: closer, Posts: len(posts)}
+	for _, p := range posts {
+		sess.Media += len(p.Media)
+	}
+	return sess, nil
+}
 
-	rep := &ImportReport{Posts: len(posts)}
-	for _, post := range posts {
+func (s *ImportSession) Close() error {
+	if s.closer == nil {
+		return nil
+	}
+	return s.closer()
+}
+
+// Run does the import. progress, if not nil, is told how many of the Media have
+// been dealt with, after each one.
+func (s *ImportSession) Run(ctx context.Context, progress func(done int)) (*ImportReport, error) {
+	rep := &ImportReport{Posts: s.Posts}
+	done := 0
+	for _, post := range s.posts {
 		for i := range post.Media {
 			if err := ctx.Err(); err != nil {
 				return rep, err
 			}
-			im.importMedia(root, rep, post, i, insights)
+			s.im.importMedia(s.root, rep, post, i, s.insights)
+			done++
+			if progress != nil {
+				progress(done)
+			}
 		}
 	}
 	return rep, nil

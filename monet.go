@@ -153,7 +153,7 @@ func main() {
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/")
 		pagesApp     = pages.NewApp(dbh)
 		uploadApp    = uploads.NewApp(dbh, fss)
-		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/")
+		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/").WithDebug(config.Debug)
 	)
 
 	// pages should be last as it binds to /*

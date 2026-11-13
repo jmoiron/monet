@@ -40,10 +40,18 @@ type App struct {
 
 	BaseURL  string
 	PageSize int
+
+	// Debug is development mode, in which the admin may erase imports to run them again
+	Debug bool
 }
 
 func NewApp(db db.DB, fss vfs.Registry) *App {
 	return &App{db: db, fss: fss, BaseURL: "/gallery/", PageSize: defaultPageSize}
+}
+
+func (a *App) WithDebug(debug bool) *App {
+	a.Debug = debug
+	return a
 }
 
 func (a *App) WithBaseURL(url string) *App {
@@ -81,7 +89,9 @@ func NewPhotoServiceFromFSS(d db.DB, fss vfs.Registry) (*PhotoService, error) {
 func (a *App) service() (*PhotoService, error) { return NewPhotoServiceFromFSS(a.db, a.fss) }
 
 func (a *App) GetAdmin() (app.Admin, error) {
-	return NewAdmin(a.db, a.fss), nil
+	adm := NewAdmin(a.db, a.fss)
+	adm.debug = a.Debug
+	return adm, nil
 }
 
 func (a *App) Register(reg *mtr.Registry) {

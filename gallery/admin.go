@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -45,11 +46,19 @@ type Admin struct {
 	// slot is the one turn at writing to the gallery that there is
 	slot chan struct{}
 
+	// the imports running in the background, and the last one started
+	jobsMu sync.Mutex
+	jobs   map[string]*importJob
+	latest *importJob
+
 	maxPhoto, maxInstagram int64
+
+	// debug allows erasing what was imported, to import it again
+	debug bool
 }
 
 func NewAdmin(db db.DB, fss vfs.Registry) *Admin {
-	return &Admin{db: db, fss: fss, slot: make(chan struct{}, 1), maxPhoto: MaxPhotoBytes, maxInstagram: MaxInstagramBytes}
+	return &Admin{db: db, fss: fss, slot: make(chan struct{}, 1), jobs: map[string]*importJob{}, maxPhoto: MaxPhotoBytes, maxInstagram: MaxInstagramBytes}
 }
 
 func (a *Admin) Bind(r chi.Router) {
@@ -60,6 +69,9 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/gallery/upload/", a.uploadPhoto)
 	r.Get("/gallery/insta/", a.instagramPage)
 	r.Post("/gallery/insta/", a.importInstagram)
+	r.Post("/gallery/insta/reset/", a.resetImports)
+	r.Get("/gallery/insta/status/", a.importStatus)
+	r.Get("/gallery/insta/status/{id:[0-9a-f]+}", a.importStatus)
 	r.Get("/gallery/edit/{id:[^/]+}", a.edit)
 	r.Post("/gallery/edit/{id:[^/]+}", a.save)
 	r.Get("/gallery/delete/{id:[^/]+}", a.delete)
@@ -310,9 +322,15 @@ func (a *Admin) uploadPhoto(w http.ResponseWriter, r *http.Request) {
 // instagramPage is where an instagram export is dropped.
 func (a *Admin) instagramPage(w http.ResponseWriter, r *http.Request) {
 	reg := mtr.RegistryFromContext(r.Context())
-	err := reg.RenderWithBase(w, "admin-base", "gallery/admin/photo-insta.html", mtr.Ctx{
+	events, err := importEvents(a.db, SourceInstagram)
+	if err != nil {
+		slog.Error("listing instagram imports", "err", err)
+	}
+	err = reg.RenderWithBase(w, "admin-base", "gallery/admin/photo-insta.html", mtr.Ctx{
 		"title":    "Import from Instagram",
+		"events":   events,
 		"maxBytes": a.maxInstagram,
+		"canReset": a.debug,
 	})
 	if err != nil {
 		slog.Error("rendering instagram import", "err", err)
@@ -340,7 +358,12 @@ func (a *Admin) importInstagram(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
 		return
 	}
-	defer os.Remove(tmp.Name())
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			os.Remove(tmp.Name())
+		}
+	}()
 	defer tmp.Close()
 
 	got := false
@@ -375,21 +398,79 @@ func (a *Admin) importInstagram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// read the export through now, so that what's wrong with it is said now,
+	// and how much is in it is known
+	sess, err := NewInstagramImporter(svc).Open(tmp.Name())
+	if err != nil {
+		slog.Warn("importing instagram export", "err", err)
+		writeJSON(w, http.StatusUnprocessableEntity, jsonMap{"success": false, "error": err.Error()})
+		return
+	}
+
+	// the import goes on without the request, which is done with the file
+	handedOff = true
+	j := a.startImport(sess, tmp.Name())
+	writeJSON(w, http.StatusOK, j.status())
+}
+
+// importStatus says where an import is: the one named, or with no name the
+// latest, so a page opened while one runs can pick it up.
+func (a *Admin) importStatus(w http.ResponseWriter, r *http.Request) {
+	j := a.job(chi.URLParam(r, "id"))
+	if j == nil {
+		writeJSON(w, http.StatusOK, jsonMap{"success": true, "job": nil})
+		return
+	}
+	writeJSON(w, http.StatusOK, j.status())
+}
+
+// resetImports erases every instagram photo and the record of every import,
+// so that an import can be tried again from nothing. Development only.
+func (a *Admin) resetImports(w http.ResponseWriter, r *http.Request) {
+	if !a.debug {
+		writeJSON(w, http.StatusForbidden, jsonMap{"success": false, "error": "only in debug mode"})
+		return
+	}
+	svc, err := a.service()
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
+		return
+	}
+	if j := a.job(""); j != nil && j.active() {
+		writeJSON(w, http.StatusConflict, jsonMap{"success": false, "error": "an import is running"})
+		return
+	}
 	release, err := a.acquire(r.Context())
 	if err != nil {
 		return
 	}
 	defer release()
 
-	// finish the import even if the browser goes away partway
-	rep, err := NewInstagramImporter(svc).ImportPath(context.WithoutCancel(r.Context()), tmp.Name())
+	photos, err := svc.Select(`WHERE source=?`, SourceInstagram)
 	if err != nil {
-		slog.Warn("importing instagram export", "err", err)
-		writeJSON(w, http.StatusUnprocessableEntity, jsonMap{"success": false, "error": err.Error()})
+		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
 		return
 	}
-	slog.Info("imported instagram export", "report", rep.String())
-	writeJSON(w, http.StatusOK, jsonMap{"success": true, "message": rep.String(), "report": rep})
+	for _, p := range photos {
+		if err := svc.Delete(p.ID); err != nil {
+			writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
+			return
+		}
+	}
+	res, err := a.db.Exec(`DELETE FROM import_event WHERE source=?`, SourceInstagram)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
+		return
+	}
+	events, _ := res.RowsAffected()
+
+	a.jobsMu.Lock()
+	a.jobs, a.latest = map[string]*importJob{}, nil
+	a.jobsMu.Unlock()
+
+	slog.Warn("erased instagram imports", "photos", len(photos), "events", events)
+	writeJSON(w, http.StatusOK, jsonMap{"success": true,
+		"message": fmt.Sprintf("Erased %d photos and %d import records", len(photos), events)})
 }
 
 var errTooLarge = errors.New("too large")

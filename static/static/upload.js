@@ -303,6 +303,7 @@ $(() => {
 
                 if (statusClass) {
                     $statusElement.removeClass('success error').addClass(statusClass);
+                    $item.toggleClass('done', statusClass === 'success');
                 }
             }
         });

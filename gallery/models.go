@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/db/monarch"
 )
 
@@ -107,6 +108,21 @@ var galleryMigrations = monarch.Set{
 		{
 			Up:   `CREATE INDEX IF NOT EXISTS idx_album_photo_photo ON album_photo(photo_id);`,
 			Down: `DROP INDEX idx_album_photo_photo;`,
+		},
+		{
+			// one row per import run: when, and what it did. Times are unix seconds.
+			Up: `CREATE TABLE IF NOT EXISTS import_event (
+				id integer PRIMARY KEY AUTOINCREMENT,
+				source text NOT NULL,
+				started_at integer NOT NULL,
+				finished_at integer NOT NULL,
+				posts integer NOT NULL DEFAULT 0,
+				photos integer NOT NULL DEFAULT 0,
+				created integer NOT NULL DEFAULT 0,
+				updated integer NOT NULL DEFAULT 0,
+				unchanged integer NOT NULL DEFAULT 0
+			);`,
+			Down: `DROP TABLE import_event;`,
 		},
 	},
 }
@@ -264,4 +280,36 @@ type Album struct {
 	Published   int    `db:"published"`
 	CreatedAt   int64  `db:"created_at"`
 	UpdatedAt   int64  `db:"updated_at"`
+}
+
+// recordImport keeps a note of an import that has finished: when it ran, and
+// what it did.
+func recordImport(d db.DB, source string, started time.Time, rep *ImportReport) error {
+	_, err := d.Exec(`INSERT INTO import_event (source, started_at, finished_at, posts, photos, created, updated, unchanged)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		source, started.Unix(), time.Now().Unix(), rep.Posts, rep.Media, rep.Created, rep.Updated, rep.Unchanged)
+	return err
+}
+
+// An ImportEvent is the record of one import that ran.
+type ImportEvent struct {
+	ID         int    `db:"id"`
+	Source     string `db:"source"`
+	StartedAt  int64  `db:"started_at"`
+	FinishedAt int64  `db:"finished_at"`
+	Posts      int    `db:"posts"`
+	Photos     int    `db:"photos"`
+	Created    int    `db:"created"`
+	Updated    int    `db:"updated"`
+	Unchanged  int    `db:"unchanged"`
+}
+
+// When is when the import started, for showing.
+func (e ImportEvent) When() string { return time.Unix(e.StartedAt, 0).Format("Jan 2, 2006 · 15:04") }
+
+// importEvents are the imports from source that have run, latest first.
+func importEvents(d db.DB, source string) ([]ImportEvent, error) {
+	var events []ImportEvent
+	err := d.Select(&events, `SELECT * FROM import_event WHERE source=? ORDER BY started_at DESC, id DESC`, source)
+	return events, err
 }

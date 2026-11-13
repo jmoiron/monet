@@ -1363,6 +1363,13 @@ h2 .small { font-size: 14px; }
 }
 
 .insta-result { margin: 20px 0; .insta-problems { color: #a60; font-size: .9em; } }
+.insta-reset a.del { color: #999; font-size: 16px; text-decoration: none; &:hover { color: #fa2a00; } }
+.insta-progress {
+  margin: 20px 0;
+  .insta-bar { height: 8px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+  .insta-fill { height: 100%; width: 0; background: #28a745; transition: width .4s ease; }
+  .insta-progress-text { color: #666; font-size: .9em; margin: 6px 0; font-variant-numeric: tabular-nums; }
+}
 .photo-count { color: #999; font-size: .9em; margin: 0; }
 
 .photo-large { display: block; max-width: 100%; height: auto; margin: 10px auto; border-radius: 3px; }

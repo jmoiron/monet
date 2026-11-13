@@ -5,16 +5,105 @@
 
 <div id="insta-upload-area"></div>
 
+<div class="uploads-grid imports" id="insta-history"{{if not .events}} style="display: none"{{end}}>
+    <div class="upload-header">
+        <div>When</div><div>Posts</div><div>Photos</div><div>New</div><div>Updated</div><div>Unchanged</div>
+    </div>
+    {{range .events}}
+    <div class="upload-row">
+        <div>{{.When}}</div><div>{{.Posts}}</div><div>{{.Photos}}</div><div>{{.Created}}</div><div>{{.Updated}}</div><div>{{.Unchanged}}</div>
+    </div>
+    {{end}}
+</div>
+
+<div id="insta-progress" class="insta-progress" hidden>
+    <h3>Importing</h3>
+    <div class="insta-bar"><div class="insta-fill"></div></div>
+    <p class="insta-progress-text"></p>
+</div>
+
 <div id="insta-result" class="insta-result" hidden>
     <h3>Imported</h3>
     <p class="insta-summary"></p>
     <ul class="insta-problems"></ul>
-    <p><a href="/admin/gallery/">See the photos</a></p>
 </div>
+
+{{if .canReset}}
+<p class="insta-reset"><a class="del" href="#" id="insta-reset" title="Danger: deletes all imported photos and import records" aria-label="Danger: deletes all imported photos and import records"><i class="fa-solid fa-circle-xmark"></i> delete all</a></p>
+{{end}}
 
 <script src="/static/upload.js"></script>
 <script>
 $(() => {
+    const statusURL = '/admin/gallery/insta/status/';
+
+    const duration = (secs) => {
+        secs = Math.max(0, Math.round(secs));
+        const h = Math.floor(secs / 3600), m = Math.floor(secs % 3600 / 60), s = secs % 60;
+        return h ? h + 'h ' + m + 'm' : m ? m + 'm ' + s + 's' : s + 's';
+    };
+
+    const showResult = (job) => {
+        const rep = job.report || {};
+        const problems = (rep.missing || []).map(m => 'missing from the export: ' + m)
+            .concat((rep.failed || []).map(f => 'failed: ' + f));
+        $('#insta-progress').attr('hidden', true);
+        const cells = [new Date().toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'}),
+            rep.posts, rep.media, rep.created, rep.updated, rep.unchanged];
+        const $row = $('<div class="upload-row">');
+        cells.forEach(c => $row.append($('<div>').text(c)));
+        $('#insta-history .upload-header').after($row);
+        $('#insta-history').css('display', '');
+        $('#insta-result .insta-summary').text(job.message);
+        const $list = $('#insta-result .insta-problems').empty();
+        problems.forEach(p => $list.append($('<li>').text(p)));
+        $('#insta-result').removeAttr('hidden');
+        $.flash(job.message, problems.length ? 'warning' : undefined);
+    };
+
+    const showProgress = (job) => {
+        const pct = job.total ? job.done / job.total * 100 : 0;
+        $('#insta-progress .insta-fill').css('width', pct + '%');
+        let text = 'Waiting for another import to finish...';
+        if (job.state === 'running') {
+            text = job.done + ' of ' + job.total;
+            if (job.rate) {
+                text += ', ' + job.rate.toFixed(1) + '/sec, eta ' + duration(job.eta);
+            }
+        }
+        $('#insta-progress .insta-progress-text').text(text);
+        $('#insta-progress').removeAttr('hidden');
+    };
+
+    // follow an import until it ends. A request that fails is tried again: the
+    // import goes on whether or not anyone is looking.
+    const follow = (id) => {
+        fetch(statusURL + id).then(r => r.json()).then((job) => {
+            if (job.state === 'done') return showResult(job);
+            if (job.state === 'failed') {
+                $('#insta-progress').attr('hidden', true);
+                return $.flash('Import failed: ' + job.error, 'error');
+            }
+            showProgress(job);
+            setTimeout(() => follow(id), 1000);
+        }).catch(() => setTimeout(() => follow(id), 3000));
+    };
+
+    $('#insta-reset').on('click', (e) => {
+        e.preventDefault();
+        if (!confirm('Delete every photo imported from Instagram, and the record of every import?')) return;
+        fetch('/admin/gallery/insta/reset/', {method: 'POST'})
+            .then(r => r.json().catch(() => ({})).then(body => ({ok: r.ok, body, status: r.statusText})))
+            .then(({ok, body, status}) => {
+                if (!ok) return $.flash('Erase failed: ' + (body.error || status), 'error');
+                $.flash(body.message);
+                $('#insta-progress, #insta-result').attr('hidden', true);
+                $('#insta-history .upload-row').remove();
+                $('#insta-history').css('display', 'none');
+            })
+            .catch((err) => $.flash('Erase failed: ' + err.message, 'error'));
+    });
+
     $('#insta-upload-area').upload({
         url: '/admin/gallery/insta/',
         multiple: false,
@@ -23,20 +112,24 @@ $(() => {
         text: {
             dropZone: 'Drag & drop an Instagram export (.zip) here, or click to choose',
             hint: 'Importing starts when the file has arrived, and a large export takes a while',
-            processing: 'Importing...'
+            processing: 'Reading the export...',
+            complete: 'Uploaded'
         },
-        onSuccess: (response) => {
-            const rep = response.report || {};
-            const problems = (rep.missing || []).map(m => 'missing from the export: ' + m)
-                .concat((rep.failed || []).map(f => 'failed: ' + f));
-            $('#insta-result .insta-summary').text(response.message);
-            const $list = $('#insta-result .insta-problems').empty();
-            problems.forEach(p => $list.append($('<li>').text(p)));
-            $('#insta-result').removeAttr('hidden');
-            $.flash(response.message, problems.length ? 'warning' : undefined);
+        onSuccess: (job) => {
+            $('#insta-result').attr('hidden', true);
+            showProgress(job);
+            follow(job.job);
         },
         onError: (error) => $.flash('Import failed: ' + error.message, 'error'),
         onComplete: () => {}
     });
+
+    // an import started earlier (from this page or another) may still be going
+    fetch(statusURL).then(r => r.json()).then((job) => {
+        if (job.job && (job.state === 'queued' || job.state === 'running')) {
+            showProgress(job);
+            follow(job.job);
+        }
+    }).catch(() => {});
 });
 </script>

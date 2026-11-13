@@ -290,6 +290,9 @@
             display: none;
         }
     }
+    &.imports {
+        grid-template-columns: 180px repeat(5, 1fr);
+    }
     &.preview {
         grid-template-columns: 120px 1fr 100px 80px 120px 60px;
         .col-preview { }
@@ -573,8 +576,13 @@
       .progress-fill {
         height: 100%;
         background-color: @bluelink;
-        transition: width 0.3s ease;
+        transition: width 0.3s ease, background-color 0.3s ease;
       }
+    }
+
+    // the file has arrived: the bar goes green and the status gets a tick
+    &.done .progress-fill {
+      background-color: #28a745;
     }
 
     .upload-status {
@@ -585,6 +593,10 @@
 
       &.success {
         color: #28a745;
+
+        &::before {
+          content: '\2713\00a0';
+        }
       }
 
       &.error {

@@ -170,6 +170,9 @@
 .fa-location-dot {
   --fa: "\f3c5";
 }
+.fa-moon {
+  --fa: "\f186";
+}
 .fa-plus {
   --fa: "\+";
 }
@@ -184,6 +187,9 @@
 }
 .fa-rotate-right {
   --fa: "\f2f9";
+}
+.fa-sun {
+  --fa: "\f185";
 }
 .fa-table-cells-large {
   --fa: "\f009";

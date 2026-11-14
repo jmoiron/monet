@@ -39,7 +39,7 @@
         $link = $from;
         $overlay = $('<div class="rename-modal photo-modal"><div class="modal-content">' +
             '<a href="#" class="modal-close" title="Close"><i class="fa-solid fa-circle-xmark"></i></a>' +
-            '<div class="photo-modal-body">Loading…</div></div></div>').css('display', 'block').appendTo('body');
+            '<div class="photo-modal-body">Loading…</div></div></div>').css('display', 'block').appendTo($('.admin').first().length ? $('.admin').first() : 'body');
         $body = $overlay.find('.photo-modal-body');
         $overlay.on('mousedown', function(e) {
             if (e.target === this) { close(); }

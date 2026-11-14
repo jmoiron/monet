@@ -1,0 +1,211 @@
+// vim: ft=less
+// Dark mode. Everything here applies only under <html data-theme="dark">, so a
+// switch anywhere on the site only has to set that attribute. The colours keep
+// the light theme's hues on dark surfaces; nothing is pure black, which is too
+// harsh against the text.
+//
+// It covers what the public site shows: the page chrome, blog posts and code,
+// the home page summaries, bookmarks, the stream and the gallery. The admin's are
+// in dark-admin.less.
+
+@dark-page:     #17191d; // behind everything
+@dark-surface:  #1e2125; // the content column
+@dark-raised:   #2a2e34; // tiles, hovers
+@dark-border:   #343941;
+@dark-text:     #c5c9cf;
+@dark-strong:   #e8eaed; // headings, bold
+@dark-muted:    #7d838c; // dates, footer, captions
+@dark-link:       lighten(@bluelink, 22%);
+@dark-link-hover: lighten(@bluelink, 32%);
+@dark-sunken:   #24272c; // quotes, alternate rows: barely off the surface
+@dark-faint:    #555a62; // disabled
+@dark-scrim:    rgba(14, 16, 19, .7); // over photos, to read text on them
+
+html[data-theme="dark"] {
+  color-scheme: dark; // native controls and scrollbars
+  background-color: @dark-page;
+
+  body { background-color: @dark-page; color: @dark-text; }
+  b, strong { color: @dark-strong; }
+  abbr { border-bottom-color: @dark-muted; }
+
+  .content { background-color: @dark-surface; border-top-color: @dark-raised; }
+
+  h1, h2, h3 {
+    color: @dark-strong;
+    a { color: @dark-strong; text-shadow: none; }
+  }
+  h1 span { color: @dark-muted; }
+
+  a { color: @dark-link; &:hover { color: @dark-link-hover; } }
+  .date { color: @dark-muted; &:hover { color: @dark-text; } }
+
+  .footer {
+    .container { border-top-color: @dark-border; }
+    .byline { color: @dark-muted; a { color: @dark-muted; &:hover { color: @dark-link-hover; } } }
+    .link-icons a { color: @dark-muted; &:hover { color: @dark-link-hover; } }
+  }
+
+  .paginator li {
+    a { border-color: @dark-link;
+      &:hover { background-color: @dark-link; color: @dark-surface; text-shadow: none; }
+    }
+    &.num { border-color: @dark-border;
+      &:hover { background-color: @dark-raised; text-shadow: none; }
+    }
+    &.inter:hover { background-color: transparent; }
+  }
+
+  .theme-toggle {
+    color: @dark-muted;
+    &:hover, &:focus-visible { color: @dark-link-hover; }
+    .fa-moon { display: none; }
+    .fa-sun { display: inline-block; }
+  }
+
+  // ---- text and inline code
+  pre, blockquote { color: @dark-text; background-color: @dark-raised; border-left-color: lighten(@boring, 8%); }
+  blockquote { background-color: @dark-sunken; }
+  p code { background-color: #2c2326; color: #f08a8a; }
+  .external-link { color: @dark-muted; }
+  .pretty-thumb, .album-thumbnail img { box-shadow: 1px 1px 4px rgba(14, 16, 19, .6); &:hover { box-shadow: 1px 1px 4px @dark-faint; } }
+  .post h2 a:hover { color: @dark-link-hover; }
+
+  // ---- forms
+  .frontend form input, .frontend form textarea, .login-form input[type=text], .login-form input[type=password] {
+    background-color: @dark-raised; color: @dark-text;
+  }
+  .frontend form input.search { color: @dark-muted; &:hover, &:active { color: @dark-strong; } }
+  .login-form input[type=text], .login-form input[type=password] { border-color: @dark-border; }
+
+  // ---- code (prettify)
+  .com { color: @dark-muted; }
+  .lit { color: #7ab4e0; }
+  .pun, .opn, .clo { color: #8f989a; }
+  .fun { color: #f07178; }
+  .str, .atv { color: #e58a8a; }
+  .kwd, .linenums .tag { color: #8aa8f0; }
+  .typ, .atn, .dec, .var { color: #5fc4c0; }
+  .pln { color: @dark-text; }
+  .prettyprint { background-color: @dark-raised; }
+  .prettyprint.linenums { box-shadow: inset 40px 0 0 @dark-sunken; }
+  ol.linenums li { color: @dark-muted; }
+
+  // ---- home page summaries
+  .bottom-panel { background-color: @dark-sunken; }
+  .summary {
+    border-top-color: @dark-border;
+    .date { color: @dark-muted; }
+    li {
+      a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+      &:hover .date { color: @dark-text; }
+    }
+  }
+  .blog-home-list {
+    .summary-title-line a { color: @dark-link; &:hover { color: @dark-link-hover; } }
+    .summary-description { color: @dark-text; }
+    .summary-title-line .date { color: @dark-muted; }
+  }
+
+  // ---- the stream: the list
+  .entries .entry {
+    border-bottom-color: @dark-border;
+    &:hover { color: @dark-strong; }
+    &.github i.icon { color: @dark-strong; &:hover { color: @dark-text; } }
+  }
+  .entry-container:nth-child(even) .entry { background-color: @dark-sunken; }
+  .stream-home-list .entry-container:nth-child(even) .entry { background-color: transparent; }
+  .entry {
+    .icon { color: @dark-muted; &:hover { color: @dark-link-hover; } }
+    &:hover .icon { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+    &.github .message { color: @dark-text; }
+  }
+  .stream-type-filter { color: @dark-muted; &:hover { color: @dark-link-hover; } &.selected { color: @dark-strong; } }
+  .icon-action { color: @dark-muted; &:hover { color: @dark-link-hover; } &.disabled { color: @dark-faint; } }
+  .stream-upload-filename, .stream-card-branch, .stream-entry-commit-branch,
+  .stream-entry-create i, .stream-entry-commit-sha i, .stream-card-commit-meta i { color: @dark-muted; }
+  .stream-card-sha, .stream-card-sha:visited, .stream-entry-commit-sha, .stream-entry-commit-sha a,
+  .stream-entry-commit-sha a:visited, .stream-card-commit-meta { color: @dark-strong; }
+  .entry.github {
+    .stream-entry-pr a, .stream-entry-issue a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+    .stream-entry-pr i, .stream-entry-create i { color: @dark-muted; }
+  }
+  .stream-card-sha:hover, .stream-entry-commit-sha a:hover { color: @dark-link-hover; }
+
+  // ---- the stream: a single entry
+  .stream-detail {
+    .stream-meta { color: @dark-muted; }
+    .stream-card-name, .stream-card-repo-line, .stream-card-issue-title, .stream-card-issue-body,
+    .stream-card-pr, .stream-card-pr-link, .stream-card-pr-title, .stream-card-pr-body,
+    .stream-card-create-ref, .stream-embed-title { color: @dark-strong; }
+    .stream-card-pr-link:hover { color: @dark-link-hover; }
+    .stream-card-timestamp, .stream-card-separator, .stream-card-handle, .stream-card-issue-link,
+    .stream-card-pr-branches, .stream-card-create-ref i, .stream-embed-domain { color: @dark-muted; }
+    .stream-card-repo-line a:hover, .stream-card-handle a:hover { color: @dark-link-hover; }
+    .stream-image-embed-alt { color: @dark-text; }
+    .stream-card-avatar-circle { background: @dark-raised; border-color: @dark-border; }
+    .stream-raw summary { color: @dark-muted; }
+  }
+  .github-issue-detail .stream-card-issue-link, .github-pr-detail .stream-card-pr-branches { color: @dark-muted; }
+
+  // ---- cards: links, bookmarks and the bluesky embeds
+  .link-card, .bookmark-card, .stream-detail .bluesky-detail .stream-embed-card {
+    border-color: @dark-border;
+    background: linear-gradient(180deg, @dark-raised 0%, @dark-sunken 100%);
+    box-shadow: 0 1px 0 rgba(14, 16, 19, .3), 0 8px 18px rgba(14, 16, 19, .25);
+    &:hover { border-color: @dark-faint; box-shadow: 0 1px 0 rgba(14, 16, 19, .4), 0 12px 24px rgba(14, 16, 19, .35); }
+    .link-card-media { background: @dark-border; }
+    .link-card-title { color: @dark-strong; }
+    .link-card-description { color: @dark-text; }
+    hr { border-top-color: @dark-border; }
+    .link-card-domain, .link-card-foot { color: @dark-muted; }
+    .link-card-loaded, .link-card-date { color: @dark-muted; }
+  }
+  .stream-detail .bluesky-detail .stream-embed-content hr { border-top-color: @dark-border; }
+  .frontend .bookmark-cards .bookmark-card {
+    .link-card-title a { color: inherit; &:hover { color: @dark-link-hover; } }
+    .link-card-foot { color: @dark-muted; }
+  }
+  .stream-card-pr-body img { box-shadow: 0 1px 0 rgba(14, 16, 19, .3), 0 8px 18px rgba(14, 16, 19, .25); }
+
+  // ---- bookmarks
+  .frontend {
+    .bookmark-detail {
+      h1 a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+      .external-link { color: @dark-muted; &:hover { color: @dark-link-hover; } }
+      .bookmark-meta .date { color: @dark-muted; }
+      .bookmark-screenshot img { border-color: @dark-border; }
+    }
+    .bookmark-toolbar .view-toggle {
+      border-color: @dark-border;
+      a {
+        color: @dark-muted;
+        &:hover { color: @dark-link-hover; }
+        &.active { background: @dark-raised; color: @dark-strong; }
+        & + a { border-left-color: @dark-border; }
+      }
+    }
+    ul.shortlist {
+      li {
+        a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+        &:hover .date { color: @dark-text; }
+      }
+      li.bookmark-item {
+        border-bottom-color: @dark-border;
+        .bookmark-icon {
+          img { border-color: @dark-border; }
+          a:hover img, a:hover .bookmark-icon-empty { border-color: @dark-link; }
+          .bookmark-icon-empty { border-color: @dark-border; background: @dark-sunken; color: @dark-muted; }
+        }
+        .bookmark-content .bookmark-title-line .date { color: @dark-muted; }
+      }
+    }
+  }
+
+  // the gallery
+  .photo-grid .photo-tile { background: @dark-raised; }
+  .collection-grid .collection-name { background: linear-gradient(transparent, @dark-scrim); }
+  .photo-facts dt { color: @dark-muted; }
+}
+
+@import "dark-admin.less";

@@ -2,6 +2,7 @@
 <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script>try { var t = localStorage.getItem("theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
         {{if .rss}}
         <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="{{.rss}}">
         {{end}}
@@ -17,6 +18,7 @@
         <link rel="stylesheet" href="/static/style.css">
         {{end}}
         <script src="/static/js/cash.min.js"></script>
+        <script src="/static/js/theme.js"></script>
         <script src="/static/js/frontend.js"></script>
         <script src="/static/js/prettify.js"></script>
         {{if .ogDescription -}}
@@ -33,8 +35,9 @@
         <!-- TODO: self-hosted GA style stats -->
     </head>
     <body onload="prettyPrint();">
+        <button type="button" class="theme-toggle" title="Switch between light and dark" aria-label="Switch between light and dark"><i class="fa-solid fa-moon"></i><i class="fa-solid fa-sun"></i></button>
         <div class="content">
-            <div class="container frontend">
+            <div class="container frontend {{.extraContainerClass}}">
                 <h1><a href="/">jmoiron</a> <span class="sub">plays the blues</span></h1>
                 {{.body}}
             </div>

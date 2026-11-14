@@ -1530,3 +1530,25 @@ h2 .small { font-size: 14px; }
   .modal-content { position: relative; top: auto; left: auto; transform: none; box-sizing: border-box; width: 100%; max-width: 760px; margin: 4vh auto; }
   .photo-large { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto 12px; }
 }
+
+// a photo's page: what is known about it on one half, where it was taken on the other
+.photo-detail .photo-back { font-size: 1.5em; } // as large as the "Photos" heading it returns to
+.photo-detail .photo-info {
+  display: grid; gap: 16px 20px; align-items: start;
+  &.has-locator { grid-template-columns: 1fr 1fr; }
+  .photo-facts { margin: 15px 0; dt { font-variant-caps: all-small-caps; letter-spacing: .06em; } }
+  .photo-locator { height: 240px; margin: 15px 0; border-radius: 3px; background: #f2efe9; }
+}
+@media (max-width: 720px) { .photo-detail .photo-info.has-locator { grid-template-columns: 1fr; } }
+
+// the light/dark switch, in the corner: quiet until it is looked for
+.theme-toggle {
+  position: absolute; top: 12px; right: 16px;
+  padding: 6px; border: 0; background: none; cursor: pointer;
+  font-size: 16px; line-height: 1; color: #bbb;
+  &:hover, &:focus-visible { color: @bluehover; }
+  .fa-sun { display: none; } // the moon is the way to dark, the sun the way back
+}
+
+// dark mode: html[data-theme="dark"], in its own file
+@import "dark.less";

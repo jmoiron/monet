@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <script>try { var t = localStorage.getItem("theme"); if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t); } catch (e) {}</script>
         <link rel="stylesheet" href="/static/fonts.css">
         <link rel="stylesheet" href="/static/fa/icons.css">
         {{if .debug}}
@@ -10,6 +11,7 @@
         <link rel="stylesheet" href="/static/style.css">
         {{end}}
         <script src="/static/js/cash.min.js"></script>
+        <script src="/static/js/theme.js"></script>
         <script src="/static/js/flash.js"></script>
         <script src="/static/js/admin.js"></script>
         <script src="/static/js/split-grid.min.js"></script>
@@ -17,6 +19,7 @@
         <title>{{.title}}</title>
     </head>
     <body>
+        <button type="button" class="theme-toggle" title="Switch between light and dark" aria-label="Switch between light and dark"><i class="fa-solid fa-moon"></i><i class="fa-solid fa-sun"></i></button>
         <div class="content">
             <div class="container admin {{.extraContainerClass}}">
                 {{.body}}

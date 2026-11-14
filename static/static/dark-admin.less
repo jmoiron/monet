@@ -1,0 +1,181 @@
+// vim: ft=less
+// Dark mode for the admin, imported by dark.less (which has the palette).
+
+html[data-theme="dark"] {
+
+  // ---- forms
+  .admin {
+    input, textarea, select { background-color: @dark-raised; color: @dark-text; }
+    label { color: @dark-strong; }
+    .extras { border-top-color: @dark-border; input { color: @dark-text; } }
+    .panel-sep { border-bottom-color: @dark-border; }
+    .list-new { color: @dark-muted; }
+  }
+  .split-content-input { color: @dark-text; }
+  #content-input, #content-rendered { border-color: @dark-border; }
+  #content-rendered { background-color: @dark-sunken; }
+  .gutter-col { background-color: @dark-raised; }
+
+  // ---- buttons: the white frame around them is for a light page
+  .admin .more-button, .admin .preview-button, .admin .save-button,
+  .admin form .published a.published-toggle-button, .admin .autosave-button, .admin .debug-autosave-button,
+  .login-form .login input {
+    border-color: @dark-border;
+    box-shadow: 2px 2px 3px rgba(14, 16, 19, .5);
+  }
+
+  // ---- lists and panels
+  .admin {
+    ul.shortlist li {
+      a.del, &:hover a.del { color: @dark-muted; &:hover { color: #fa2a00; } }
+      &.admin-bookmark-item {
+        border-bottom-color: @dark-border;
+        .bookmark-icon {
+          img { border-color: @dark-border; }
+          a:hover img, a:hover .bookmark-icon-empty { border-color: @dark-link; }
+          .bookmark-icon-empty { border-color: @dark-border; background: @dark-sunken; color: @dark-muted; }
+        }
+        .bookmark-content {
+          .bookmark-title-line .date { color: @dark-muted; }
+          .status { color: @dark-muted; }
+        }
+        &:hover a.del { color: @dark-muted; &:hover { color: #fa2a00; } }
+      }
+    }
+    ul.listpage a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+    .panel {
+      color: @dark-muted;
+      a, a:visited { color: @dark-muted; }
+      &:hover a { color: @dark-strong; &:hover { color: @dark-link-hover; } }
+      a.add:hover { color: #a3d9a0; }
+      &:hover p { color: @dark-text; }
+      &:hover input:focus { color: @dark-strong; }
+    }
+  }
+
+  // ---- the bookmark editor
+  .bookmarks-form {
+    .bookmark-url-input-container i:hover { color: @dark-link-hover; }
+    .link-card-none, .link-card-caption, .bookmark-dates { color: @dark-muted; }
+    .link-card-wrap.no-image .link-card-media::after { color: @dark-muted; }
+    .description-editor {
+      .editor-tabs { border-bottom-color: @dark-border; }
+      .editor-tab {
+        color: @dark-muted;
+        &:hover { color: @dark-strong; }
+        &.active { color: @dark-strong; }
+      }
+      .description-input { border-color: @dark-border; color: @dark-text; }
+      .description-preview { border-color: @dark-border; background: @dark-sunken; }
+    }
+  }
+
+  // ---- uploads
+  .uploads-grid {
+    .upload-header > div { color: @dark-muted; border-bottom-color: @dark-border; }
+    .upload-row {
+      &:nth-child(odd) > div { background-color: @dark-sunken; }
+      &:hover > div { background-color: @dark-raised; }
+    }
+    .upload-row > div { border-bottom-color: @dark-border; }
+    .col-filename .file-link { color: @dark-strong; &:hover { color: @dark-link-hover; } i { color: @dark-muted; } }
+    .col-actions a.rename, .col-actions a.del { color: @dark-muted; }
+    .col-actions a.rename:hover { color: @dark-link-hover; }
+    .col-actions a.del:hover { color: #fa2a00; }
+  }
+  .pagination {
+    border-top-color: @dark-border;
+    .page-link {
+      background-color: @dark-raised; border-color: @dark-border; color: @dark-link;
+      &:hover { background-color: @dark-border; border-color: @dark-faint; }
+    }
+    .page-info { color: @dark-muted; }
+  }
+  .no-uploads { color: @dark-muted; a { color: @dark-link; } }
+  .upload-list {
+    .filename { color: @dark-link; }
+    .filesystem { color: @dark-muted; }
+    .size { color: @dark-muted; }
+  }
+  .upload-drop-zone {
+    background-color: @dark-sunken; border-color: @dark-border;
+    &:hover, &.drag-over { border-color: @dark-link; background-color: #1d2733; }
+    .upload-icon { color: @dark-faint; }
+    .upload-text, .upload-hint { color: @dark-muted; }
+  }
+  .upload-progress {
+    .progress-item { border-bottom-color: @dark-border; }
+    .progress-bar { background-color: @dark-raised; }
+    .upload-status { color: @dark-muted; &.success { color: #4cc26a; } &.error { color: #f0707e; } }
+  }
+  .upload-overlay .upload-overlay-box { background-color: @dark-raised; }
+  .toggle-switch {
+    &::before { color: @dark-muted; text-shadow: none; }
+  }
+  .toggle-switch-background { background-color: @dark-faint; box-shadow: inset 0 0 0 2px @dark-border; }
+  .toggle-switch-handle { background-color: @dark-strong; }
+
+  // ---- dialogs
+  .rename-modal .modal-content {
+    background: @dark-raised; color: @dark-text;
+    .modal-close, .modal-note { color: @dark-muted; }
+    .modal-close:hover { color: #fa2a00; }
+    .form-group {
+      input[type="text"], textarea { background: @dark-page; color: @dark-text; border-color: @dark-border; }
+    }
+    .modal-buttons button {
+      &#rename-cancel, &.modal-cancel { background: @dark-border; border-color: @dark-faint; color: @dark-text; }
+    }
+  }
+  .autosave-modal-content { background-color: @dark-raised; border-color: @dark-border; box-shadow: 0 4px 6px rgba(14, 16, 19, .4); }
+  .autosave-modal-header, .autosave-diff-header { border-bottom-color: @dark-border; }
+  .autosave-modal-close { color: @dark-muted; &:focus, &:hover { color: @dark-strong; } }
+  .autosave-item { border-color: @dark-border; background-color: @dark-sunken; a.del { color: @dark-muted; } }
+  .autosave-time { color: @dark-muted; }
+  .autosave-preview { color: @dark-text; }
+  .autosave-diff-header #back-to-list { background-color: @dark-border; color: @dark-text; &:hover { background-color: @dark-faint; } }
+  .unified-diff {
+    border-color: @dark-border;
+    .diff-file-header { background-color: @dark-raised; color: @dark-muted; border-bottom-color: @dark-border; }
+    .diff-hunk-header { background-color: #1c2733; color: #79b8ff; border-color: #2b3d52; }
+    .diff-removed { background-color: #3a2327; color: #f0868f; }
+    .diff-added { background-color: #1f3326; color: #7ee2a0; }
+    .diff-context { background-color: @dark-surface; color: @dark-text; }
+  }
+
+  // ---- the gallery admin
+  .gallery-nav { a { color: @dark-muted; &:hover { color: @dark-link-hover; } } a.current { color: inherit; } }
+  .photo-filter, .selection-bar {
+    select { background-color: @dark-raised; color: @dark-text; border-color: @dark-border; &:focus { border-color: @dark-link; } }
+  }
+  .photo-filter label, .photo-filter .photo-filter-count, .photo-count { color: @dark-muted; }
+  .date-filter {
+    .date-toggle {
+      background: @dark-raised; border-color: @dark-border; color: @dark-muted;
+      &:hover { border-color: @dark-faint; }
+      .date-label { color: @dark-text; }
+    }
+    &.has-dates .date-toggle { border-color: @dark-link; color: @dark-link; }
+    .date-popover { background: @dark-raised; color: @dark-text; border-color: @dark-border; box-shadow: 0 4px 14px rgba(14, 16, 19, .5); }
+    .dr-hint, .dr-dow { color: @dark-muted; }
+    .dr-head button, .dr-foot button {
+      background: @dark-raised; border-color: @dark-border; color: @dark-muted;
+      &:hover { border-color: @dark-link; color: @dark-link; }
+    }
+    .dr-day {
+      color: @dark-text;
+      &:hover { background: @dark-border; }
+      &.dr-in { background: fade(@dark-link, 22%); }
+      &.dr-edge { background: @bluelink; color: #fff; }
+    }
+  }
+  .selection-bar { background: @dark-raised; border-top-color: @dark-border; box-shadow: 0 -2px 6px rgba(14, 16, 19, .4); }
+  .photo-map, .photo-locator { background: @dark-raised; }
+  .insta-result .insta-problems { color: #e0a860; }
+  .insta-reset a.del { color: @dark-muted; &:hover { color: #fa2a00; } }
+  .insta-progress {
+    .insta-bar { background: @dark-raised; }
+    .insta-progress-text { color: @dark-muted; }
+  }
+  .photo-form .photo-source-line { color: @dark-muted; }
+}

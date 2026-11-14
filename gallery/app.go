@@ -230,10 +230,11 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	}
 	reg := mtr.RegistryFromContext(req.Context())
 	err = reg.RenderWithBase(w, "base", "gallery/index.html", mtr.Ctx{
-		"title":          "Photos",
-		"photos":         photos,
-		"hasCollections": len(collections) > 0,
-		"pagination":     paginator.Render(reg, page),
+		"title":               "Photos",
+		"extraContainerClass": "wide",
+		"photos":              photos,
+		"hasCollections":      len(collections) > 0,
+		"pagination":          paginator.Render(reg, page),
 	})
 	if err != nil {
 		slog.Error("rendering gallery", "err", err)
@@ -262,9 +263,10 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		title = "Photo"
 	}
 	err = reg.RenderWithBase(w, "base", "gallery/detail.html", mtr.Ctx{
-		"title":  title,
-		"photo":  p,
-		"albums": albums,
+		"title":               title,
+		"photo":               p,
+		"albums":              albums,
+		"extraContainerClass": "wide",
 	})
 	if err != nil {
 		slog.Error("rendering photo", "err", err)

@@ -41,3 +41,5 @@ fa-solid fa-layer-group
 fa-solid fa-calendar-days
 fa-solid fa-plus
 fa-solid fa-camera
+fa-solid fa-sun
+fa-solid fa-moon

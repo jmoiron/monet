@@ -2,12 +2,14 @@ package gallery
 
 import (
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -99,10 +101,11 @@ func (a *App) Register(reg *mtr.Registry) {
 		mtr.NewSproutRegistry("gallery", sprout.FunctionMap{
 			"photoURL":      photoURLFunc(a.fss),
 			"photoDate":     func(t time.Time) string { return fmtTime(t, "Jan 2, 2006") },
-			"photoDateTime": func(t time.Time) string { return fmtTime(t, "Jan 2, 2006 · 15:04") },
+			"photoDateTime": func(t time.Time) string { return fmtTime(t, "Jan 2, 2006 15:04") },
 			"humanBytes":    func(n int64) string { return humanize.Bytes(uint64(n)) },
-			"mapLink":       mapLink,
+			"photoPosted":   photoPosted,
 			"photoFacts":    photoFacts,
+			"photoFactCols": photoFactCols,
 		}),
 	)
 	reg.AddAllFS(galleryTemplates)
@@ -129,60 +132,84 @@ func fmtTime(t time.Time, layout string) string {
 	return t.Format(layout)
 }
 
-// mapLink is a link to where the photo was taken, on a map.
-func mapLink(p *Photo) string {
-	if !p.HasGPS() {
-		return ""
-	}
-	return fmt.Sprintf("https://www.openstreetmap.org/?mlat=%.6f&mlon=%.6f#map=14/%.6f/%.6f",
-		*p.Latitude, *p.Longitude, *p.Latitude, *p.Longitude)
-}
-
 // A Fact is one line of what is known about a photo.
 type Fact struct {
 	Label string
 	Value template.HTML // already escaped
 }
 
-// photoFacts lists what is known about a photo, leaving out what isn't.
+// unknown is what a fact that isn't known shows: nothing, but the fact keeps
+// its place, so that every photo has the same facts in the same places.
+const unknown = ""
+
+// photoFacts lists what is known about a photo. Every photo has all of them,
+// in the order they're laid out in two columns; what isn't known is blank.
 func photoFacts(p *Photo) []Fact {
 	var facts []Fact
 	add := func(label, value string) {
-		if value != "" {
-			facts = append(facts, Fact{label, template.HTML(html.EscapeString(value))})
+		if value == "" {
+			value = unknown
 		}
+		facts = append(facts, Fact{label, template.HTML(html.EscapeString(value))})
 	}
-	add("Taken", fmtTime(p.Taken(), "Jan 2, 2006 · 15:04"))
-	add("Camera", p.Camera())
-	add("Lens", p.LensModel)
-	add("Exposure", p.ExposureSummary())
-	if res := p.Resolution(); res != "" {
-		if p.Bytes > 0 {
-			res += " · " + humanize.Bytes(uint64(p.Bytes))
-		}
-		add("Size", res)
+	size := ""
+	if p.Bytes > 0 {
+		size = humanize.Bytes(uint64(p.Bytes))
 	}
+	gps := ""
 	if p.HasGPS() {
-		facts = append(facts, Fact{"Location", template.HTML(fmt.Sprintf(
-			`<a href="%s" target="_blank" rel="noopener">%s</a>`,
-			html.EscapeString(mapLink(p)), html.EscapeString(fmt.Sprintf("%.5f, %.5f", *p.Latitude, *p.Longitude))))})
+		gps = fmt.Sprintf("%.5f, %.5f", *p.Latitude, *p.Longitude)
 	}
-	if p.Source == SourceInstagram {
-		// the icon says where it was posted
-		var parts []string
-		if posted := fmtTime(p.Posted(), "Jan 2, 2006"); posted != "" {
-			parts = append(parts, html.EscapeString(posted))
-		}
-		if p.Likes > 0 {
-			parts = append(parts, fmt.Sprintf("%d like%s", p.Likes, plural(p.Likes)))
-		}
-		if p.Comments > 0 {
-			parts = append(parts, fmt.Sprintf("%d comment%s", p.Comments, plural(p.Comments)))
-		}
-		facts = append(facts, Fact{"Posted", template.HTML(
-			`<i class="fa-brands fa-instagram" title="Instagram"></i> ` + strings.Join(parts, " · "))})
+	iso, aperture, exposure, focal := "", "", p.Exposure, ""
+	if p.ISO > 0 {
+		iso = strconv.Itoa(p.ISO)
 	}
+	if p.Aperture > 0 {
+		aperture = "f/" + trimFloat(p.Aperture)
+	}
+	if exposure != "" {
+		exposure += "s"
+	}
+	if p.FocalLength > 0 {
+		focal = trimFloat(p.FocalLength) + "mm"
+	}
+	add("Filename", p.Filename())
+	add("Timestamp", fmtTime(photoWhen(p), "Jan 2, 2006 15:04"))
+	add("Size", size)
+	add("Resolution", p.Resolution())
+	add("GPS", gps)
+	add("Camera", p.Camera())
+	add("ISO", iso)
+	add("Aperture", aperture)
+	add("Exposure", exposure)
+	add("Focal len", focal)
 	return facts
+}
+
+// photoFactCols is photoFacts in the two columns they're shown in: about the
+// file on the left, and about the camera on the right.
+func photoFactCols(p *Photo) [][]Fact {
+	facts := photoFacts(p)
+	return [][]Fact{facts[:5], facts[5:]}
+}
+
+// photoPosted says where and when a photo was posted, for those that were: the
+// icon says where.
+func photoPosted(p *Photo) template.HTML {
+	if p.Source != SourceInstagram {
+		return ""
+	}
+	var parts []string
+	if posted := fmtTime(p.Posted(), "Jan 2, 2006"); posted != "" {
+		parts = append(parts, html.EscapeString(posted))
+	}
+	if p.Likes > 0 {
+		parts = append(parts, fmt.Sprintf("%d like%s", p.Likes, plural(p.Likes)))
+	}
+	if p.Comments > 0 {
+		parts = append(parts, fmt.Sprintf("%d comment%s", p.Comments, plural(p.Comments)))
+	}
+	return template.HTML(`<i class="fa-brands fa-instagram" title="Instagram"></i> Posted ` + strings.Join(parts, " · "))
 }
 
 func plural(n int) string {
@@ -196,6 +223,7 @@ func (a *App) Bind(r chi.Router) {
 	r.Route(a.BaseURL, func(r chi.Router) {
 		r.Use(middleware.StripSlashes)
 		r.Get("/page/{page:[0-9]+}", a.list)
+		r.Get("/map.json", a.mapSpots)
 		r.Get("/collections", a.collections)
 		r.Get("/collections/{slug:[^/]+}", a.collection)
 		r.Get("/{id:[^/]+}", a.detail)
@@ -241,6 +269,36 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// mapSpots answers in json with the published photos that have a place, for
+// the map view of the photos page.
+func (a *App) mapSpots(w http.ResponseWriter, req *http.Request) {
+	svc, err := a.service()
+	if err != nil {
+		app.Http500("gallery not configured", w, err)
+		return
+	}
+	photos, err := svc.Select(`WHERE published > 0 AND latitude IS NOT NULL AND longitude IS NOT NULL ` + OrderNewest)
+	if err != nil {
+		app.Http500("loading photos", w, err)
+		return
+	}
+	url := photoURLFunc(a.fss)
+	spots := make([]Spot, 0, len(photos))
+	for i := range photos {
+		p := &photos[i]
+		spots = append(spots, Spot{
+			ID: p.ID, Lat: *p.Latitude, Lng: *p.Longitude,
+			Thumb: url(p.ThumbFile()),
+			Title: p.Title,
+			Date:  fmtTime(photoWhen(p), "Jan 2, 2006"),
+		})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(spots); err != nil {
+		slog.Error("encoding map spots", "err", err)
+	}
+}
+
 func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 	svc, err := a.service()
 	if err != nil {
@@ -267,6 +325,7 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		"photo":               p,
 		"albums":              albums,
 		"extraContainerClass": "wide",
+		"hideSiteTitle":       true, // so the photo is not half below the fold
 	})
 	if err != nil {
 		slog.Error("rendering photo", "err", err)

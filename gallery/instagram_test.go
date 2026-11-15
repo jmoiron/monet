@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -110,8 +109,8 @@ func TestInstagramImport(t *testing.T) {
 	p, err := svc.Find(SourceInstagram, "1001")
 	require.NoError(t, err)
 	require.NotNil(t, p)
-	assert.Equal(t, uuid.NewSHA1(instagramNS, []byte("1001")).String(), p.ID, "ids are the same wherever it's imported")
-	assert.Equal(t, "Retreat", p.Caption)
+	assert.Equal(t, idFor(instagramNS, "1001"), p.ID, "ids are the same wherever it's imported")
+	assert.Equal(t, "Retreat", p.Title)
 	assert.Equal(t, 1, p.Published, "public posts are shown")
 	assert.Equal(t, 12, p.Likes)
 	assert.Equal(t, 1, p.Comments)
@@ -121,7 +120,7 @@ func TestInstagramImport(t *testing.T) {
 		assert.Equal(t, 32.64, *p.Latitude)
 	}
 	assert.Equal(t, "HDR+ 1.0", p.Software)
-	assert.Equal(t, "40 × 30", p.Resolution())
+	assert.Equal(t, "40x30", p.Resolution())
 	assert.True(t, svc.Store().Exists(p.File))
 	assert.True(t, svc.Store().Exists(p.ThumbFile()))
 	if m := p.Meta().Instagram; assert.NotNil(t, m) {
@@ -135,7 +134,7 @@ func TestInstagramImport(t *testing.T) {
 	// a post with no insights has no counts, and its time taken is when it was posted
 	p, _ = svc.Find(SourceInstagram, "1002")
 	require.NotNil(t, p)
-	assert.Equal(t, "Côte d'Azur", p.Caption, "the text is repaired")
+	assert.Equal(t, "Côte d'Azur", p.Title, "the text is repaired")
 	assert.Equal(t, 0, p.Likes)
 	assert.Equal(t, p.PostedAt, p.TakenAt)
 	assert.False(t, p.HasGPS())
@@ -147,7 +146,7 @@ func TestInstagramImport(t *testing.T) {
 	require.NotNil(t, p4)
 	assert.Equal(t, "post:1003", p3.SourceGroup)
 	assert.Equal(t, p3.SourceGroup, p4.SourceGroup)
-	assert.Equal(t, "Two of them", p3.Caption)
+	assert.Equal(t, "Two of them", p3.Title)
 	assert.Equal(t, 1, p3.Meta().Instagram.Index)
 	assert.Equal(t, 2, p4.Meta().Instagram.Index)
 	assert.Equal(t, 34, p3.Likes)
@@ -188,9 +187,9 @@ func TestInstagramImportOfALaterExport(t *testing.T) {
 	_, err := im.ImportPath(context.Background(), firstExport(t).write())
 	require.NoError(t, err)
 
-	// I've fixed the caption of one, and taken another down
+	// I've fixed the title of one, and taken another down
 	p, _ := svc.Find(SourceInstagram, "1001")
-	p.Caption = "Retreat (my words)"
+	p.Title = "Retreat (my words)"
 	require.NoError(t, svc.Save(p))
 	p, _ = svc.Find(SourceInstagram, "1002")
 	p.Published = 0
@@ -215,7 +214,7 @@ func TestInstagramImportOfALaterExport(t *testing.T) {
 	p, _ = svc.Find(SourceInstagram, "1001")
 	assert.Equal(t, 15, p.Likes)
 	assert.Equal(t, 2, p.Comments)
-	assert.Equal(t, "Retreat (my words)", p.Caption, "edits made here are kept")
+	assert.Equal(t, "Retreat (my words)", p.Title, "edits made here are kept")
 	p, _ = svc.Find(SourceInstagram, "1002")
 	assert.Equal(t, 0, p.Published, "and so is what I've taken down")
 

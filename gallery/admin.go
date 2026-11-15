@@ -12,6 +12,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -259,12 +261,22 @@ func photoWhen(p *Photo) time.Time {
 // uploadPhoto takes one image file, in the form field "file", and answers in
 // json (it is the other half of the drag & drop upload widget, which sends its
 // files one at a time). A file that is already in the gallery as an upload
-// (the same bytes) isn't added again.
+// (the same bytes) isn't added again. With ?collection=<id>, the photo is also
+// put in that collection (it is in the gallery as well, whatever it is in).
 func (a *Admin) uploadPhoto(w http.ResponseWriter, r *http.Request) {
 	svc, err := a.service()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
 		return
+	}
+
+	albums := NewAlbumService(a.db)
+	var album *Album
+	if id := r.URL.Query().Get("collection"); id != "" {
+		if album, err = albums.Get(id); err != nil {
+			writeJSON(w, http.StatusNotFound, jsonMap{"success": false, "error": "no such collection"})
+			return
+		}
 	}
 
 	// the body is the file and a little framing
@@ -303,12 +315,19 @@ func (a *Admin) uploadPhoto(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
 		return
 	} else if existing != nil {
+		// it may still be new to the collection
+		if album != nil {
+			if err := albums.Add(album.ID, existing.ID); err != nil {
+				writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
+				return
+			}
+		}
 		writeJSON(w, http.StatusOK, jsonMap{"success": true, "duplicate": true, "id": existing.ID,
 			"message": "Already in the gallery"})
 		return
 	}
 
-	p, err := svc.Add(NewPhoto{Source: SourceUpload, Data: data})
+	p, err := svc.Add(NewPhoto{Source: SourceUpload, Data: data, Published: true, Meta: Meta{Filename: path.Base(filepath.ToSlash(fh.Filename))}})
 	switch {
 	case errors.Is(err, ErrNotAnImage):
 		slog.Warn("uploading photo", "file", fh.Filename, "err", err)
@@ -318,6 +337,14 @@ func (a *Admin) uploadPhoto(w http.ResponseWriter, r *http.Request) {
 		slog.Error("uploading photo", "file", fh.Filename, "err", err)
 		writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false, "error": err.Error()})
 	default:
+		if album != nil {
+			if err := albums.Add(album.ID, p.ID); err != nil {
+				slog.Error("adding upload to collection", "collection", album.ID, "err", err)
+				writeJSON(w, http.StatusInternalServerError, jsonMap{"success": false,
+					"error": "added to the gallery, but not to the collection: " + err.Error()})
+				return
+			}
+		}
 		writeJSON(w, http.StatusOK, jsonMap{"success": true, "id": p.ID, "message": "Added"})
 	}
 }

@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
-
-	"github.com/google/uuid"
 )
 
 // The instagram data export ("Download your information", as JSON) is a zip
@@ -33,7 +31,7 @@ var (
 	igInsightsFile = "logged_information/past_instagram_insights/posts.json"
 
 	// instagramNS makes the same media id the same photo id wherever it is imported
-	instagramNS = uuid.MustParse("6c1e5d57-8f0a-4d7e-9a53-b0e6f0c2a1d4")
+	instagramNS = "instagram"
 )
 
 // An InstagramImporter loads an instagram export into the gallery. It can be
@@ -241,9 +239,11 @@ func (im *InstagramImporter) importMedia(root fs.FS, rep *ImportReport, post igP
 		return
 	}
 
-	caption := fixMojibake(strings.TrimSpace(m.Title))
-	if caption == "" {
-		caption = fixMojibake(strings.TrimSpace(post.Title))
+	// instagram calls it a title in the export, and it is what the post is
+	// known by, so it is the photo's title here
+	title := fixMojibake(strings.TrimSpace(m.Title))
+	if title == "" {
+		title = fixMojibake(strings.TrimSpace(post.Title))
 	}
 	posted := m.CreationTimestamp
 	if posted == 0 {
@@ -276,7 +276,7 @@ func (im *InstagramImporter) importMedia(root fs.FS, rep *ImportReport, post igP
 	}
 
 	if existing != nil {
-		changed, err := im.refresh(existing, caption, group, lat, lon, st, meta)
+		changed, err := im.refresh(existing, title, group, lat, lon, st, meta)
 		switch {
 		case err != nil:
 			rep.Failed = append(rep.Failed, fmt.Sprintf("%s: %v", m.URI, err))
@@ -307,12 +307,12 @@ func (im *InstagramImporter) importMedia(root fs.FS, rep *ImportReport, post igP
 		takenAt = taken.Unix()
 	}
 	p, err := im.svc.Add(NewPhoto{
-		ID:          uuid.NewSHA1(instagramNS, []byte(stem)).String(),
+		ID:          idFor(instagramNS, stem),
 		Source:      SourceInstagram,
 		SourceID:    stem,
 		SourceGroup: group,
 		Data:        data,
-		Caption:     caption,
+		Title:       title,
 		PostedAt:    posted,
 		TakenAt:     takenAt,
 		Software:    software,
@@ -333,14 +333,14 @@ func (im *InstagramImporter) importMedia(root fs.FS, rep *ImportReport, post igP
 
 // refresh brings a photo that has been imported before up to date with an export
 // of it. It takes instagram's counts as they are now, but nothing that could
-// have been edited here: a caption is only filled in if it's empty, and whether
+// have been edited here: a title is only filled in if it's empty, and whether
 // the photo is shown is left alone.
-func (im *InstagramImporter) refresh(p *Photo, caption, group string, lat, lon *float64, st igStats, meta Meta) (bool, error) {
+func (im *InstagramImporter) refresh(p *Photo, title, group string, lat, lon *float64, st igStats, meta Meta) (bool, error) {
 	before := *p
 
 	p.Likes, p.Comments = st.Likes, st.Comments
-	if p.Caption == "" {
-		p.Caption = caption
+	if p.Title == "" {
+		p.Title = title
 	}
 	if p.SourceGroup == "" {
 		p.SourceGroup = group
@@ -352,7 +352,7 @@ func (im *InstagramImporter) refresh(p *Photo, caption, group string, lat, lon *
 		return false, err
 	}
 	if p.MetaJSON == before.MetaJSON && p.Likes == before.Likes && p.Comments == before.Comments &&
-		p.Caption == before.Caption && p.SourceGroup == before.SourceGroup && p.HasGPS() == before.HasGPS() {
+		p.Title == before.Title && p.SourceGroup == before.SourceGroup && p.HasGPS() == before.HasGPS() {
 		return false, nil
 	}
 	return true, im.svc.Save(p)

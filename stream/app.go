@@ -30,6 +30,7 @@ type App struct {
 
 	BaseURL  string
 	PageSize int
+	Debug    bool
 	modules  *ModuleRegistry
 	runner   *Runner
 }
@@ -51,6 +52,13 @@ func NewApp(db db.DB) *App {
 
 func (a *App) WithBaseURL(url string) *App {
 	a.BaseURL = url
+	return a
+}
+
+// WithDebug disables scheduled background source runs, so a dev instance
+// does not hit the real sites; sources can still be run manually from admin.
+func (a *App) WithDebug(debug bool) *App {
+	a.Debug = debug
 	return a
 }
 
@@ -81,7 +89,11 @@ func (a *App) GetAdmin() (app.Admin, error) {
 }
 
 func (a *App) Bind(r chi.Router) {
-	a.runner.Start()
+	if a.Debug {
+		slog.Info("debug enabled, scheduled stream source runs disabled")
+	} else {
+		a.runner.Start()
+	}
 	r.Route(a.BaseURL, func(r chi.Router) {
 		r.Get("/", a.index)
 		r.Get("/event/{id:[0-9]+}", a.detail)

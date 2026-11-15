@@ -12,8 +12,13 @@
         <textarea name="caption" class="photo-caption-input" placeholder="Caption">{{.photo.Caption}}</textarea>
     </div>
 
-    <dl class="photo-facts">{{range photoFacts .photo}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
-    <p class="photo-source-line">{{if eq .photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{.photo.Source}}{{end}}{{if .photo.SourceID}} {{.photo.SourceID}}{{end}}{{range .albums}} · in {{.Title}}{{end}}</p>
+    <div class="photo-info{{if .photo.HasGPS}} has-locator{{end}}">
+        <div class="photo-data">
+            <div class="photo-facts">{{range photoFactCols .photo}}<dl>{{range .}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>{{end}}</div>
+        </div>
+        {{if .photo.HasGPS}}<div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>{{end}}
+    </div>
+    <p class="photo-source-line">{{if eq .photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{.photo.Source}}{{end}}{{range .albums}} · in {{.Title}}{{end}}</p>
 
     <div class="button-group">
       <div class="published">
@@ -28,3 +33,34 @@
       <div class="clear"></div>
     </div>
 </form>
+
+{{if .photo.HasGPS}}
+<script>
+(function() {
+    // this form may be put in the page after it has loaded (the modal), so leaflet is
+    // fetched here, and the map made when it has arrived
+    var el = document.querySelector('.photo-locator');
+    if (!el) { return; }
+    function show() {
+        L.Icon.Default.imagePath = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/';
+        var at = [parseFloat(el.dataset.lat), parseFloat(el.dataset.lng)];
+        var map = L.map(el, {scrollWheelZoom: false}).setView(at, 13);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        L.marker(at).addTo(map);
+        new ResizeObserver(function() { map.invalidateSize(); }).observe(el);
+    }
+    if (typeof L !== 'undefined') { show(); return; }
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+    var js = document.createElement('script');
+    js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = show;
+    document.head.appendChild(js);
+})();
+</script>
+{{end}}

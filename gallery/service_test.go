@@ -31,7 +31,7 @@ func TestAddReadsTheFile(t *testing.T) {
 	assert.Equal(t, 0, got.Published, "uploads aren't shown until asked")
 
 	// stored 64x48 and turned a quarter by its orientation
-	assert.Equal(t, "48 × 64", got.Resolution())
+	assert.Equal(t, "48x64", got.Resolution())
 	assert.NotEmpty(t, got.SHA256)
 
 	for _, f := range []string{got.File, got.ThumbFile(), got.DisplayFile()} {
@@ -228,17 +228,10 @@ func TestOrderNewest(t *testing.T) {
 
 func TestPhotoFactsMarksInstagram(t *testing.T) {
 	p := &Photo{Source: SourceInstagram, PostedAt: 1700000000, Likes: 1, Comments: 2}
-	var posted string
-	for _, f := range photoFacts(p) {
-		if f.Label == "Posted" {
-			posted = string(f.Value)
-		}
-	}
+	posted := string(photoPosted(p))
 	assert.Contains(t, posted, `fa-instagram`)
 	assert.Contains(t, posted, "Nov 14, 2023 · 1 like · 2 comments")
 	assert.NotContains(t, posted, "Instagram,", "the icon replaces the word")
 
-	for _, f := range photoFacts(&Photo{Source: SourceUpload}) {
-		assert.NotEqual(t, "Posted", f.Label, "uploads weren't posted anywhere")
-	}
+	assert.Empty(t, photoPosted(&Photo{Source: SourceUpload}), "uploads weren't posted anywhere")
 }

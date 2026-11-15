@@ -19,11 +19,15 @@
     </div>
 </form>
 
-<h3 id="members">In this collection</h3>
+<div id="photo-upload-area"></div>
+<h3 id="members">In this collection
+    <span class="gallery-actions"><a href="#" id="photo-upload-button"><i class="fa-solid fa-cloud-arrow-up"></i> Upload</a></span>
+</h3>
 <p class="photo-count">{{.count}} photo{{if ne .count 1}}s{{end}}</p>
 <div class="photo-grid admin-photo-grid">
 {{range $photo := .photos}}
     <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}" data-id="{{$photo.ID}}">
+        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <a href="/admin/gallery/edit/{{$photo.ID}}" title="{{$photo.Caption}}">
             <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
         </a>
@@ -38,6 +42,7 @@
 <div class="photo-grid admin-photo-grid" id="others-grid">
 {{range $photo := .others}}
     <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}">
+        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <input type="checkbox" class="photo-select" value="{{$photo.ID}}" title="Select">
         <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">
         <a class="photo-open" href="/admin/gallery/edit/{{$photo.ID}}" title="Details"><i class="fa-solid fa-up-right-from-square"></i></a>
@@ -53,9 +58,32 @@
     <button type="button" id="selection-add" class="save-button">Add to {{.collection.Title}}</button>
 </div>
 
+<script src="/static/upload.js"></script>
 <script src="/static/photo-modal.js"></script>
 <script>
 $(() => {
+    // photos dropped here are added to the gallery, and to this collection
+    $('#photo-upload-area').upload({
+        url: '/admin/gallery/upload/?collection={{.collection.ID}}',
+        overlay: true,
+        trigger: '#photo-upload-button',
+        accept: '.jpg,.jpeg,.png,.gif,.webp',
+        maxFileSize: 256 * 1024 * 1024,
+        text: {
+            dropZone: 'Drop photos to add them to {{.collection.Title}}',
+            hint: 'JPEG, PNG, GIF or WebP, up to 256 MB each'
+        },
+        onSuccess: () => {},
+        onError: () => {},
+        onComplete: (successful, failed) => {
+            if (failed > 0) {
+                $.flash(failed + ' of ' + (successful + failed) + ' photos could not be added', 'error');
+            } else {
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        }
+    });
+
     const post = (action, ids) => {
         const body = new FormData();
         ids.forEach(id => body.append('ids', id));

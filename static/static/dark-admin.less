@@ -24,6 +24,14 @@ html[data-theme="dark"] {
     box-shadow: 2px 2px 3px rgba(14, 16, 19, .5);
   }
 
+  // save is an input, so the form rule above gives it the raised-grey field
+  // colours: put its green back, a deeper one for a dark page
+  .admin .save-button {
+    background-color: #3f7d2f; color: #fff;
+    &:hover { background-color: #4c9438; color: #fff; }
+    &:active { background-color: #356a28; }
+  }
+
   // ---- lists and panels
   .admin {
     ul.shortlist li {

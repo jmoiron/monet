@@ -19,6 +19,7 @@
 <div class="photo-grid admin-photo-grid">
 {{range $photo := .photos}}
     <div class="photo-tile{{if eq $photo.Published 0}} unpublished{{end}}">
+        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <input type="checkbox" class="photo-select" value="{{$photo.ID}}" title="Select">
         <a href="/admin/gallery/edit/{{$photo.ID}}" title="{{$photo.Caption}}">
             <img src="{{photoURL $photo.ThumbFile}}" alt="" loading="lazy">

@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/sqlx"
 )
@@ -67,6 +66,31 @@ type NewPhoto struct {
 	Published bool
 }
 
+// freeID is the id for a new photo: made from its bytes, so that the same image
+// is the same id wherever it is added. The same bytes can be more than one photo
+// (an image posted twice, or from two sources), so when that id is taken the
+// source is mixed in, and as a last resort it is random.
+func (s *PhotoService) freeID(n NewPhoto) string {
+	id := contentID(n.Data)
+	if !s.idTaken(id) {
+		return id
+	}
+	if id = idFor(id, n.Source+"/"+n.SourceID); n.SourceID != "" && !s.idTaken(id) {
+		return id
+	}
+	for {
+		if id = NewID(); !s.idTaken(id) {
+			return id
+		}
+	}
+}
+
+func (s *PhotoService) idTaken(id string) bool {
+	var n int
+	// on an error say it's taken: the insert will then fail loudly
+	return s.db.Get(&n, `SELECT count(*) FROM photo WHERE id=?`, id) != nil || n > 0
+}
+
 // Add stores the image and a photo for it.
 func (s *PhotoService) Add(n NewPhoto) (*Photo, error) {
 	if n.Source == "" {
@@ -80,7 +104,7 @@ func (s *PhotoService) Add(n NewPhoto) (*Photo, error) {
 
 	id := n.ID
 	if id == "" {
-		id = uuid.NewString()
+		id = s.freeID(n)
 	}
 
 	p := &Photo{

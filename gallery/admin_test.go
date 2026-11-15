@@ -69,6 +69,38 @@ func post(t *testing.T, h http.Handler, url, field, filename string, data []byte
 	return w.Code, out
 }
 
+func TestUploadToCollection(t *testing.T) {
+	_, h, svc := newTestAdmin(t)
+	albums := NewAlbumService(svc.db)
+	album, err := albums.Create("Japan", "")
+	require.NoError(t, err)
+
+	data := testJPEG(t, 300, 200)
+	code, out := post(t, h, "/gallery/upload/?collection="+album.ID, "file", "a.jpg", data)
+	assert.Equal(t, 200, code)
+	assert.Equal(t, true, out["success"])
+	id, _ := out["id"].(string)
+	in, err := albums.AlbumsOf(id, false)
+	require.NoError(t, err)
+	require.Len(t, in, 1)
+	assert.Equal(t, album.ID, in[0].ID)
+	n, _ := svc.Count("")
+	assert.Equal(t, 1, n, "it is in the gallery too")
+
+	// the same photo uploaded to another collection goes there as well
+	other, err := albums.Create("Portugal", "")
+	require.NoError(t, err)
+	code, out = post(t, h, "/gallery/upload/?collection="+other.ID, "file", "b.jpg", data)
+	assert.Equal(t, 200, code)
+	assert.Equal(t, true, out["duplicate"])
+	in, _ = albums.AlbumsOf(id, false)
+	assert.Len(t, in, 2)
+
+	code, out = post(t, h, "/gallery/upload/?collection=nope", "file", "c.jpg", testJPEG(t, 50, 50))
+	assert.Equal(t, 404, code)
+	assert.Equal(t, false, out["success"])
+}
+
 func TestUploadPhoto(t *testing.T) {
 	_, h, svc := newTestAdmin(t)
 	data := testJPEG(t, 300, 200)
@@ -80,7 +112,7 @@ func TestUploadPhoto(t *testing.T) {
 	p, err := svc.Get(id)
 	require.NoError(t, err)
 	assert.Equal(t, SourceUpload, p.Source)
-	assert.Equal(t, 0, p.Published)
+	assert.Equal(t, 1, p.Published, "uploads are shown unless hidden")
 	assert.True(t, svc.Store().Exists(p.File))
 
 	// the same bytes again is not another photo

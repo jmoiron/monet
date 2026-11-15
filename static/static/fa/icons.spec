@@ -43,3 +43,5 @@ fa-solid fa-plus
 fa-solid fa-camera
 fa-solid fa-sun
 fa-solid fa-moon
+fa-solid fa-map-location-dot
+fa-solid fa-eye-slash

@@ -149,6 +149,9 @@
 .fa-earth-asia {
   --fa: "\f57e";
 }
+.fa-eye-slash {
+  --fa: "\f070";
+}
 .fa-file-signature {
   --fa: "\f573";
 }
@@ -169,6 +172,9 @@
 }
 .fa-location-dot {
   --fa: "\f3c5";
+}
+.fa-map-location-dot {
+  --fa: "\f5a0";
 }
 .fa-moon {
   --fa: "\f186";

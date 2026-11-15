@@ -1347,6 +1347,13 @@ h2 .small { font-size: 14px; }
 
   // in the admin: the way a photo is hidden, where it came from, and delete
   .photo-tile.unpublished img { opacity: .4; }
+  // and an icon to say so: the fade alone could be taken for a dull photo
+  // (always in the tile, shown by the class, so that the modal can change it)
+  .photo-hidden {
+    display: none; position: absolute; right: 6px; bottom: 6px; z-index: 1;
+    font-size: 16px; line-height: 1; color: #fff; text-shadow: 0 0 3px rgba(0, 0, 0, .7);
+  }
+  .photo-tile.unpublished .photo-hidden { display: block; }
   .photo-source {
     position: absolute; left: 6px; bottom: 6px;
     padding: 1px 7px; border-radius: 10px;
@@ -1375,14 +1382,23 @@ h2 .small { font-size: 14px; }
 .photo-large { display: block; max-width: 100%; height: auto; margin: 10px auto; border-radius: 3px; }
 .photo-caption { line-height: 1.5; white-space: pre-line; }
 
-.photo-facts {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
-  margin: 15px 0;
-  dt { color: #999; }
-  dd { margin: 0; }
+// what is known about a photo, on its page and in the admin: two columns of
+// label and value
+.photo-data {
+  margin: 15px 0; font-family: 'Figtree', @body-font; font-size: .9em;
+  // the file's facts on the left, the camera's in the middle
+  .photo-facts {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px;
+    dl {
+      margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px;
+      align-items: baseline; // the larger small-caps labels sit on the values' baseline
+    }
+    dt { color: #999; font-size: 1.25em; font-variant-caps: all-small-caps; letter-spacing: .06em; }
+    dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  }
+  .photo-posted { margin: 20px 0 0; }
 }
+@media (max-width: 720px) { .photo-data .photo-facts { grid-template-columns: 1fr; } }
 
 .photo-form {
   .photo-title-input { width: 100%; box-sizing: border-box; font-weight: bold; font-size: 1.2em; }
@@ -1420,6 +1436,7 @@ h2 .small { font-size: 14px; }
   .photo-filter-count { color: #999; font-size: .9em; }
 }
 .gallery-nav .gallery-actions { float: right; a { margin: 0 0 0 16px; } }
+h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
 
 // a year and a span of days: the span drops down from a calendar button
 .date-filter {
@@ -1506,9 +1523,22 @@ h2 .small { font-size: 14px; }
   // what shows through a seam between tiles: the land colour of openstreetmap's
   // tiles, rather than something that reads as a white line
   border-radius: 3px; background: #f2efe9;
+  // the tiles, cluster bubbles and popups are light whatever the theme, so the
+  // text on them must not inherit the light text colour of dark mode
+  &.leaflet-container, .marker-cluster, .leaflet-popup-content-wrapper, .leaflet-control-attribution { color: #222; }
   .map-popup { display: flex; flex-wrap: wrap; gap: 4px; }
   .map-photo { display: block; line-height: 0; }
   .map-thumb { display: block; width: 120px; height: 120px; max-width: none; object-fit: cover; border-radius: 2px; }
+}
+
+// the photos page heading: a table and a map icon, the current view lit
+.gallery-views {
+  text-align: right;
+  button:last-child { margin-right: 0; padding-right: 0; }
+  button { padding: 0 8px 0 0; margin-right: 8px; border: 0; background: none; cursor: pointer; font: inherit; color: #bbb;
+    &:hover, &:focus-visible { color: @bluehover; }
+    &[aria-pressed="true"] { color: inherit; cursor: default; }
+  }
 }
 
 .collection-grid {
@@ -1527,23 +1557,27 @@ h2 .small { font-size: 14px; }
 // a photo's edit form in the rename modal: tall, so it scrolls with the page
 .rename-modal.photo-modal {
   overflow-y: auto;
-  .modal-content { position: relative; top: auto; left: auto; transform: none; box-sizing: border-box; width: 100%; max-width: 760px; margin: 4vh auto; }
+  .modal-content { position: relative; top: auto; left: auto; transform: none; box-sizing: border-box; width: 100%; max-width: @site-width + 180 + 40; margin: 4vh auto; } // its inside as wide as a photo's page: its padding is 20px a side
   .photo-large { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto 12px; }
 }
 
 // a photo's page: what is known about it on one half, where it was taken on the other
-.photo-detail .photo-back { font-size: 1.5em; } // as large as the "Photos" heading it returns to
-.photo-detail .photo-info {
-  display: grid; gap: 16px 20px; align-items: start;
-  &.has-locator { grid-template-columns: 1fr 1fr; }
-  .photo-facts { margin: 15px 0; dt { font-variant-caps: all-small-caps; letter-spacing: .06em; } }
+.photo-detail {
+  .photo-back { font-size: .85em; margin: 0 0 6px; text-align: right; }
+  h2 { margin: 0 0 18px; }
+  .photo-large { margin-top: 18px; }
+}
+.photo-info {
+  display: grid; gap: 16px 24px; align-items: start;
+  // the facts are two columns of label and value, and the map is a third
+  &.has-locator { grid-template-columns: 2fr 1fr; }
   .photo-locator { height: 240px; margin: 15px 0; border-radius: 3px; background: #f2efe9; }
 }
-@media (max-width: 720px) { .photo-detail .photo-info.has-locator { grid-template-columns: 1fr; } }
+@media (max-width: 720px) { .photo-info.has-locator { grid-template-columns: 1fr; } }
 
 // the light/dark switch, in the corner: quiet until it is looked for
 .theme-toggle {
-  position: absolute; top: 12px; right: 16px;
+  position: absolute; top: 16px; right: 16px;
   padding: 6px; border: 0; background: none; cursor: pointer;
   font-size: 16px; line-height: 1; color: #bbb;
   &:hover, &:focus-visible { color: @bluehover; }

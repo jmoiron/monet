@@ -25,3 +25,10 @@
     font-weight: 400 700;
     src: url("/static/lora-italic.ttf") format("truetype");
 }
+
+@font-face {
+    font-family: 'Figtree';
+    font-style: normal;
+    font-weight: 300 900;
+    src: url("/static/figtree.ttf") format("truetype");
+}

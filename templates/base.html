@@ -38,7 +38,7 @@
         <button type="button" class="theme-toggle" title="Switch between light and dark" aria-label="Switch between light and dark"><i class="fa-solid fa-moon"></i><i class="fa-solid fa-sun"></i></button>
         <div class="content">
             <div class="container frontend {{.extraContainerClass}}">
-                <h1><a href="/">jmoiron</a> <span class="sub">plays the blues</span></h1>
+                {{if not .hideSiteTitle}}<h1><a href="/">jmoiron</a> <span class="sub">plays the blues</span></h1>{{end}}
                 {{.body}}
             </div>
         </div>

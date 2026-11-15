@@ -10,6 +10,7 @@
 <div class="photo-grid collection-grid">
 {{range $c := .collections}}
     <div class="photo-tile collection-tile{{if eq $c.Published 0}} unpublished{{end}}">
+        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <a href="/admin/gallery/collections/{{$c.ID}}">
             {{if $c.Cover}}<img src="{{photoURL $c.Cover}}" alt="" loading="lazy">{{end}}
         </a>

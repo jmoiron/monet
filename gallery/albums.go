@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/sqlx"
 )
@@ -44,7 +43,7 @@ func (s *AlbumService) Create(title, description string) (*Album, error) {
 	}
 
 	now := time.Now().Unix()
-	a := &Album{ID: uuid.NewString(), Slug: slug, Title: title, Description: description, CreatedAt: now, UpdatedAt: now}
+	a := &Album{ID: NewID(), Slug: slug, Title: title, Description: description, CreatedAt: now, UpdatedAt: now}
 	_, err := namedExec(s.db, `INSERT INTO album (`+albumColumns+`) VALUES
 		(:id, :slug, :title, :description, :cover_id, :published, :created_at, :updated_at)`, a)
 	if err != nil {

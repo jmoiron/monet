@@ -3,6 +3,7 @@ package gallery
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
@@ -171,6 +172,7 @@ type Photo struct {
 
 // Meta is what a source says about a photo that has no column of its own.
 type Meta struct {
+	Filename  string         `json:"filename,omitempty"` // the name an upload had
 	Instagram *InstagramMeta `json:"instagram,omitempty"`
 }
 
@@ -225,12 +227,25 @@ func (p *Photo) Posted() time.Time {
 // HasGPS is true if the photo knows where it was taken.
 func (p *Photo) HasGPS() bool { return p.Latitude != nil && p.Longitude != nil }
 
-// Resolution is eg. "4032 × 3024", or "" if unknown.
+// Filename is the photo's name where it came from: what an upload was called, or
+// what instagram called the file. Failing both, the name it is stored under.
+func (p *Photo) Filename() string {
+	meta := p.Meta()
+	switch {
+	case meta.Filename != "":
+		return meta.Filename
+	case meta.Instagram != nil && meta.Instagram.URI != "":
+		return path.Base(meta.Instagram.URI)
+	}
+	return path.Base(p.File)
+}
+
+// Resolution is eg. "4032x3024", or "" if unknown.
 func (p *Photo) Resolution() string {
 	if p.Width == 0 || p.Height == 0 {
 		return ""
 	}
-	return fmt.Sprintf("%d × %d", p.Width, p.Height)
+	return fmt.Sprintf("%dx%d", p.Width, p.Height)
 }
 
 // Camera is the make and model, without repeating the make when the model

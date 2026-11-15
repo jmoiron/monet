@@ -1,4 +1,13 @@
-<h2>Photos</h2>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
+
+<h2 class="gallery-views">
+    <button type="button" id="view-table" aria-pressed="true" title="grid view" aria-label="grid view"><i class="fa-solid fa-table-cells-large"></i></button>
+    <button type="button" id="view-map" aria-pressed="false" title="map view" aria-label="map view"><i class="fa-solid fa-map-location-dot"></i></button>
+</h2>
+
+<div id="table-view">
 {{if .hasCollections}}<p class="photo-back"><a href="/gallery/collections">Collections &rarr;</a></p>{{end}}
 
 {{if .photos}}
@@ -14,3 +23,103 @@
 {{end}}
 
 {{.pagination}}
+</div>
+
+<div id="map-view" hidden>
+    <div id="photo-map" class="photo-map"></div>
+</div>
+
+<script>
+(function() {
+    var tableView = document.getElementById('table-view');
+    var mapView = document.getElementById('map-view');
+    var tableBtn = document.getElementById('view-table');
+    var mapBtn = document.getElementById('view-map');
+    var map = null;
+
+    function show(which) {
+        var isMap = which === 'map';
+        tableView.hidden = isMap;
+        mapView.hidden = !isMap;
+        tableBtn.setAttribute('aria-pressed', String(!isMap));
+        mapBtn.setAttribute('aria-pressed', String(isMap));
+        if (isMap) { loadMap(); }
+        try { history.replaceState(null, '', isMap ? '#map' : location.pathname + location.search); } catch (e) {}
+    }
+    tableBtn.addEventListener('click', function() { show('table'); });
+    mapBtn.addEventListener('click', function() { show('map'); });
+
+    function loadScript(src) {
+        return new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src; s.onload = resolve; s.onerror = reject;
+            document.head.appendChild(s);
+        });
+    }
+
+    function esc(s) {
+        var d = document.createElement('div');
+        d.textContent = s || '';
+        return d.innerHTML;
+    }
+
+    // the map is made the first time it is looked at, when it has a size
+    function loadMap() {
+        if (map) { map.invalidateSize(); return; }
+        var el = document.getElementById('photo-map');
+        map = true; // claimed: a second click while loading does nothing
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js')
+            .then(function() { return loadScript('https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js'); })
+            .then(function() { return fetch('/gallery/map.json'); })
+            .then(function(r) { return r.json(); })
+            .then(function(spots) { buildMap(el, spots); })
+            .catch(function(err) { map = null; el.textContent = 'Could not load the map: ' + err.message; });
+    }
+
+    function buildMap(el, spots) {
+        L.Icon.Default.imagePath = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/';
+        map = L.map(el).setView([20, 0], 2);
+        new ResizeObserver(function() { map.invalidateSize(); }).observe(el);
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { map.closePopup(); } });
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        var SIZE = 120, COLS = 3, FEW = 6, GAP = 4;
+        var POPUP = {minWidth: 0, maxWidth: COLS * (SIZE + GAP)};
+        function thumb(s) {
+            return '<a class="map-photo" href="/gallery/' + esc(s.id) + '" title="' +
+                esc([s.title, s.date].filter(Boolean).join(' · ')) + '">' +
+                '<img class="map-thumb" width="' + SIZE + '" height="' + SIZE + '" src="' + esc(s.thumb) + '" alt=""></a>';
+        }
+        function popupFor(group) {
+            var cols = Math.min(group.length, COLS);
+            return '<div class="map-popup" style="width:' + (cols * (SIZE + GAP)) + 'px">' + group.map(thumb).join('') + '</div>';
+        }
+
+        var cluster = L.markerClusterGroup({zoomToBoundsOnClick: false});
+        cluster.on('clusterclick', function(e) {
+            var markers = e.layer.getAllChildMarkers();
+            if (markers.length <= FEW) {
+                L.popup(POPUP).setLatLng(e.layer.getLatLng())
+                    .setContent(popupFor(markers.map(function(m) { return m.spot; }))).openOn(map);
+                return;
+            }
+            var b = e.layer.getBounds();
+            if (b.getSouthWest().equals(b.getNorthEast())) { e.layer.spiderfy(); }
+            else { e.layer.zoomToBounds({padding: [30, 30]}); }
+        });
+        spots.forEach(function(s) {
+            var m = L.marker([s.lat, s.lng]).bindPopup(popupFor([s]), POPUP);
+            m.spot = s;
+            cluster.addLayer(m);
+        });
+        map.addLayer(cluster);
+        map.invalidateSize();
+        if (spots.length > 0) { map.fitBounds(cluster.getBounds().pad(0.1), {maxZoom: 14}); }
+    }
+
+    if (location.hash === '#map') { show('map'); }
+})();
+</script>

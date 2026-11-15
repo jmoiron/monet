@@ -1,13 +1,16 @@
 <div class="photo-detail">
-    {{if .photo.Title}}<h2>{{.photo.Title}}</h2>{{end}}
     <p class="photo-back"><a href="/gallery/">&larr; Photos</a></p>
+    {{if .photo.Title}}<h2>{{.photo.Title}}</h2>{{end}}
 
     <a href="{{photoURL .photo.File}}"><img class="photo-large" src="{{photoURL .photo.DisplayFile}}" alt="{{if .photo.Title}}{{.photo.Title}}{{else}}{{.photo.Caption}}{{end}}"></a>
 
     {{if .photo.Caption}}<p class="photo-caption">{{.photo.Caption}}</p>{{end}}
 
     <div class="photo-info{{if .photo.HasGPS}} has-locator{{end}}">
-        <dl class="photo-facts">{{range photoFacts .photo}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>
+        <div class="photo-data">
+            <div class="photo-facts">{{range photoFactCols .photo}}<dl>{{range .}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>{{end}}</div>
+            {{with photoPosted .photo}}<p class="photo-posted">{{.}}</p>{{end}}
+        </div>
         {{if .photo.HasGPS}}<div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>{{end}}
     </div>
 

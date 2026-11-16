@@ -28,7 +28,11 @@ type OllamaVLM struct {
 	// MaxEdge is the longest side the image is sent at. The cost of a
 	// picture is in its size, so this is the speed knob. Default 896.
 	MaxEdge int
-	Client  *http.Client
+	// MaxTokens caps the length of the answer. A caption and a dozen tags are
+	// under 200 tokens; a model stuck repeating itself is cut off here instead
+	// of running until the client times out. Default 300.
+	MaxTokens int
+	Client    *http.Client
 	// KeepAlive keeps the model loaded between photos (an ollama duration,
 	// eg. "10m"). Default is ollama's own.
 	KeepAlive string
@@ -66,6 +70,10 @@ func (o *OllamaVLM) Classify(ctx context.Context, path string) (*Result, error) 
 	if prompt == "" {
 		prompt = DefaultPrompt
 	}
+	maxTokens := o.MaxTokens
+	if maxTokens == 0 {
+		maxTokens = 300
+	}
 	req := map[string]any{
 		"model":  o.Model,
 		"stream": false,
@@ -73,8 +81,10 @@ func (o *OllamaVLM) Classify(ctx context.Context, path string) (*Result, error) 
 		"format": ollamaSchema,
 		// reasoning models would otherwise spend their answer thinking, and
 		// be cut off before the JSON
-		"think":   false,
-		"options": map[string]any{"temperature": 0},
+		"think": false,
+		// temperature 0 is repeatable, but a small model can then loop on one
+		// word forever; the penalty and the cap are what stop that
+		"options": map[string]any{"temperature": 0, "repeat_penalty": 1.15, "num_predict": maxTokens},
 		"messages": []map[string]any{{
 			"role": "user", "content": prompt,
 			"images": []string{base64.StdEncoding.EncodeToString(data)},

@@ -11,4 +11,4 @@ images/
 pkg/classify/.venv/
 __pycache__/
 pkg/classify/sample/
-pkg/classify/classify-results/
+classify-results/

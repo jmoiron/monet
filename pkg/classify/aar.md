@@ -164,10 +164,49 @@ ollama pull qwen2.5vl:7b    # 6.0 GB
 
 The same three commands work on any other machine with ollama running.
 
+## 8. First trial run (macOS machine), and what it found
+
+Ran `classify run -limit 5` against `ollama:moondream`, `ollama:gemma3:4b` and
+`ollama:qwen2.5vl:7b` over the same five photos (from the repo root, so results
+landed in `./classify-results/`, not in the package). It took 20+ minutes, and
+the third model never finished; I stopped it.
+
+| model | result | time per photo |
+|---|---|---|
+| `gemma3:4b` | 5 of 5 good (tomato, band/stage/guitar, wine glass/candle, river/palm trees, river/ice/snow) | 16-22 s |
+| `moondream` | 0 of 5 usable: the JSON-schema constraint makes it degenerate (`"tags": [":", "a", "p", "t"...`, `"roses","roses",...`) | ~20 s |
+| `qwen2.5vl:7b` | 1 of 5 good (30 s); 3 timed out at the 5 min client timeout; the 5th was still generating at 570+ tokens | 30 s when it worked |
+
+- A `llama-server` using almost no CPU is normal: `ollama ps` showed 100% GPU
+  (Metal), so the work is not on the CPU. The real problem was runaway
+  generation, seen in ollama's log as `n_gen` past 570 at ~7.6 tokens/s.
+- Gemma 3 at ~19 s/photo is ~1.5 h for 296 photos per model.
+- Moondream is dropped from the comparison as set up (too small to follow
+  schema-constrained output; a plain-text prompt might do better, untried).
+
+Fixes made (not yet re-tested; the user will resume on the Linux box):
+- `OllamaVLM` now sends `num_predict` (new `MaxTokens` field, default 300) and
+  `repeat_penalty` 1.15, so a model that loops is cut off in seconds, not after
+  5 minutes. Greedy decoding (temperature 0) is what makes small models loop.
+- `.gitignore` ignores `classify-results/` anywhere (it ignored only the
+  package's copy). The tool still writes to `./classify-results` of whatever
+  directory it is run from: run it from `pkg/classify`.
+- Removed the trial's records from the repo root.
+
+Models: after this, newer ones were looked up. Qwen3-VL (Ollama announced
+Oct 14 2025; sizes 2b/4b/8b/30b/32b/235b; needs ollama 0.12.7+) succeeds
+Qwen2.5-VL. Qwen2.5-VL's own release date was not found (recollection: late
+Jan 2025, unverified). Gemma 4 exists on Ollama (tags e2b, e4b, 26b, 31b per
+search results; the user saw `12b` on the library page too). To try:
+`ollama pull gemma4:e4b`, `gemma4:12b`, `qwen3-vl:8b` here, and on the Linux
+box (8 GiB VRAM, older CPU) `qwen3-vl:4b` and `gemma4:e4b` (~9.6 GB listed, so
+it will spill from the GPU to CPU). Sizes are from guides, not verified.
+
 ## Open items
 
-- [ ] ollama installed and a model pulled (gemma3:4b, qwen2.5vl:7b, moondream:
-      tags to be checked against ollama's library)
+- [x] ollama installed and models pulled (section 7)
+- [ ] rerun the 5-photo trial with the fixes of section 8, from `pkg/classify`
+      (Linux box first); add qwen3-vl and gemma4
 - [ ] first real run over the sample set; `stats` for time per photo
 - [ ] SigLIP 2 worker: first run downloads ~400 MB of weights from Hugging Face
       (asked the user; no answer yet) and the worker is untested against a model

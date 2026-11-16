@@ -1,0 +1,6 @@
+# What the classify workers (scripts/worker_*.py) need, besides PyTorch itself.
+# PyTorch is not listed here on purpose: which build you want (CUDA, ROCm, CPU,
+# Apple GPU) depends on the machine, and scripts/setup_venv.py works that out
+# and installs it first.
+open_clip_torch
+pillow

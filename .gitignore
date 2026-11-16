@@ -6,3 +6,9 @@ node_modules
 monet
 __pycache__
 images/
+
+# classify: its python virtualenv
+pkg/classify/.venv/
+__pycache__/
+pkg/classify/sample/
+pkg/classify/classify-results/

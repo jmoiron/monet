@@ -474,16 +474,6 @@ $(function() {
         }
     });
 
-    if (window.location.search.length > 0) {
-        var qs = window.location.search;
-        $("ul.paginator a").each(function() {
-            var $this = $(this);
-            // a paginator that keeps the query itself (the gallery's) is left alone
-            if ($this.attr("href").indexOf("?") !== -1) return;
-            $this.attr("href", $this.attr("href") + qs);
-        });
-    }
-
     $(".shrink").on("click", () => {
       let current = $(".container").width();
       if (current > 1200) {

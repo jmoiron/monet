@@ -254,7 +254,7 @@ The pieces:
 | `classify pull -url .../gallery -dir D` | downloads them to `D/<id>.<ext>` + `D/manifest.json`; repeatable, skips what is there |
 | `classify run -dir D -b ...` | as before, over the pulled files |
 | `classify export -dir D -b ... -o f.json` | the `Export` file (`export.go`): items `{id, sha256, model, caption, labels, embedding}`; embeddings are float16 in base64 |
-| admin: Gallery, Classify | imports the file in the browser, 200 items per request; shows models and how many photos each has done |
+| admin: Gallery, Classify | the file is dropped on the same drop area as the other uploads (`POST /admin/gallery/classify/`, up to 256 MiB, one request); shows models and how many photos each has done |
 | table `photo_class` + FTS5 `photo_class_fts` | one row per photo and model; the import checks the sha256 and replaces |
 | `gallery/search.go` | `Searcher`: words (FTS5, bm25, caption x1 / labels x2) + vectors (in memory, cosine, floor `MinVector`), fused by reciprocal rank; every match carries a `Why` |
 | admin: Gallery, Search | all photos; the score, ranks, cosine and the matched words |
@@ -265,50 +265,228 @@ Tried end to end on a scratch site (`monet --load-instagram` of the 296 sample
 photos, then pull, run siglip2, export, import, search): works, with the 3.7 GB
 of VRAM caveat of section 9. Found while doing it:
 
-- the vector floor of 0.08 was too low (now 0.09, from the user's own searches: "tennis", "hong kong", "china" had their strays under it): "dinosaur" still found two photos
+- the vector floor of 0.08 was too low: "dinosaur" still found two photos
   (cosines 0.086 and 0.081), "snowy river" found five of which two were
-  plausible. To tune with the judge file.
+  plausible. It is 0.09 now, see section 12.
 - a worker that dies (here: CUDA OOM because a 6.6 GB ollama model was loading
   at the same time) used to leave the search without vectors until a restart;
   the searcher now drops it and tries again after 30 s, and says so in the notes.
 - `ollama` and the siglip worker contend for 8 GiB of VRAM: don't run them at
   the same time (`ollama stop MODEL`).
 
-## Open items
+### 10a. Learned running it on the real photos (Linux machine, 296 photos)
 
-- [x] ollama installed and models pulled (section 7)
-- [x] rerun the 5-photo trial with the fixes of section 8 (done on machine 2, section 9)
-- [ ] first real run over the sample set; `stats` for time per photo
-- [ ] SigLIP 2 worker: first run downloads ~400 MB of weights from Hugging Face
-      (asked the user; no answer yet) and the worker is untested against a model
-- [ ] write ~15 real queries and a judge TSV; `compare` the backends
-- [ ] run on the Linux/NVIDIA box (the venv script's CUDA path is untested on a
-      GPU) and on other architectures; record results per machine here
-- [ ] decide on a score threshold for vector search
+- **The SigLIP 2 weights are 1.4 GB** (the cached file), fp32, not the 400 MB
+  written in section 9's first version. The worker keeps both towers loaded:
+  ~1.7 GB of VRAM idle (1.4 GB of weights + ~0.3 GB of CUDA context), 3.7 GB at
+  the peak while embedding images (activations, and the allocator keeps what it
+  freed). Ways to shrink it, none done: `precision=fp16` (half; re-embed
+  everything after, so stored and query vectors agree), a text-only worker for
+  the server (drops the image tower, ~40% of the parameters), or the text tower
+  on the CPU (about a second a query). The server starts the worker in the
+  background when it starts listening (`App.WarmSearch`), so the first search
+  doesn't wait ~5 s for it. This is still PyTorch; there is no ONNX anywhere in
+  the code.
+- **ollama answers were cut off** on a text heavy photo (a flyer: the model kept
+  listing the dates and product names it could read) at `MaxTokens` 300, which
+  left unparseable JSON. A repair that closed the JSON was written and removed
+  as brittle. What stayed: the schema asks for at most 25 tags (`maxItems`,
+  which ollama enforces when it generates, so the list can't run on and the
+  JSON always closes), `MaxTokens` is 600 (still a guard against a model
+  looping at temperature 0), and `done_reason == "length"` is an error that
+  says so; `run` retries photos with errors. Tried on that photo: gemma4:e4b
+  (3.3 s, 12 labels), gemma3:4b (14.7 s, 25), qwen3-vl:4b-instruct (19.6 s, 25).
+- `classify run` prints what a backend produced for each photo ("embedding 768
+  dims", "13 labels, caption 212 chars"), so an embedder doesn't look like it
+  found nothing.
+- **Which VLM:** the user found qwen3-vl:4b-instruct and gemma similar in
+  quality and time, and qwen's output longer, so likely to search better; the
+  user leaned to running qwen alone. Not compared with a judge file. Watch for
+  longer output bringing false word matches (a generic tag like "city" on every
+  skyline would bring back the "hong kong" problem through the words).
+- **The SigLIP floor.** SigLIP 2 over-identifies: it always has a nearest photo.
+  The user's searches: below ~0.09 a photo with no word match was nearly always
+  unrelated ("tennis" gave a beach volleyball; "hong kong" gave skylines that
+  weren't there; "china" included a Hong Kong photo at 0.081 and many of India
+  at higher cosines). The user accepts losing the odd related photo to keep out
+  2-3x as many unrelated ones, so `DefaultMinVector` is 0.09 (config:
+  `Classify.MinVector`). A photo with a word match stays at any cosine.
+- **Other embedding models** (a web search; the sources were vendor-adjacent
+  roundups that disagree, no MetaCLIP 2 or Perception Encoder data found; treat
+  as pointers): SigLIP 2 is the usual open default; a bigger one
+  (`ViT-SO400M-16-SigLIP2-384`) is the easiest trial (the worker takes `--model`,
+  but its text tower is too big for the 1 GiB server); Jina CLIP v2 and Nomic
+  Embed Vision (open weights); Qwen3-VL-2B as an embedder (reported strong, far
+  too big for the server, one secondary source); Gemini Embedding 2 and Cohere
+  Embed v4 are hosted APIs. **Cosines don't carry over between models**: each
+  model needs its own floor.
+- **Not built, discussed:** the floor tunable in the admin (a per-search `?min=`
+  field is the cheap start; a stored setting needs a table the gallery doesn't
+  have); special search terms such as `year:2022` or `camera:Canon`, meant as
+  something the UI links to (click an EXIF value), later; date search stays the
+  admin's date dropdown.
 
 ## 11. Places (pkg/geo)
 
 Where a photo was taken is metadata, not something a model sees, so it isn't
-classified: `pkg/geo` names the coordinates from GeoNames' lists of cities
-(`cities1000` and the files that say what the codes in it mean), locally, with
-no coordinates sent anywhere.
+classified: `pkg/geo` names the coordinates, locally, with no coordinates sent
+anywhere. The search then treats where a photo was taken as fact.
 
-- `geo.Fetch(dir)` downloads the files, and makes `local-names.tsv` (each city's
-  name in the first language of its country that has one, English left out and
-  none for countries that are first English speaking; India, Singapore and
-  Pakistan excepted) from `alternateNamesV2.zip` (205 MB, not kept; the pass
-  over it took about 6 s). The data of a source with bad names is the source's:
-  there are no per-country rules.
-- A photo's place is the nearest city of any size, of 5000 and of 15000 people,
-  once each, with the region, country and continent: `gallery/places.go`,
-  table `photo_place`. Its words go in every row of the photo in
-  `photo_class_fts` (a `place` column) and in a row of their own (model
-  `place`) so that a photo no model has seen is found by where it was.
-- Query words match whole words of captions and labels, and the start of a word
-  of the place: `tokyo` finds `tokyoto`, `東京` finds `東京都`.
-- The server fetches the data when it starts if it isn't in `Geo.Dir`, and
-  places the photos that have no place. Uploads and imports place their
-  photos as they are added. Gallery, Classify in the admin has Rescan (all the
-  photos, with the data there is) and Refresh (fetch the data again, then
-  rescan).
-- `go run ./pkg/geo/cmd/geo -db prod.db` compares the lists on a gallery.
+### Decisions
+
+| decision | why | what else was possible |
+|---|---|---|
+| names come from **GeoNames** city lists, looked up offline | a public geocoder (Nominatim) allows about 1 request a second and no heavy use, and would be sent the coordinates of every photo, home included; the data is small | Nominatim: street level detail; could be added behind the same job |
+| the place is the **nearest city of any size, of 5000 and of 15000 people**, each once, plus region, country, continent | compared on the 158 photos of `prod.db` with `go run ./pkg/geo/cmd/geo`: the lists agree on the city for 97 of 158; the small list gives neighbourhoods ("Shibuya", "Mid Levels") and the large the town ("Itō" for "Inatori"), and people search by either | one list; every city within N km (rejected: no example needed it, "Hoboken" is tagged Hoboken and not New York) |
+| **no per-country rules**: trust the data | the user's call: a source with bad names is the source's, and it may get better; Refresh re-reads it | rules by country and script (a Taiwan and a Vietnam rule were written and removed) |
+| names in the **local language** are kept for the city, region and country, and the English ones too | to show "Bangkok, Thailand" with กรุงเทพมหานคร as flavour, and to search either; the UX (a hover or option, not prominent) is later | none stored |
+| the **English first** rule: no local name for a country whose first language is English (US, UK, Australia...), except India, Singapore and Pakistan | otherwise New York gets "Nueva York" (es-US) | an allowlist is a guess; edit `localDespiteEnglish` in `pkg/geo/local.go` |
+| places are **looked up on the server**, as photos are added | the lookup takes about a millisecond and the data is a few tens of MB in memory | in classify (rejected: it isn't pixels, it needs no GPU and no pulled copy, it is deterministic) |
+
+### Data (https://download.geonames.org/export/dump/)
+
+- `cities1000.zip` 11.1 MB (172k cities; `cities5000` 5.7 MB and `cities15000`
+  3.4 MB are subsets, so one list serves all three by population),
+  `countryInfo.txt` 32 KB (names, continent, languages, geonameid),
+  `admin1CodesASCII.txt` 152 KB (region names and geonameids).
+- **`alternateNamesV2.zip` is 205 MB** (787 MB unzipped, ~13M rows: every name
+  of every feature in every language, with the language and a preferred flag).
+  It is the only place a name's language is said: the cities files list names
+  with no language (the Tokyo row has 東京, 东京 and 도쿄 together). It is read
+  once to make `local-names.tsv` (40,356 names; about 6 s) and is not kept.
+  GeoNames also has it split by country under `export/dump/alternatenames/`
+  (Japan 3.8 MB, Thailand 6.2 MB): a way to fetch less, not used.
+- A name's language: the first of the country's languages (from `countryInfo`,
+  English left out) that has a name for it, preferring the preferred flag;
+  historic and colloquial names skipped, short names kept (`東京` is flagged
+  short); a name equal to the English one is not a local name.
+
+### How it works
+
+- `geo.Fetch(dir)` downloads the files and makes `local-names.tsv`;
+  `geo.Open(dir)` loads them (172k cities in ~250 ms); `Index.Around(lat, lng,
+  0, 5000, 15000)` is the nearest city for each size, once each.
+- `gallery/places.go`: table `photo_place` (city, region, country, code,
+  continent, `near`: the other cities, local names of city, region and country,
+  km). Its words go in **every row of the photo in `photo_class_fts`** (a
+  `place` column) **and a row of their own** (model `place`): the first so
+  that "tokyo sunset" finds a caption with the one and a place with the other,
+  the second so a photo that no model has seen is found by where it was.
+  `reindex` rebuilds a photo's rows from `photo_class` and `photo_place`.
+- The server (`Geo.Dir` in the config, `pkg/geo/data` in `dev.cfg.json`)
+  fetches the data when it starts if it isn't there (the 205 MB download takes
+  a while) and places photos that have no place. Uploads and imports place the
+  photo as it is added; a photo added before the data is loaded is placed by
+  the next scan. Gallery, Classify has **Rescan** (every photo again) and
+  **Refresh** (fetch the data again, then rescan, in the background).
+  Neither is periodic yet.
+- Migrations: `photo_place` and the `place` column of the FTS table (rebuilt
+  from `photo_class`), then `region_local` and `country_local`. Photos placed
+  before the last one have those empty until Rescan.
+- Measured on 294 photos (158 with GPS): data loaded in 240-270 ms, all
+  placed in about 0.6 s.
+
+### Known gaps in the data (not fixed, by decision)
+
+- Many places have no local name (neighbourhoods and villages: Saiyad-ul-ajaib
+  in Delhi, Mid Levels, Sha Tin, French and Portuguese villages). 88 of the 158
+  photos have at least one local name in the tuple.
+- Singapore gets Tamil, there being no Chinese or Malay name. Taiwan gets the
+  region in Traditional and the country in Simplified characters
+  (`台北市, 台灣, 台湾`). Keelung gets `Ke-lâng-chhī [nan]`: a romanization in
+  Taiwanese Hokkien (`nan`, a Chinese language brought by Han settlers, not an
+  indigenous Taiwanese one), the only name GeoNames has for it in a language of
+  Taiwan. A Taiwan rule (`zh-tw`, `zh`, Han script only) and a Vietnam rule
+  (`vi`, Latin script only, so as not to get the old Han names) fixed these
+  and were removed when the user decided to trust the data; they are a table
+  of about ten lines if wanted again.
+- For a country with several languages, the first listed that has a name wins
+  (India: Hindi before Malayalam), so Kerala shows Hindi where there is a name
+  in both.
+- Region and country names are not in any language but English and the
+  country's; "Tokyo" the region is `東京都`, so a search for `東京` works only
+  by prefix.
+
+## 12. Search and ranking
+
+`gallery/search.go`. A query is searched two ways and the lists are fused.
+
+- **Words** (FTS5, `porter unicode61`): every word must match, each as a whole
+  word of a caption or a label, or as the **start of a word of the place**
+  (`("w" OR place : "w" *)`): `tokyo` finds `tokyoto`, `東京` finds `東京都`,
+  `china` finds `Chinatown`. Nobody searching `ind` is hurt by the Taj Mahal.
+  Substring and trigram matching were rejected: `京都` would match `東京都`,
+  queries under 3 characters fail, and stemming is lost. bm25 weights:
+  caption 1, labels 2, place 2. All the words must be in one row, which is why
+  the place words are in every row.
+- **Vectors:** the query is embedded by the same model as the photos
+  (`Classify.Embedder`, a python worker), cosine against every photo's
+  embedding, kept at or above `MinVector` (0.09 for SigLIP 2).
+- **Fusion:** reciprocal rank fusion, `1/(60+rank)` from each list a photo is
+  in, so only the order in each list counts, not bm25 or the cosine; ties by id.
+  The best a photo can get from the two is ~2/61 = 0.033.
+- **Place boost:** a photo whose place matched the query gets **+0.05** (more
+  than the best from words and vectors together), so a photo taken in Tokyo
+  comes before the sakura in Central Park that only feels like Tokyo. The user's
+  reasoning: places are accurate and reflect intent ("china" is photos in
+  China, not dishes). Prefix and whole word matches count the same, so
+  Chinatown in New York is boosted like Guangzhou; an exact match could earn
+  more if that annoys. Among place matches the order is the vector and bm25 rank,
+  which for place only rows is close to arbitrary (bm25 depends on how short the
+  place text is); a date tie-break would be better and isn't built.
+- **Dev display** (`Debug`, and always in the admin): score, `words #n`,
+  `vector #n, cosine c`, `place`, and per matching row the words with `[matches]`.
+  A model's row that matched only in the place is hidden (the `place` row says
+  it), and models that gave only an embedding have no row at all.
+- Searching published photos (`/gallery/?q=`) and all photos (admin) share it.
+
+## 13. Decision log (what to re-examine, and when)
+
+| question | now | re-examine when |
+|---|---|---|
+| vector floor | 0.09, by eye, SigLIP 2 B/16 | a different embedding model (cosines differ: new floor), or a judge file exists: use `classify compare` |
+| which VLM for words | undecided; qwen3-vl:4b-instruct likely | new VLMs; write ~15 real queries and a judge TSV, `compare` |
+| embedding model | SigLIP 2 B/16 (PyTorch worker) | SO400M or Jina CLIP v2 / Nomic Embed Vision to compare; the server's 1 GiB means an int8 ONNX text tower or a text-only worker |
+| fusion | RRF k=60 + place boost 0.05 | if results look wrong: weights between words and vectors, the cosine as a score, a date tie-break |
+| GeoNames lists | cities1000 serves all three sizes | GeoNames improves (Refresh), or street level detail is wanted (Nominatim) |
+| local names | first country language with a name | the data gaps above, or a UX that shows them (the user wants them as a hover or option) |
+| prefix matching on places | on, whole word counts the same | complaints about Chinatown-like cases |
+| classification in image metadata (XMP) and workflow B (classify before upload) | not done, deferred by the user | when classifying new uploads on the server matters |
+| Rescan and Refresh | by hand in the admin | when it is worth a periodic job |
+
+### Commands
+
+```
+# places: compare the three lists on a gallery's photos, with local names
+make -C pkg/geo data                        # the GeoNames files (not the 205 MB one)
+go run ./pkg/geo/cmd/geo -db prod.db        # needs data/alternateNamesV2.zip for local names
+                                            # (the server fetches and deletes it itself)
+
+# classification, on a running gallery
+go build -o classify ./pkg/classify/cmd/classify
+./classify pull -url http://localhost:7001/gallery -dir pulled
+./classify run -dir pulled -out results -b "siglip2=worker:pkg/classify/.venv/bin/python pkg/classify/scripts/worker_openclip.py --model ViT-B-16-SigLIP2 --pretrained webli"
+./classify run -dir pulled -out results -b qwen3vl=ollama:qwen3-vl:4b-instruct    # one ollama model at a time; ollama stop MODEL after
+./classify export -dir pulled -out results -b <the same -b specs> -o classifications.json
+# then drop the file on Gallery, Classify in the admin
+```
+
+## Open items
+
+- [x] ollama installed and models pulled (section 7)
+- [x] rerun the 5-photo trial with the fixes of section 8 (done on machine 2, section 9)
+- [x] first real run over the 296 photos (siglip2 12 s; gemma4:e4b about 25 min)
+- [x] SigLIP 2 worker tested against a model (1.4 GB download; section 10a)
+- [x] a vector floor (0.09, by eye)
+- [ ] write ~15 real queries and a judge TSV; `compare` the backends and settle the VLM
+- [ ] run qwen3-vl:4b-instruct (and gemma3:4b) over all 296 photos
+- [ ] the floor tunable in the admin (per-search field first)
+- [ ] a smaller query embedder for the server (text-only worker, fp16, or int8 ONNX)
+- [ ] try a bigger SigLIP 2, Jina CLIP v2, Nomic Embed Vision (new floor each)
+- [ ] a place line on the photo pages (and the local names, as a hover); a date tie-break for place matches
+- [ ] a periodic or on demand Rescan and Refresh beyond the admin buttons
+- [ ] show the local tuple (`渋谷, 東京都, 日本`) anywhere but the geo tool; it is stored and searched
+- [ ] the admin Classify page's buttons and status are only tested by Go tests, not in a browser
+- [ ] the first-start fetch of the data by the server, and its memory on the 1 GiB server, unmeasured
+- [ ] special search terms (`year:2022`, `camera:Canon`) as UI links
+- [ ] workflow B and XMP metadata

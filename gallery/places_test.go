@@ -110,8 +110,36 @@ func TestPlacesAreSearched(t *testing.T) {
 	assert.ElementsMatch(t, []string{early.ID, hoboken.ID}, ids("sunset"))
 	res, err := s.Search(context.Background(), "tokyo", SearchOptions{})
 	require.NoError(t, err)
-	require.NotEmpty(t, res.Matches[0].Why.Words)
+	// the place is said once, though the model's row has it as well
+	require.Len(t, res.Matches[0].Why.Words, 1)
+	assert.Equal(t, "place", res.Matches[0].Why.Words[0].Model)
 	assert.Contains(t, res.Matches[0].Why.Words[0].Text(), "[Tokyo]")
+	// and a caption and a place that match together are one line
+	res, err = s.Search(context.Background(), "tokyo sunset", SearchOptions{})
+	require.NoError(t, err)
+	require.Len(t, res.Matches[0].Why.Words, 1)
+	assert.Equal(t, "gemma", res.Matches[0].Why.Words[0].Model)
+	assert.Contains(t, res.Matches[0].Why.Words[0].Text(), "[sunset]")
+	assert.Contains(t, res.Matches[0].Why.Words[0].Text(), "[Tokyo]")
+
+	// a photo that was taken there comes before one that is only like it: the
+	// hoboken photo is nearer to "tokyo" by vector than the tokyo photo is
+	_, err = NewClassService(svc.db).Import([]classify.Item{
+		item(early, "siglip", "", nil, []float32{0, 1, 0, 0}),
+		item(hoboken, "siglip", "", nil, []float32{1, 0, 0, 0}),
+	})
+	require.NoError(t, err)
+	s.embModel = "siglip"
+	s.embedder = fakeEmbedder{"tokyo": {1, 0, 0, 0}}
+	res, err = s.Search(context.Background(), "tokyo", SearchOptions{})
+	require.NoError(t, err)
+	require.Len(t, res.Matches, 2)
+	assert.Equal(t, early.ID, res.Matches[0].ID)
+	assert.True(t, res.Matches[0].Why.Place)
+	assert.Equal(t, hoboken.ID, res.Matches[1].ID)
+	assert.False(t, res.Matches[1].Why.Place)
+	assert.Contains(t, res.Matches[0].Why.Summary(), "place")
+	s.embedder = nil // the rest is by words
 
 	// the places are made again from the data: a rescan keeps what was
 	n, err := places.Scan(true)

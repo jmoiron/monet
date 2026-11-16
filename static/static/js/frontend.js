@@ -44,11 +44,4 @@ $(function() {
         $(this).addClass("prettyprint");
         $(this).addClass("linenums");
     });
-    if (window.location.search.length > 0) {
-        var qs = window.location.search;
-        $("ul.paginator a").each(function() {
-            var $this = $(this);
-            $this.attr("href", $this.attr("href") + qs);
-        });
-    }
 });

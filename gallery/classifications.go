@@ -167,6 +167,9 @@ func reindex(tx *sqlx.Tx, id string) error {
 	}
 	for _, r := range rows {
 		c := Classification{LabelsRaw: r.Labels}
+		if r.Caption == "" && len(c.LabelNames()) == 0 {
+			continue // a model that gave an embedding only says nothing in words
+		}
 		if _, err := tx.Exec(`INSERT INTO photo_class_fts (photo_id, model, caption, labels, place) VALUES (?, ?, ?, ?, ?)`,
 			id, r.Model, r.Caption, strings.Join(c.LabelNames(), "\n"), place); err != nil {
 			return err

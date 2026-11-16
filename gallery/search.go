@@ -39,6 +39,13 @@ const DefaultMinVector = 0.09
 // how long after the embedder fails before it is started again
 const embedderRetry = 30 * time.Second
 
+// placeBoost is added to the score of a photo whose place matched the query.
+// Where a photo was taken is known, not guessed, and someone searching for a
+// place wants the photos from it, so it is more than the best that a photo can
+// get from words and vectors together (2/61), and a photo taken in Tokyo comes
+// before one that only looks as Tokyo might.
+const placeBoost = 0.05
+
 // rrfK damps how much being first counts, in reciprocal rank fusion
 const rrfK = 60
 
@@ -81,6 +88,7 @@ type Why struct {
 	WordRank   int        // 1 is best; 0 when the words did not match
 	Vector     *VectorWhy // nil when there is no vector match
 	VectorRank int
+	Place      bool // the query matched where the photo was taken, which counts for more
 }
 
 // A WordWhy is a model's words that match, with the matching ones in [brackets].
@@ -119,6 +127,9 @@ func (w Why) Summary() string {
 	}
 	if w.Vector != nil {
 		parts = append(parts, fmt.Sprintf("vector #%d, cosine %.3f", w.VectorRank, w.Vector.Cosine))
+	}
+	if w.Place {
+		parts = append(parts, "place")
 	}
 	return strings.Join(parts, " · ")
 }
@@ -188,6 +199,13 @@ func (s *Searcher) Search(ctx context.Context, query string, o SearchOptions) (*
 		m.Score += 1 / float64(rrfK+i+1)
 	}
 	for _, m := range byID {
+		for _, w := range m.Why.Words {
+			if strings.Contains(w.Place, "[") {
+				m.Why.Place = true
+				m.Score += placeBoost
+				break
+			}
+		}
 		res.Matches = append(res.Matches, *m)
 	}
 	sort.Slice(res.Matches, func(i, j int) bool {
@@ -236,6 +254,11 @@ func (s *Searcher) words(query string, o SearchOptions) ([]wordHit, error) {
 	var hits []wordHit
 	at := map[string]int{}
 	for _, r := range rows { // best first, so a photo's first row is its best
+		// a model's row that matched in the place only says what the row of the
+		// place already says
+		if r.Model != "place" && !strings.Contains(r.Caption+r.Labels, "[") {
+			continue
+		}
 		w := WordWhy{Model: r.Model, Caption: r.Caption, Labels: strings.ReplaceAll(r.Labels, "\n", ", "),
 			Place: strings.ReplaceAll(r.Place, "\n", ", "), Rank: r.Rank}
 		if i, ok := at[r.PhotoID]; ok {

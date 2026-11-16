@@ -11,10 +11,10 @@
 <div class="photo-grid collection-grid">
 {{range $c := .collections}}
     <div class="photo-tile collection-tile{{if eq $c.Published 0}} unpublished{{end}}">
-        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <a href="/admin/gallery/collections/{{$c.ID}}">
             {{if $c.Cover}}<img src="{{photoURL $c.Cover}}" alt="" loading="lazy">{{end}}
         </a>
+        <span class="photo-hidden" title="Not published"><i class="fa-solid fa-eye-slash"></i></span>
         <span class="collection-name">{{$c.Title}} <small>{{$c.Count}}</small></span>
         <a class="del" href="/admin/gallery/collections/delete/{{$c.ID}}" onclick="return confirm('Delete this collection? Its photos stay in the gallery.')"><i class="fa-solid fa-circle-xmark"></i></a>
     </div>

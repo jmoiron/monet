@@ -216,3 +216,24 @@ func TestSearchDropsAFailedEmbedder(t *testing.T) {
 	assert.Contains(t, note, "vector search is off")
 	assert.NotContains(t, note, "EOF")
 }
+
+// a signalling embedder says when it is asked, as a worker is when its model is in
+type askedEmbedder chan string
+
+func (a askedEmbedder) EmbedText(_ context.Context, text string) ([]float32, error) {
+	a <- text
+	return []float32{1, 0, 0, 0}, nil
+}
+
+func TestWarmHasTheEmbedderEmbed(t *testing.T) {
+	svc := newTestService(t)
+	asked := make(askedEmbedder, 1)
+	s := NewSearcher(svc.db, SearchConfig{})
+	s.embedder = asked
+	s.Warm()
+	select {
+	case <-asked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("warming didn't ask the embedder for anything")
+	}
+}

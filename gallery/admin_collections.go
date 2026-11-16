@@ -139,7 +139,8 @@ func (a *Admin) showCollection(w http.ResponseWriter, r *http.Request, id, messa
 		return
 	}
 
-	// the photos that are not, narrowed by the filter
+	// the photos that are not, narrowed by the filter and by a search, which
+	// puts the best match first
 	where, args := filter.Where()
 	notIn := `id NOT IN (SELECT photo_id FROM album_photo WHERE album_id = ?)`
 	if where == "" {
@@ -148,8 +149,21 @@ func (a *Admin) showCollection(w http.ResponseWriter, r *http.Request, id, messa
 		where += `AND ` + notIn + ` `
 	}
 	args = append(args, album.ID)
-	outCount, err := svc.Count(where, args...)
-	if err != nil {
+	search := strings.TrimSpace(q.Get("q"))
+	var found []Photo
+	var outCount int
+	if search != "" {
+		res, err := a.search.Search(r.Context(), search, SearchOptions{Limit: maxCollectionSearch})
+		if err != nil {
+			app.Http500("searching", w, err)
+			return
+		}
+		if found, err = a.searchOthers(svc, res.Matches, where, args); err != nil {
+			app.Http500("loading photos", w, err)
+			return
+		}
+		outCount = len(found)
+	} else if outCount, err = svc.Count(where, args...); err != nil {
 		app.Http500("counting photos", w, err)
 		return
 	}
@@ -157,13 +171,15 @@ func (a *Admin) showCollection(w http.ResponseWriter, r *http.Request, id, messa
 		return pageLink(base, q, "opage", p) + "#others"
 	})
 	outPage := outPager.Page(queryInt(q, "opage", 1))
-	others, err := svc.Select(where+OrderNewest+` LIMIT ? OFFSET ?`, append(args, adminPageSize, outPage.StartOffset)...)
-	if err != nil {
+	var others []Photo
+	if search != "" {
+		others = found[min(outPage.StartOffset, len(found)):min(outPage.EndOffset, len(found))]
+	} else if others, err = svc.Select(where+OrderNewest+` LIMIT ? OFFSET ?`, append(args, adminPageSize, outPage.StartOffset)...); err != nil {
 		app.Http500("loading photos", w, err)
 		return
 	}
 
-	ctx, err := a.filterCtx(r, svc, filter, filterBar{Action: base, GPS: true, Count: outCount, NoCollection: true})
+	ctx, err := a.filterCtx(r, svc, filter, filterBar{Action: base, GPS: true, Count: outCount, NoCollection: true, Search: true, Q: search})
 	if err != nil {
 		app.Http500("loading filters", w, err)
 		return
@@ -281,4 +297,35 @@ func (a *Admin) changeCollection(w http.ResponseWriter, r *http.Request, did str
 	n := len(ids)
 	msg := did + " " + strconv.Itoa(n) + " photo" + plural(n)
 	writeJSON(w, http.StatusOK, jsonMap{"success": true, "message": msg + " · " + album.Title})
+}
+
+// the most photos a search of a collection's other photos looks at
+const maxCollectionSearch = 500
+
+// searchOthers are the photos of the matches that the where (the filter and
+// "not in the collection") lets through, in the order of the matches.
+func (a *Admin) searchOthers(svc *PhotoService, matches []Match, where string, args []any) ([]Photo, error) {
+	if len(matches) == 0 {
+		return nil, nil
+	}
+	marks := make([]string, len(matches))
+	for i, m := range matches {
+		marks[i] = "?"
+		args = append(args, m.ID)
+	}
+	photos, err := svc.Select(where+`AND id IN (`+strings.Join(marks, ",")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Photo, len(photos))
+	for _, p := range photos {
+		byID[p.ID] = p
+	}
+	var out []Photo
+	for _, m := range matches {
+		if p, ok := byID[m.ID]; ok {
+			out = append(out, p)
+		}
+	}
+	return out, nil
 }

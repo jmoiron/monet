@@ -1,5 +1,6 @@
 {{/* The filter bar of the gallery pages, drawn by Admin.filterCtx: pages put it where it goes with {{.filterBar}} */}}
 <form method="GET" action="{{.action}}" class="photo-filter">
+    {{if .search}}<input type="search" name="q" class="search" value="{{.q}}" placeholder="Search">{{end}}
     <select name="source" title="Source">
         <option value="">All sources</option>
         {{range .sources}}<option value="{{.}}"{{if eq . $.filter.Source}} selected{{end}}>{{.}}</option>{{end}}
@@ -24,7 +25,7 @@
         <option value="lacks"{{if eq $.filter.GPS "lacks"}} selected{{end}}>Lacks GPS</option>
     </select>{{end}}
     <input class="save-button" type="submit" value="Filter">
-    {{if not .filter.IsZero}}<a href="{{.action}}">clear</a>{{end}}
+    {{if or (not .filter.IsZero) .q}}<a href="{{.action}}">clear</a>{{end}}
     <span class="photo-filter-count">{{.count}} photo{{if ne .count 1}}s{{end}}</span>
 </form>
 <script src="/static/daterange.js"></script>

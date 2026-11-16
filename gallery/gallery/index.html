@@ -2,16 +2,18 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css">
 
+<div class="gallery-bar">
+<form method="GET" action="/gallery/" class="photo-search" id="photo-search">
+    <input type="search" name="q" class="search" value="{{.q}}" placeholder="Search">
+</form>
 <h2 class="gallery-views">
     <button type="button" id="view-table" aria-pressed="true" title="grid view" aria-label="grid view"><i class="fa-solid fa-table-cells-large"></i></button>
     <button type="button" id="view-map" aria-pressed="false" title="map view" aria-label="map view"><i class="fa-solid fa-map-location-dot"></i></button>
+    {{if .hasCollections}}<a href="/gallery/collections" title="collections" aria-label="collections"><i class="fa-solid fa-layer-group"></i></a>{{end}}
 </h2>
+</div>
 
 <div id="table-view">
-<form method="GET" action="/gallery/" class="photo-search">
-    <input type="search" name="q" class="search" value="{{.q}}" placeholder="Search">
-</form>
-{{if .hasCollections}}<p class="photo-back"><a href="/gallery/collections">Collections &rarr;</a></p>{{end}}
 {{range .notes}}<p class="search-note">{{.}}</p>{{end}}
 
 {{if .photos}}
@@ -46,6 +48,7 @@
 <script>
 (function() {
     var tableView = document.getElementById('table-view');
+    var searchForm = document.getElementById('photo-search');
     var mapView = document.getElementById('map-view');
     var tableBtn = document.getElementById('view-table');
     var mapBtn = document.getElementById('view-map');
@@ -54,6 +57,7 @@
     function show(which) {
         var isMap = which === 'map';
         tableView.hidden = isMap;
+        searchForm.hidden = isMap;
         mapView.hidden = !isMap;
         tableBtn.setAttribute('aria-pressed', String(!isMap));
         mapBtn.setAttribute('aria-pressed', String(isMap));

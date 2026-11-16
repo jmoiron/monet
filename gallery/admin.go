@@ -165,6 +165,9 @@ type filterBar struct {
 	Count  int    // how many photos match, shown after the button
 	// NoCollection leaves the collection filter out, for pages that are about one.
 	NoCollection bool
+	// Search offers a search of what is in the photos, and Q is what it was asked.
+	Search bool
+	Q      string
 }
 
 // filterCtx is the context of a page with the filter bar: the bar itself, as
@@ -191,6 +194,8 @@ func (a *Admin) filterCtx(r *http.Request, svc *PhotoService, f Filter, bar filt
 		"gps":          bar.GPS,
 		"count":        bar.Count,
 		"noCollection": bar.NoCollection,
+		"search":       bar.Search,
+		"q":            bar.Q,
 	})
 	if err != nil {
 		return nil, err

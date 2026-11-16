@@ -1,7 +1,7 @@
 {{if .message}}<script>$(function() { $.flash({{.message}}); });</script>{{end}}
 
 <form method="POST" action="" class="photo-form">
-    <p><a href="/admin/gallery/collections/">&larr; Collections</a>
+    <p class="photo-back"><a href="/admin/gallery/collections/">&larr; Collections</a>
        {{if gt .collection.Published 0}}· <a href="/gallery/collections/{{.collection.Slug}}">view</a>{{end}}</p>
 
     <div><input type="text" name="title" class="photo-title-input" placeholder="Title" value="{{.collection.Title}}"></div>

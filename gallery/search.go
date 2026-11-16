@@ -364,15 +364,25 @@ func (s *Searcher) getEmbedder() (classify.TextEmbedder, error) {
 	return nil, err
 }
 
-// Warm starts the embedder in the background, so that the first search doesn't
-// wait for the model to load. A failure is logged and left for a search to
-// try again.
+// Warm starts the embedder in the background, and has it embed something, so
+// that the first search doesn't wait for the model to load: starting a worker
+// is only starting its process, and it answers when the model is in. A failure
+// is logged and left for a search to try again.
 func (s *Searcher) Warm() {
 	go func() {
 		start := time.Now()
-		if te, _ := s.getEmbedder(); te != nil {
-			slog.Info("search embedder ready", "took", time.Since(start).Round(time.Millisecond))
+		te, _ := s.getEmbedder()
+		if te == nil {
+			return
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		if _, err := te.EmbedText(ctx, "a photo"); err != nil {
+			slog.Error("warming the search embedder", "err", err)
+			s.embedderFailed(te, err)
+			return
+		}
+		slog.Info("search embedder ready", "took", time.Since(start).Round(time.Millisecond))
 	}()
 }
 

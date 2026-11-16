@@ -40,4 +40,14 @@
         {{end}}
         </div>
     </div>
+    {{if .photos}}
+    <div class="summary-section gallery-home-list">
+        <h3><a href="/gallery/"><i class="icon icon-picture"></i> Photos</a></h3>
+        <div class="gallery-home-photos">
+        {{range $photo := .photos}}
+            <a href="/gallery/{{$photo.ID}}"{{if $photo.Title}} title="{{$photo.Title}}"{{end}}><img src="{{photoURL $photo.ThumbFile}}" alt="{{$photo.Caption}}" loading="lazy"></a>
+        {{end}}
+        </div>
+    </div>
+    {{end}}
 </div>

@@ -352,3 +352,46 @@ func TestPlacesEndpoints(t *testing.T) {
 	assert.Equal(t, 200, code)
 	assert.Contains(t, body, `"Placed":1`)
 }
+
+func TestCollectionSearchOthers(t *testing.T) {
+	a, _, svc := newTestAdmin(t)
+	albums := NewAlbumService(svc.db)
+	album, err := albums.Create("Tennis", "")
+	require.NoError(t, err)
+	in := addPhoto(t, svc, 0, true)
+	best := addPhoto(t, svc, 1, true)
+	other := addPhoto(t, svc, 2, true)
+	require.NoError(t, albums.Add(album.ID, in.ID))
+
+	_, err = NewClassService(svc.db).Import([]classify.Item{
+		item(in, "gemma", "a tennis court", []string{"tennis"}, nil),
+		item(best, "gemma", "a tennis ball and a racket", []string{"tennis", "ball", "racket"}, nil),
+		item(other, "gemma", "a tennis net", nil, nil),
+	})
+	require.NoError(t, err)
+	res, err := a.search.Search(context.Background(), "tennis", SearchOptions{})
+	require.NoError(t, err)
+	require.Len(t, res.Matches, 3)
+
+	where := `WHERE id NOT IN (SELECT photo_id FROM album_photo WHERE album_id = ?) `
+	got, err := a.searchOthers(svc, res.Matches, where, []any{album.ID})
+	require.NoError(t, err)
+	// the one in the collection is left out, and the order is the search's
+	var ids []string
+	for _, p := range got {
+		ids = append(ids, p.ID)
+	}
+	assert.NotContains(t, ids, in.ID)
+	assert.Len(t, ids, 2)
+	order := []string{}
+	for _, m := range res.Matches {
+		if m.ID != in.ID {
+			order = append(order, m.ID)
+		}
+	}
+	assert.Equal(t, order, ids)
+
+	none, err := a.searchOthers(svc, nil, where, []any{album.ID})
+	require.NoError(t, err)
+	assert.Empty(t, none)
+}

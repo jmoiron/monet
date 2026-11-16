@@ -202,7 +202,7 @@ func main() {
 		app.Bind(r)
 	}
 
-	r.Get("/", index)
+	r.Get("/", index(fss))
 
 	/*
 		if config.Debug && false {
@@ -259,25 +259,38 @@ func main() {
 	}
 }
 
-func index(w http.ResponseWriter, r *http.Request) {
+func index(fss vfs.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) { renderIndex(w, r, fss) }
+}
+
+func renderIndex(w http.ResponseWriter, r *http.Request, fss vfs.Registry) {
 	reg := mtr.RegistryFromContext(r.Context())
 	db := db.DbFromContext(r.Context())
 
 	postalService := blog.NewPostService(db)
 	streamService := stream.NewEventService(db)
 
-	posts, err := postalService.Select("WHERE published > 0 ORDER BY published_at DESC LIMIT 6")
+	posts, err := postalService.Select("WHERE published > 0 ORDER BY published_at DESC LIMIT 4")
 	if err != nil {
 		app.Http500("loading posts", w, err)
 		return
 	}
-	events, err := streamService.Select("WHERE hidden=0 ORDER BY timestamp DESC LIMIT 5")
+	events, err := streamService.Select("WHERE hidden=0 ORDER BY timestamp DESC LIMIT 3")
 	if err != nil {
 		app.Http500("loading events", w, err)
 		return
 	}
 
+	// the gallery is optional: without photos, or a photos path, there is no section
+	var photos []gallery.Photo
+	if svc, err := gallery.NewPhotoServiceFromFSS(db, fss); err == nil {
+		if photos, err = svc.Select("WHERE published > 0 " + gallery.OrderNewest + " LIMIT 5"); err != nil {
+			slog.Warn("loading photos for the index", "err", err)
+		}
+	}
+
 	err = reg.RenderWithBase(w, "base", "templates/index.html", mtr.Ctx{
+		"photos": photos,
 		"title":  "jmoiron plays the blues",
 		"post":   posts[0],
 		"posts":  posts[1:],

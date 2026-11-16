@@ -3,7 +3,6 @@ module github.com/jmoiron/monet
 go 1.27.0
 
 require (
-	github.com/chimeracoder/anaconda v2.0.0+incompatible
 	github.com/dustin/go-humanize v1.0.1
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-sprout/sprout v0.6.0
@@ -21,18 +20,11 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/image v0.48.0
 	golang.org/x/net v0.60.0
-	labix.org/v2/mgo v0.0.0-20140701140051-000000000287
 )
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/ChimeraCoder/anaconda v2.0.0+incompatible // indirect
-	github.com/ChimeraCoder/tokenbucket v0.0.0-20131201223612-c5a927568de7 // indirect
-	github.com/azr/backoff v0.0.0-20160115115103-53511d3c7330 // indirect
-	github.com/dustin/go-jsonpointer v0.0.0-20160814072949-ba0abeacc3dc // indirect
-	github.com/dustin/gojson v0.0.0-20160307161227-2e71ec9dd5ad // indirect
 	github.com/eliben/go-sentencepiece v0.7.0 // indirect
-	github.com/garyburd/go-oauth v0.0.0-20180319155456-bca2e7f09a17 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/gofrs/flock v0.13.2 // indirect
 	github.com/gomlx/compute v0.1.28 // indirect
@@ -56,5 +48,4 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
-	launchpad.net/gocheck v0.0.0-20140225173054-000000000087 // indirect
 )

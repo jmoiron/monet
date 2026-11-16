@@ -125,6 +125,71 @@ var galleryMigrations = monarch.Set{
 			);`,
 			Down: `DROP TABLE import_event;`,
 		},
+		{
+			// What a model saw in a photo: a caption and labels (searched as words,
+			// through photo_class_fts, which the import keeps in step) and/or an
+			// embedding (searched by vector). One row per photo and model, so models
+			// can be compared. The embedding is float16s, as in an export.
+			Up: `CREATE TABLE IF NOT EXISTS photo_class (
+				photo_id text NOT NULL,
+				model text NOT NULL,
+				caption text NOT NULL DEFAULT '',
+				labels text NOT NULL DEFAULT '[]',
+				embedding blob,
+				created_at integer NOT NULL DEFAULT (strftime('%s', 'now')),
+				PRIMARY KEY (photo_id, model)
+			);
+			CREATE VIRTUAL TABLE IF NOT EXISTS photo_class_fts USING fts5(
+				photo_id UNINDEXED, model UNINDEXED, caption, labels, tokenize = 'porter unicode61'
+			);`,
+			Down: `DROP TABLE photo_class_fts; DROP TABLE photo_class;`,
+		},
+		{
+			// Where a photo was taken, as names (from its coordinates, by pkg/geo):
+			// the nearest city, its region, country and continent, and the other
+			// cities near it, one to a line; and the city's name in the local
+			// language. The words of it are searched, as the place of every row of
+			// the photo in photo_class_fts, which gets the column for it here:
+			// derived data, so it is made again from what is kept, and the places
+			// are indexed when they are looked up.
+			Up: `CREATE TABLE IF NOT EXISTS photo_place (
+				photo_id text PRIMARY KEY,
+				city text NOT NULL DEFAULT '',
+				region text NOT NULL DEFAULT '',
+				country text NOT NULL DEFAULT '',
+				country_code text NOT NULL DEFAULT '',
+				continent text NOT NULL DEFAULT '',
+				near text NOT NULL DEFAULT '',
+				local text NOT NULL DEFAULT '',
+				local_lang text NOT NULL DEFAULT '',
+				km real NOT NULL DEFAULT 0,
+				scanned_at integer NOT NULL DEFAULT (strftime('%s', 'now'))
+			);
+			DROP TABLE photo_class_fts;
+			CREATE VIRTUAL TABLE photo_class_fts USING fts5(
+				photo_id UNINDEXED, model UNINDEXED, caption, labels, place, tokenize = 'porter unicode61'
+			);
+			INSERT INTO photo_class_fts (photo_id, model, caption, labels, place)
+				SELECT photo_id, model, caption,
+					coalesce((SELECT group_concat(json_extract(value, '$.name'), char(10)) FROM json_each(photo_class.labels)), ''), ''
+				FROM photo_class;`,
+			Down: `DROP TABLE photo_class_fts;
+			CREATE VIRTUAL TABLE photo_class_fts USING fts5(
+				photo_id UNINDEXED, model UNINDEXED, caption, labels, tokenize = 'porter unicode61'
+			);
+			INSERT INTO photo_class_fts (photo_id, model, caption, labels)
+				SELECT photo_id, model, caption,
+					coalesce((SELECT group_concat(json_extract(value, '$.name'), char(10)) FROM json_each(photo_class.labels)), '')
+				FROM photo_class;
+			DROP TABLE photo_place;`,
+		},
+		{
+			// the region and the country in the language of the country, as the city has
+			Up: `ALTER TABLE photo_place ADD COLUMN region_local text NOT NULL DEFAULT '';
+				ALTER TABLE photo_place ADD COLUMN country_local text NOT NULL DEFAULT '';`,
+			Down: `ALTER TABLE photo_place DROP COLUMN region_local;
+				ALTER TABLE photo_place DROP COLUMN country_local;`,
+		},
 	},
 }
 

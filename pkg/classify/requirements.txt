@@ -4,3 +4,6 @@
 # and installs it first.
 open_clip_torch
 pillow
+transformers           # SigLIP 2 loads its tokenizer through it
+sentencepiece
+protobuf

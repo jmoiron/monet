@@ -1,0 +1,65 @@
+<h2>Gallery</h2>
+
+<p class="gallery-nav">
+    <a href="/admin/gallery/"><i class="fa-solid fa-table-cells-large"></i> Photos</a>
+    <a href="/admin/gallery/map/"><i class="fa-solid fa-location-dot"></i> Map</a>
+    <a href="/admin/gallery/collections/"><i class="fa-solid fa-layer-group"></i> Collections</a>
+    <a href="/admin/gallery/search/"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+    <a class="current" href="/admin/gallery/classify/"><i class="fa-solid fa-tags"></i> Classify</a>
+</p>
+
+<div id="classify-upload-area"></div>
+
+<table class="classify-models">
+    <tr><th>Model</th><th>Photos</th><th>Embeddings</th></tr>
+    {{range .models}}
+    <tr><td>{{.Model}}</td><td>{{.Photos}} / {{$.total}}</td><td>{{.Embeddings}}</td></tr>
+    {{end}}
+</table>
+
+<table class="classify-models">
+    <tr><th>Places</th><th>Photos</th><th>Cities</th></tr>
+    <tr><td>geonames</td><td>{{.places.Placed}} / {{.places.WithGPS}}</td><td>{{if .places.Ready}}{{.places.Cities}}{{end}}</td></tr>
+</table>
+{{if .places.Busy}}<p class="photo-count">{{.places.Busy}}</p>{{end}}
+{{if .places.Err}}<p class="search-note">{{.places.Err}}</p>{{end}}
+<p>
+    <button type="button" class="save-button" id="places-rescan"{{if .places.Busy}} disabled{{end}}>Rescan</button>
+    <button type="button" class="save-button" id="places-refresh"{{if .places.Busy}} disabled{{end}}>Refresh</button>
+</p>
+
+<script src="/static/upload.js"></script>
+<script>
+$(() => {
+    $('#classify-upload-area').upload({
+        url: '/admin/gallery/classify/',
+        multiple: false,
+        accept: '.json,application/json',
+        maxFileSize: {{.maxBytes}},
+        text: {
+            dropZone: 'Drag & drop an export (.json) here, or click to choose',
+            hint: '',
+            processing: 'Storing the classifications...',
+            complete: 'Stored'
+        },
+        onSuccess: (res) => $.flash(res.message),
+        onError: (error) => $.flash('Import failed: ' + error.message, 'error')
+    });
+
+    // the data is fetched in the background: wait for it to be done
+    const follow = () => fetch('/admin/gallery/places/status/').then(r => r.json()).then(st => {
+        if (st.Busy) { setTimeout(follow, 2000); } else { window.location.reload(); }
+    }).catch(() => setTimeout(follow, 4000));
+    const post = (what, then) => fetch('/admin/gallery/places/' + what + '/', {method: 'POST'})
+        .then(r => r.json())
+        .then(res => {
+            if (!res.success) { throw new Error(res.error || 'failed'); }
+            $.flash(res.message);
+            then();
+        })
+        .catch(err => $.flash(err.message, 'error'));
+    $('#places-rescan').on('click', () => post('rescan', () => setTimeout(() => window.location.reload(), 800)));
+    $('#places-refresh').on('click', () => post('refresh', follow));
+    {{if .places.Busy}}follow();{{end}}
+});
+</script>

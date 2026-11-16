@@ -30,7 +30,7 @@ type OllamaVLM struct {
 	MaxEdge int
 	// MaxTokens caps the length of the answer. A caption and a dozen tags are
 	// under 200 tokens; a model stuck repeating itself is cut off here instead
-	// of running until the client times out. Default 300.
+	// of running until the client times out. Default 600.
 	MaxTokens int
 	Client    *http.Client
 	// KeepAlive keeps the model loaded between photos (an ollama duration,
@@ -52,7 +52,8 @@ var ollamaSchema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
 		"caption": map[string]any{"type": "string"},
-		"tags":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+		// a bound the grammar enforces, so a photo full of text can't run the list on
+		"tags": map[string]any{"type": "array", "maxItems": 25, "items": map[string]any{"type": "string"}},
 	},
 	"required": []string{"caption", "tags"},
 }
@@ -72,7 +73,7 @@ func (o *OllamaVLM) Classify(ctx context.Context, path string) (*Result, error) 
 	}
 	maxTokens := o.MaxTokens
 	if maxTokens == 0 {
-		maxTokens = 300
+		maxTokens = 600
 	}
 	req := map[string]any{
 		"model":  o.Model,
@@ -116,9 +117,13 @@ func (o *OllamaVLM) Classify(ctx context.Context, path string) (*Result, error) 
 		Message struct {
 			Content string `json:"content"`
 		} `json:"message"`
+		DoneReason string `json:"done_reason"`
 	}
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return nil, fmt.Errorf("ollama: %w", err)
+	}
+	if out.DoneReason == "length" {
+		return nil, fmt.Errorf("the model was still going at the %d token cap: %.120q", maxTokens, out.Message.Content)
 	}
 	return parseTagged(out.Message.Content)
 }

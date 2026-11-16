@@ -202,11 +202,82 @@ search results; the user saw `12b` on the library page too). To try:
 box (8 GiB VRAM, older CPU) `qwen3-vl:4b` and `gemma4:e4b` (~9.6 GB listed, so
 it will spill from the GPU to CPU). Sizes are from guides, not verified.
 
+## 9. Machine 2 (Linux, RTX 3070): setup and the 5-photo trial
+
+Machine 2: Linux x86_64, RTX 3070 (8 GiB, driver CUDA 13.2), 62 GB RAM, 20
+cores, Go 1.27.2, Python 3.14.4, ollama 0.40.16. Other things hold 1.5 GB or so
+of VRAM (desktop, Chrome, Discord), so a model gets about 6 GB at best.
+
+- `make sample ZIP=../../insta/instagram-*.zip`: 296 photos, as on machine 1.
+- `make venv`: picked `cu132`, **torch 2.15.0+cu132, CUDA available** (the
+  first real run of the CUDA path of `setup_venv.py`: it works).
+- Models pulled: moondream, gemma3:4b, gemma4:e4b, qwen3-vl:4b and 8b (already
+  there), and `qwen3-vl:4b-instruct` (new).
+- **`qwen3-vl:4b` (the plain tag) is the thinking variant** (`ollama show`:
+  renderer/parser `qwen3-vl-thinking`): with `MaxTokens` 300 it returned empty
+  answers. Use `qwen3-vl:4b-instruct`.
+- **SigLIP 2 needs `transformers`** (its tokenizer goes through it, plus
+  sentencepiece and protobuf). Added to `requirements.txt`; the worker's weights
+  came down from Hugging Face on first use.
+- **A model left loaded by ollama (5 min) starves the SigLIP worker of VRAM**
+  (CUDA OOM at 20 MiB). `ollama stop MODEL` first, or run them separately.
+
+Trial (5 photos, run from `pkg/classify`, per photo after the first):
+
+| backend | time | notes |
+|---|---|---|
+| `qwen3-vl:4b-instruct` | 5.6-7.1 s | longest captions, 20-22 labels, includes text in the photo ("Lucia") |
+| `gemma3:4b` | 4.5-5.4 s | 17-21 labels; first photo 31 s (load) |
+| `gemma4:e4b` | 3.5-4.0 s | fewest labels (13-16), most "abstract" ones (still life, healthy) |
+| `siglip2` (ViT-B-16-SigLIP2, no vocab) | 14 ms | 768-d embeddings, search works: "tomato", "snowy river", "band on stage" each put the right photo first (scores 0.13-0.15; no floor yet) |
+
+All three VLMs described all five photos correctly. That is 4-6x faster than
+machine 1's Gemma 3 (16-22 s): ~25 min for the 296 photos per model.
+
+Open: first real run over all 296; judge TSV and `compare`; a score floor.
+
+## 10. From experiment to the site (workflow A)
+
+The decision: results live in the gallery's DB; they get there from a machine
+that has the photos pulled, not from the one that serves them. Public photos
+only (unpublished ones aren't searched, so they aren't classified). Not done:
+embedding results in the images' own metadata (XMP), a workflow for local files
+before upload. Query embedding on the server stays the python worker for now
+(`Classify.Embedder` in the config); a smaller runtime is a later, separate job
+(an int8 ONNX text tower would be ~300 MB; unverified, see section 9's sizes).
+
+The pieces:
+
+| where | what |
+|---|---|
+| `gallery` `GET /gallery/photos.json?after=ID&limit=N` | public; published photos as `{id, sha256, url, width, height}` in id order, with `next` |
+| `classify pull -url .../gallery -dir D` | downloads them to `D/<id>.<ext>` + `D/manifest.json`; repeatable, skips what is there |
+| `classify run -dir D -b ...` | as before, over the pulled files |
+| `classify export -dir D -b ... -o f.json` | the `Export` file (`export.go`): items `{id, sha256, model, caption, labels, embedding}`; embeddings are float16 in base64 |
+| admin: Gallery, Classify | imports the file in the browser, 200 items per request; shows models and how many photos each has done |
+| table `photo_class` + FTS5 `photo_class_fts` | one row per photo and model; the import checks the sha256 and replaces |
+| `gallery/search.go` | `Searcher`: words (FTS5, bm25, caption x1 / labels x2) + vectors (in memory, cosine, floor `MinVector`), fused by reciprocal rank; every match carries a `Why` |
+| admin: Gallery, Search | all photos; the score, ranks, cosine and the matched words |
+| `/gallery/?q=` | published only; with `Debug` each photo shows its score and why |
+| photo modal | what each model said (caption, tags) |
+
+Tried end to end on a scratch site (`monet --load-instagram` of the 296 sample
+photos, then pull, run siglip2, export, import, search): works, with the 3.7 GB
+of VRAM caveat of section 9. Found while doing it:
+
+- the vector floor of 0.08 was too low (now 0.09, from the user's own searches: "tennis", "hong kong", "china" had their strays under it): "dinosaur" still found two photos
+  (cosines 0.086 and 0.081), "snowy river" found five of which two were
+  plausible. To tune with the judge file.
+- a worker that dies (here: CUDA OOM because a 6.6 GB ollama model was loading
+  at the same time) used to leave the search without vectors until a restart;
+  the searcher now drops it and tries again after 30 s, and says so in the notes.
+- `ollama` and the siglip worker contend for 8 GiB of VRAM: don't run them at
+  the same time (`ollama stop MODEL`).
+
 ## Open items
 
 - [x] ollama installed and models pulled (section 7)
-- [ ] rerun the 5-photo trial with the fixes of section 8, from `pkg/classify`
-      (Linux box first); add qwen3-vl and gemma4
+- [x] rerun the 5-photo trial with the fixes of section 8 (done on machine 2, section 9)
 - [ ] first real run over the sample set; `stats` for time per photo
 - [ ] SigLIP 2 worker: first run downloads ~400 MB of weights from Hugging Face
       (asked the user; no answer yet) and the worker is untested against a model
@@ -214,3 +285,30 @@ it will spill from the GPU to CPU). Sizes are from guides, not verified.
 - [ ] run on the Linux/NVIDIA box (the venv script's CUDA path is untested on a
       GPU) and on other architectures; record results per machine here
 - [ ] decide on a score threshold for vector search
+
+## 11. Places (pkg/geo)
+
+Where a photo was taken is metadata, not something a model sees, so it isn't
+classified: `pkg/geo` names the coordinates from GeoNames' lists of cities
+(`cities1000` and the files that say what the codes in it mean), locally, with
+no coordinates sent anywhere.
+
+- `geo.Fetch(dir)` downloads the files, and makes `local-names.tsv` (each city's
+  name in the first language of its country that has one, English left out and
+  none for countries that are first English speaking; India, Singapore and
+  Pakistan excepted) from `alternateNamesV2.zip` (205 MB, not kept; the pass
+  over it took about 6 s). The data of a source with bad names is the source's:
+  there are no per-country rules.
+- A photo's place is the nearest city of any size, of 5000 and of 15000 people,
+  once each, with the region, country and continent: `gallery/places.go`,
+  table `photo_place`. Its words go in every row of the photo in
+  `photo_class_fts` (a `place` column) and in a row of their own (model
+  `place`) so that a photo no model has seen is found by where it was.
+- Query words match whole words of captions and labels, and the start of a word
+  of the place: `tokyo` finds `tokyoto`, `東京` finds `東京都`.
+- The server fetches the data when it starts if it isn't in `Geo.Dir`, and
+  places the photos that have no place. Uploads and imports place their
+  photos as they are added. Gallery, Classify in the admin has Rescan (all the
+  photos, with the data there is) and Refresh (fetch the data again, then
+  rescan).
+- `go run ./pkg/geo/cmd/geo -db prod.db` compares the lists on a gallery.

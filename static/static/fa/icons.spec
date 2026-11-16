@@ -45,3 +45,6 @@ fa-solid fa-sun
 fa-solid fa-moon
 fa-solid fa-map-location-dot
 fa-solid fa-eye-slash
+fa-solid fa-up-right-from-square
+fa-solid fa-magnifying-glass
+fa-solid fa-tags

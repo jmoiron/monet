@@ -1554,6 +1554,23 @@ h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
 
 @import "mobile.less";
 
+// what the models saw in a photo, and how a search found it
+.photo-class {
+  margin: 10px 0;
+  .photo-class-model { color: #999; font-size: .85em; font-variant-caps: all-small-caps; letter-spacing: .06em; }
+  p { margin: 2px 0; }
+}
+.photo-tags span {
+  display: inline-block; margin: 0 4px 4px 0; padding: 0 8px;
+  border: 1px solid #ddd; border-radius: 10px; font-size: .85em;
+}
+.photo-why { font-size: .8em; color: #777; line-height: 1.35; margin-top: 4px; }
+.photo-why-words { color: #999; i { font-style: normal; font-variant-caps: all-small-caps; margin-right: 4px; } }
+.photo-why mark { background: lighten(@limey, 25%); color: inherit; padding: 0 1px; }
+.photo-search { margin: 0 0 10px; input.search { width: 100%; box-sizing: border-box; border: 1px solid #ddd; border-radius: 3px; padding: 8px 10px; } }
+.search-note { color: #a60; font-size: .9em; }
+.classify-models { margin: 16px 0; border-collapse: collapse; th, td { text-align: left; padding: 4px 24px 4px 0; } th { color: #999; font-weight: normal; } }
+
 // a photo's edit form in the rename modal: tall, so it scrolls with the page
 .rename-modal.photo-modal {
   overflow-y: auto;

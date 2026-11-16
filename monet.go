@@ -153,7 +153,9 @@ func main() {
 		streamApp    = stream.NewApp(dbh).WithBaseURL("/stream/").WithDebug(config.Debug)
 		pagesApp     = pages.NewApp(dbh)
 		uploadApp    = uploads.NewApp(dbh, fss)
-		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/").WithDebug(config.Debug)
+		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/").WithDebug(config.Debug).
+				WithSearch(gallery.SearchConfig{Embedder: config.Classify.Embedder, MinVector: config.Classify.MinVector}).
+				WithPlaces(config.Geo.Dir)
 	)
 
 	// pages should be last as it binds to /*
@@ -250,6 +252,8 @@ func main() {
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)
+	galleryApp.WarmSearch()
+	go galleryApp.EnsurePlaces(context.Background())
 	if err := http.ListenAndServe(config.ListenAddr, r); err != nil {
 		slog.Error("error listening", "err", err)
 	}

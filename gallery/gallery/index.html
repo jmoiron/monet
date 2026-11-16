@@ -8,16 +8,30 @@
 </h2>
 
 <div id="table-view">
+<form method="GET" action="/gallery/" class="photo-search">
+    <input type="search" name="q" class="search" value="{{.q}}" placeholder="Search">
+</form>
 {{if .hasCollections}}<p class="photo-back"><a href="/gallery/collections">Collections &rarr;</a></p>{{end}}
+{{range .notes}}<p class="search-note">{{.}}</p>{{end}}
 
 {{if .photos}}
 <div class="photo-grid">
 {{range $photo := .photos}}
-    <a class="photo-tile" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
-        <img src="{{photoURL $photo.ThumbFile}}" alt="{{if $photo.Title}}{{$photo.Title}}{{else}}{{$photo.Caption}}{{end}}" width="{{$photo.Width}}" height="{{$photo.Height}}" loading="lazy">
-    </a>
+    <div class="photo-result">
+        <a class="photo-tile" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
+            <img src="{{photoURL $photo.ThumbFile}}" alt="{{if $photo.Title}}{{$photo.Title}}{{else}}{{$photo.Caption}}{{end}}" width="{{$photo.Width}}" height="{{$photo.Height}}" loading="lazy">
+        </a>
+        {{if $.why}}{{with index $.why $photo.ID}}
+        <div class="photo-why">
+            <b>{{printf "%.4f" .Score}}</b> {{.Why.Summary}}
+            {{range .Why.Words}}<div class="photo-why-words"><i>{{.Model}}</i> {{searchMark .Text}}</div>{{end}}
+        </div>
+        {{end}}{{end}}
+    </div>
 {{end}}
 </div>
+{{else if .q}}
+<p>Nothing found.</p>
 {{else}}
 <p>There are no photos yet.</p>
 {{end}}

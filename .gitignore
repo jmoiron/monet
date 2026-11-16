@@ -12,3 +12,6 @@ pkg/classify/.venv/
 __pycache__/
 pkg/classify/sample/
 classify-results/
+
+# geo: the GeoNames files its tool reads (make -C pkg/geo data)
+pkg/geo/data/

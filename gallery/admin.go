@@ -56,11 +56,13 @@ type Admin struct {
 	maxPhoto, maxInstagram int64
 
 	// debug allows erasing what was imported, to import it again
-	debug bool
+	debug  bool
+	search *Searcher
+	places *Places
 }
 
 func NewAdmin(db db.DB, fss vfs.Registry) *Admin {
-	return &Admin{db: db, fss: fss, slot: make(chan struct{}, 1), jobs: map[string]*importJob{}, maxPhoto: MaxPhotoBytes, maxInstagram: MaxInstagramBytes}
+	return &Admin{db: db, fss: fss, slot: make(chan struct{}, 1), jobs: map[string]*importJob{}, maxPhoto: MaxPhotoBytes, maxInstagram: MaxInstagramBytes, search: NewSearcher(db, SearchConfig{}), places: NewPlaces(db, "")}
 }
 
 func (a *Admin) Bind(r chi.Router) {
@@ -78,9 +80,16 @@ func (a *Admin) Bind(r chi.Router) {
 	r.Post("/gallery/edit/{id:[^/]+}", a.save)
 	r.Get("/gallery/delete/{id:[^/]+}", a.delete)
 	a.bindCollections(r)
+	a.bindClassify(r)
 }
 
-func (a *Admin) service() (*PhotoService, error) { return NewPhotoServiceFromFSS(a.db, a.fss) }
+func (a *Admin) service() (*PhotoService, error) {
+	svc, err := NewPhotoServiceFromFSS(a.db, a.fss)
+	if svc != nil {
+		svc.places = a.places
+	}
+	return svc, err
+}
 
 func (a *Admin) Panels(r *http.Request) ([]string, error) {
 	svc, err := a.service()
@@ -557,10 +566,15 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, svc *PhotoServi
 	if err != nil {
 		slog.Error("loading albums of photo", "err", err)
 	}
+	classes, err := NewClassService(a.db).For(p.ID)
+	if err != nil {
+		slog.Error("loading classifications of photo", "err", err)
+	}
 	reg := mtr.RegistryFromContext(r.Context())
 	ctx := mtr.Ctx{
 		"photo":   p,
 		"albums":  albums,
+		"classes": classes,
 		"message": message,
 	}
 	// the modal wants the form alone, to put in its own frame

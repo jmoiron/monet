@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -20,6 +21,9 @@ var ErrNotAnImage = errors.New("not an image")
 type PhotoService struct {
 	db    db.DB
 	store *Store
+
+	// places, if set, names where the photos that are added were taken
+	places *Places
 }
 
 func NewPhotoService(db db.DB, store *Store) *PhotoService {
@@ -179,6 +183,10 @@ func (s *PhotoService) Add(n NewPhoto) (*Photo, error) {
 		s.store.Remove(p.File, p.Large, p.Thumb)
 		return nil, err
 	}
+	// a photo that can't be placed is still added: the next scan places it
+	if err := s.places.Place(p); err != nil {
+		slog.Error("placing a photo", "photo", p.ID, "err", err)
+	}
 	return p, nil
 }
 
@@ -277,6 +285,15 @@ func (s *PhotoService) Delete(id string) error {
 	}
 	err = db.With(s.db, func(tx *sqlx.Tx) error {
 		if _, err := tx.Exec(`DELETE FROM album_photo WHERE photo_id=?`, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM photo_class WHERE photo_id=?`, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM photo_class_fts WHERE photo_id=?`, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM photo_place WHERE photo_id=?`, id); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(`UPDATE album SET cover_id='' WHERE cover_id=?`, id); err != nil {

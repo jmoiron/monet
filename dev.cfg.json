@@ -18,5 +18,11 @@
         "screenshots": "/i/ss/",
         "photos": "/i/photos/"
       }
+    },
+    "Geo": {
+      "Dir": "pkg/geo/data"
+    },
+    "Classify": {
+      "Embedder": "siglip2=worker:pkg/classify/.venv/bin/python pkg/classify/scripts/worker_openclip.py --model ViT-B-16-SigLIP2 --pretrained webli"
     }
 }

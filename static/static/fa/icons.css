@@ -173,6 +173,9 @@
 .fa-location-dot {
   --fa: "\f3c5";
 }
+.fa-magnifying-glass {
+  --fa: "\f002";
+}
 .fa-map-location-dot {
   --fa: "\f5a0";
 }
@@ -200,11 +203,17 @@
 .fa-table-cells-large {
   --fa: "\f009";
 }
+.fa-tags {
+  --fa: "\f02c";
+}
 .fa-trash-can {
   --fa: "\f2ed";
 }
 .fa-up-right-and-down-left-from-center {
   --fa: "\f424";
+}
+.fa-up-right-from-square {
+  --fa: "\f35d";
 }
 .fa-users {
   --fa: "\f0c0";

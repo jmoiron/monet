@@ -15,9 +15,17 @@
     <div class="photo-info{{if .photo.HasGPS}} has-locator{{end}}">
         <div class="photo-data">
             <div class="photo-facts">{{range photoFactCols .photo}}<dl>{{range .}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>{{end}}</div>
+            {{with photoPosted .photo}}<p class="photo-posted">{{.}}</p>{{end}}
         </div>
         {{if .photo.HasGPS}}<div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>{{end}}
     </div>
+    {{range .classes}}{{if or .Caption .LabelNames}}
+    <div class="photo-class">
+        <span class="photo-class-model">{{.Model}}</span>
+        {{if .Caption}}<p>{{.Caption}}</p>{{end}}
+        {{if .LabelNames}}<p class="photo-tags">{{range .LabelNames}}<span>{{.}}</span>{{end}}</p>{{end}}
+    </div>
+    {{end}}{{end}}
     <p class="photo-source-line">{{if eq .photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{.photo.Source}}{{end}}{{range .albums}} · in {{.Title}}{{end}}</p>
 
     <div class="button-group">

@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"path"
 	"strconv"
 	"strings"
@@ -43,13 +45,38 @@ type App struct {
 	BaseURL  string
 	PageSize int
 
-	// Debug is development mode, in which the admin may erase imports to run them again
+	// Debug is development mode, in which the admin may erase imports to run them again,
+	// and searches say why their photos matched
 	Debug bool
+
+	search *Searcher
+	places *Places
 }
 
 func NewApp(db db.DB, fss vfs.Registry) *App {
-	return &App{db: db, fss: fss, BaseURL: "/gallery/", PageSize: defaultPageSize}
+	return &App{db: db, fss: fss, BaseURL: "/gallery/", PageSize: defaultPageSize, search: NewSearcher(db, SearchConfig{}), places: NewPlaces(db, "")}
 }
+
+// WithSearch says how photos are searched by their content.
+func (a *App) WithSearch(cfg SearchConfig) *App {
+	a.search = NewSearcher(a.db, cfg)
+	return a
+}
+
+// WithPlaces says where the data to name the places of photos is kept; without
+// it photos are not placed.
+func (a *App) WithPlaces(dir string) *App {
+	a.places = NewPlaces(a.db, dir)
+	return a
+}
+
+// EnsurePlaces has the data of the places there, fetching it if it isn't, and
+// every photo placed. It takes a while, so it is for a goroutine.
+func (a *App) EnsurePlaces(ctx context.Context) { a.places.Ensure(ctx) }
+
+// WarmSearch starts what searching needs (the model that embeds queries) in the
+// background; for a server that is about to listen, not for a command.
+func (a *App) WarmSearch() { a.search.Warm() }
 
 func (a *App) WithDebug(debug bool) *App {
 	a.Debug = debug
@@ -88,11 +115,18 @@ func NewPhotoServiceFromFSS(d db.DB, fss vfs.Registry) (*PhotoService, error) {
 	return NewPhotoService(d, store), nil
 }
 
-func (a *App) service() (*PhotoService, error) { return NewPhotoServiceFromFSS(a.db, a.fss) }
+func (a *App) service() (*PhotoService, error) {
+	svc, err := NewPhotoServiceFromFSS(a.db, a.fss)
+	if svc != nil {
+		svc.places = a.places
+	}
+	return svc, err
+}
 
 func (a *App) GetAdmin() (app.Admin, error) {
 	adm := NewAdmin(a.db, a.fss)
 	adm.debug = a.Debug
+	adm.search, adm.places = a.search, a.places
 	return adm, nil
 }
 
@@ -106,6 +140,7 @@ func (a *App) Register(reg *mtr.Registry) {
 			"photoPosted":   photoPosted,
 			"photoFacts":    photoFacts,
 			"photoFactCols": photoFactCols,
+			"searchMark":    markHTML,
 		}),
 	)
 	reg.AddAllFS(galleryTemplates)
@@ -223,6 +258,7 @@ func (a *App) Bind(r chi.Router) {
 	r.Route(a.BaseURL, func(r chi.Router) {
 		r.Use(middleware.StripSlashes)
 		r.Get("/page/{page:[0-9]+}", a.list)
+		r.Get("/photos.json", a.manifest)
 		r.Get("/map.json", a.mapSpots)
 		r.Get("/collections", a.collections)
 		r.Get("/collections/{slug:[^/]+}", a.collection)
@@ -237,17 +273,50 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 		app.Http500("gallery not configured", w, err)
 		return
 	}
-	count, err := svc.Count("WHERE published > 0")
-	if err != nil {
+	q := strings.TrimSpace(req.URL.Query().Get("q"))
+	var (
+		count  int
+		photos []Photo
+		extra  mtr.Ctx
+		pageFn = mtr.SlashLinkFn(path.Join(a.BaseURL, "page"))
+	)
+	var found []SearchTile
+	if q != "" {
+		res, err := a.search.Search(req.Context(), q, SearchOptions{PublishedOnly: true})
+		if err != nil {
+			app.Http500("searching", w, err)
+			return
+		}
+		if found, err = searchTiles(svc, res.Matches); err != nil {
+			app.Http500("loading photos", w, err)
+			return
+		}
+		count = len(found)
+		pageFn = func(n int) string {
+			return path.Join(a.BaseURL, "page", strconv.Itoa(n)) + "?" + url.Values{"q": {q}}.Encode()
+		}
+		extra = mtr.Ctx{"q": q}
+		if a.Debug {
+			// how the photos matched is for developing the search
+			why := map[string]Match{}
+			for _, t := range found {
+				why[t.Photo.ID] = t.Match
+			}
+			extra["why"], extra["notes"] = why, res.Notes
+		}
+	} else if count, err = svc.Count("WHERE published > 0"); err != nil {
 		app.Http500("counting photos", w, err)
 		return
 	}
 
-	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(mtr.SlashLinkFn(path.Join(a.BaseURL, "page")))
+	paginator := mtr.NewPaginator(a.PageSize, count).WithLinkFn(pageFn)
 	page := paginator.Page(app.GetIntParam(req, "page", 1))
 
-	photos, err := svc.Select(`WHERE published > 0 `+OrderNewest+` LIMIT ? OFFSET ?`, a.PageSize, page.StartOffset)
-	if err != nil {
+	if q != "" {
+		for _, t := range found[min(page.StartOffset, len(found)):min(page.EndOffset, len(found))] {
+			photos = append(photos, t.Photo)
+		}
+	} else if photos, err = svc.Select(`WHERE published > 0 `+OrderNewest+` LIMIT ? OFFSET ?`, a.PageSize, page.StartOffset); err != nil {
 		app.Http500("loading photos", w, err)
 		return
 	}
@@ -257,13 +326,17 @@ func (a *App) list(w http.ResponseWriter, req *http.Request) {
 		slog.Error("loading collections", "err", err)
 	}
 	reg := mtr.RegistryFromContext(req.Context())
-	err = reg.RenderWithBase(w, "base", "gallery/index.html", mtr.Ctx{
+	ctx := mtr.Ctx{
 		"title":               "Photos",
 		"extraContainerClass": "wide",
 		"photos":              photos,
 		"hasCollections":      len(collections) > 0,
 		"pagination":          paginator.Render(reg, page),
-	})
+	}
+	for k, v := range extra {
+		ctx[k] = v
+	}
+	err = reg.RenderWithBase(w, "base", "gallery/index.html", ctx)
 	if err != nil {
 		slog.Error("rendering gallery", "err", err)
 	}

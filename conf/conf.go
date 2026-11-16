@@ -16,6 +16,24 @@ type FSSConfig struct {
 	URLs  map[string]string
 }
 
+// ClassifyConfig is how photos are searched by what is in them.
+type ClassifyConfig struct {
+	// Embedder is a pkg/classify spec of a worker that embeds search queries
+	// ("siglip2=worker:python3 scripts/worker_openclip.py ..."), and so says which
+	// model's embeddings are searched. Without one only captions and labels are.
+	Embedder string
+	// MinVector is the least cosine a photo has to have with a query to match
+	// it by vector; 0 for the default.
+	MinVector float64
+}
+
+// GeoConfig is where the names of places come from.
+type GeoConfig struct {
+	// Dir is where the GeoNames data is kept, and fetched to if it isn't there
+	// when the server starts. Without it photos are not given places.
+	Dir string
+}
+
 // A Config holds options for the running website.
 type Config struct {
 	Debug      bool
@@ -39,6 +57,12 @@ type Config struct {
 	// itself. It can be a wrapper script, eg. to add --no-sandbox when the
 	// browser's own sandbox can't start.
 	ChromePath string
+
+	// Classify configures search of photos by their content.
+	Classify ClassifyConfig
+
+	// Geo configures the places that photos were taken.
+	Geo GeoConfig
 }
 
 // String returns the config as a string.

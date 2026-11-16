@@ -8,12 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/db/monarch"
+	"github.com/jmoiron/monet/pkg/classify"
 	"github.com/jmoiron/monet/pkg/vfs"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
@@ -299,4 +301,54 @@ func TestResetImports(t *testing.T) {
 	_, out = post(t, h, "/gallery/insta/", "file", "export.zip", zipData)
 	out = waitImport(t, h, out["job"].(string))
 	assert.EqualValues(t, 4, out["report"].(map[string]any)["created"])
+}
+
+func TestUploadClassifications(t *testing.T) {
+	_, h, _ := newTestAdmin(t)
+	// an export from nothing like this site: its photos are not here
+	ex := `{"version":` + strconv.Itoa(classify.ExportVersion) + `,"items":[{"id":"nope","model":"m","caption":"a tomato"}]}`
+	code, out := post(t, h, "/gallery/classify/", "file", "classifications.json", []byte(ex))
+	assert.Equal(t, 200, code)
+	assert.Equal(t, "Stored 0 · 1 unknown", out["message"])
+
+	code, out = post(t, h, "/gallery/classify/", "file", "x.json", []byte("not json"))
+	assert.Equal(t, 400, code)
+	assert.Contains(t, out["error"], "not an export")
+
+	code, _ = post(t, h, "/gallery/classify/", "", "", nil)
+	assert.Equal(t, 400, code)
+}
+
+func TestPlacesEndpoints(t *testing.T) {
+	a, h, svc := newTestAdmin(t)
+	get := func(url string) (int, string) {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("GET", url, nil))
+		return w.Code, w.Body.String()
+	}
+	do := func(url string) (int, map[string]any) {
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, httptest.NewRequest("POST", url, nil))
+		var out map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &out), w.Body.String())
+		return w.Code, out
+	}
+
+	// with no directory for the data nothing can be placed or fetched
+	code, out := do("/gallery/places/rescan/")
+	assert.Equal(t, 409, code)
+	assert.NotEmpty(t, out["error"])
+	code, _ = do("/gallery/places/refresh/")
+	assert.Equal(t, 409, code)
+
+	a.places = NewPlaces(svc.db, geoData(t))
+	svc.places = a.places
+	a.places.Ensure(context.Background())
+	addPhotoAt(t, svc, 0, 35.69, 139.69)
+	code, out = do("/gallery/places/rescan/")
+	assert.Equal(t, 200, code)
+	assert.Equal(t, "Placed 1 photos", out["message"])
+	code, body := get("/gallery/places/status/")
+	assert.Equal(t, 200, code)
+	assert.Contains(t, body, `"Placed":1`)
 }

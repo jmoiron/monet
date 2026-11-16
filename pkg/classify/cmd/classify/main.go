@@ -7,11 +7,21 @@
 //	classify compare -q pizza,beach -dir ~/photos -b A -b B
 //	classify stats   -b A -b B
 //
+// and to classify the photos of a gallery that is somewhere else, and send back
+// what was seen:
+//
+//	classify pull    -url https://example.com/gallery -dir pulled
+//	classify run     -dir pulled -b A -b B
+//	classify export  -dir pulled -b A -b B -o classifications.json
+//
+// which the gallery's admin imports (Gallery, Classify).
+//
 // Results are kept, one file per backend, in -out (default ./classify-results).
 package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"math"
@@ -20,6 +30,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/monet/pkg/classify"
 )
@@ -48,6 +59,10 @@ func main() {
 		err = cmdCompare(ctx, os.Args[2:])
 	case "stats":
 		err = cmdStats(os.Args[2:])
+	case "pull":
+		err = cmdPull(ctx, os.Args[2:])
+	case "export":
+		err = cmdExport(os.Args[2:])
 	default:
 		usage()
 	}
@@ -58,9 +73,11 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: classify run|search|compare|stats [flags]
+	fmt.Fprintln(os.Stderr, `usage: classify pull|run|export|search|compare|stats [flags]
   -b SPEC    a backend: ollama:MODEL[@HOST] or worker:COMMAND (prefix with name= to name its results)
   -out DIR   where results are kept (default ./classify-results)
+pull:      -url GALLERY_URL -dir DIR -limit N   (the published photos, into DIR)
+export:    -dir DIR -b SPEC... -o FILE           (what the backends saw in the pulled photos)
 run flags: -dir DIR -limit N
 search:    -q QUERY -n N -mode auto|lexical|vector
 compare:   -q Q1,Q2 -n N -judge FILE   (FILE has lines of: query<TAB>path of a photo that is right)`)
@@ -95,7 +112,7 @@ func cmdRun(ctx context.Context, args []string) error {
 		fmt.Printf("== %s: %d photos\n", s.Name(), len(files))
 		err = classify.Run(ctx, c, files, results(*out, s), classify.RunOptions{
 			Progress: func(done, total int, r classify.Record) {
-				note := fmt.Sprintf("%d labels", len(labels(r)))
+				note := produced(r)
 				if r.Error != "" {
 					note = "ERROR " + r.Error
 				}
@@ -108,6 +125,28 @@ func cmdRun(ctx context.Context, args []string) error {
 		}
 	}
 	return nil
+}
+
+// produced says what a backend gave back for a photo: its labels, caption and
+// embedding, whichever it makes.
+func produced(r classify.Record) string {
+	if r.Result == nil {
+		return "nothing"
+	}
+	var parts []string
+	if n := len(r.Result.Labels); n > 0 {
+		parts = append(parts, fmt.Sprintf("%d labels", n))
+	}
+	if n := len(r.Result.Caption); n > 0 {
+		parts = append(parts, fmt.Sprintf("caption %d chars", n))
+	}
+	if n := len(r.Result.Embedding); n > 0 {
+		parts = append(parts, fmt.Sprintf("embedding %d dims", n))
+	}
+	if len(parts) == 0 {
+		return "nothing"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func labels(r classify.Record) []classify.Label {
@@ -331,4 +370,63 @@ func sum(xs []float64) float64 {
 		t += x
 	}
 	return t
+}
+
+func cmdPull(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("pull", flag.ExitOnError)
+	base := fs.String("url", "", "the gallery's url, eg. https://example.com/gallery")
+	dir := fs.String("dir", "pulled", "where the photos go")
+	limit := fs.Int("limit", 0, "only the first N photos")
+	fs.Parse(args)
+	if *base == "" {
+		return fmt.Errorf("need -url")
+	}
+	got, err := classify.Pull(ctx, *base, *dir, classify.PullOptions{
+		Limit: *limit,
+		Progress: func(done, total int, p classify.Pulled, err error) {
+			if err != nil {
+				fmt.Printf("%4d/%d  %s  ERROR %v\n", done, total, p.ID, err)
+			} else if done%25 == 0 || done == total {
+				fmt.Printf("%4d/%d\n", done, total)
+			}
+		},
+	})
+	fmt.Printf("%d photos in %s\n", len(got), *dir)
+	return err
+}
+
+func cmdExport(args []string) error {
+	fs := flag.NewFlagSet("export", flag.ExitOnError)
+	var bs specs
+	fs.Var(&bs, "b", "backend (repeatable)")
+	dir := fs.String("dir", "pulled", "the directory the photos were pulled into")
+	out := fs.String("out", "classify-results", "results directory")
+	file := fs.String("o", "classifications.json", "the export to write")
+	fs.Parse(args)
+	if len(bs) == 0 {
+		return fmt.Errorf("need a backend (-b)")
+	}
+	pulled, err := classify.ReadManifest(*dir)
+	if err != nil {
+		return fmt.Errorf("%s was not made by pull: %w", *dir, err)
+	}
+	ex := classify.Export{Version: classify.ExportVersion, Created: time.Now().UTC()}
+	for _, s := range bs {
+		recs, err := classify.ReadRecords(results(*out, s))
+		if err != nil {
+			return err
+		}
+		items := classify.Items(pulled, *dir, s.Name(), recs)
+		fmt.Printf("%s: %d of %d photos\n", s.Name(), len(items), len(pulled))
+		ex.Items = append(ex.Items, items...)
+	}
+	b, err := json.Marshal(ex)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(*file, b, 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("%s: %d items, %.1f MB\n", *file, len(ex.Items), float64(len(b))/1e6)
+	return nil
 }

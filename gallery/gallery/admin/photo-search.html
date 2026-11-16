@@ -1,0 +1,33 @@
+<h2>Gallery</h2>
+
+<p class="gallery-nav">
+    <a href="/admin/gallery/"><i class="fa-solid fa-table-cells-large"></i> Photos</a>
+    <a href="/admin/gallery/map/"><i class="fa-solid fa-location-dot"></i> Map</a>
+    <a href="/admin/gallery/collections/"><i class="fa-solid fa-layer-group"></i> Collections</a>
+    <a class="current" href="/admin/gallery/search/"><i class="fa-solid fa-magnifying-glass"></i> Search</a>
+    <a href="/admin/gallery/classify/"><i class="fa-solid fa-tags"></i> Classify</a>
+</p>
+
+<form method="GET" action="/admin/gallery/search/" class="photo-search">
+    <input type="search" name="q" class="search" value="{{.q}}" placeholder="Search" autofocus>
+</form>
+{{if .q}}<p class="photo-count">{{len .tiles}} photo{{if ne (len .tiles) 1}}s{{end}}</p>{{end}}
+{{range .notes}}<p class="search-note">{{.}}</p>{{end}}
+
+<div class="photo-grid admin-photo-grid">
+{{range $t := .tiles}}
+    <div class="photo-result">
+        <div class="photo-tile{{if eq $t.Photo.Published 0}} unpublished{{end}}">
+            <a href="/admin/gallery/edit/{{$t.Photo.ID}}" title="{{$t.Photo.Caption}}">
+                <img src="{{photoURL $t.Photo.ThumbFile}}" alt="" loading="lazy">
+            </a>
+        </div>
+        <div class="photo-why">
+            <b>{{printf "%.4f" $t.Match.Score}}</b> {{$t.Match.Why.Summary}}
+            {{range $t.Match.Why.Words}}<div class="photo-why-words"><i>{{.Model}}</i> {{searchMark .Text}}</div>{{end}}
+        </div>
+    </div>
+{{end}}
+</div>
+
+<script src="/static/photo-modal.js"></script>

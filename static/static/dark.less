@@ -206,6 +206,13 @@ html[data-theme="dark"] {
   .photo-grid .photo-tile { background: @dark-raised; }
   .collection-grid .collection-name { background: linear-gradient(transparent, @dark-scrim); }
   .photo-facts dt { color: @dark-muted; }
+
+  // what the models saw, and why a search found a photo
+  .photo-class .photo-class-model, .photo-why, .photo-why-words, .classify-models th { color: @dark-muted; }
+  .photo-tags span { border-color: @dark-border; }
+  .photo-why mark { background: fade(@dark-link, 30%); color: @dark-strong; }
+  .photo-search input.search { border-color: @dark-border; }
+  .search-note { color: #e0a860; }
 }
 
 @import "dark-admin.less";

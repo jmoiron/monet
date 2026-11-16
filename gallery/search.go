@@ -27,6 +27,11 @@ type SearchConfig struct {
 	// query's to be a match: the vector search always finds the nearest photos,
 	// even when none are near.
 	MinVector float64
+
+	// Idle is how long the embedder is kept after it was last wanted; 0 keeps
+	// it for good. A model is memory a server may not have to spare for what is
+	// rarely searched, and loading one takes about a second (see Warm).
+	Idle time.Duration
 }
 
 // DefaultMinVector suits SigLIP 2, whose cosines run around 0.13 for a good
@@ -60,6 +65,9 @@ type Searcher struct {
 	embModel string
 	embErr   error     // why it isn't running, until embRetry
 	embRetry time.Time // when to try starting it again
+	ready    bool      // the embedder has embedded something: its model is in
+	lastUse  time.Time // of the embedder
+	idle     *time.Timer
 	vecs     map[string]*vecIndex
 }
 
@@ -343,6 +351,7 @@ func (s *Searcher) getEmbedder() (classify.TextEmbedder, error) {
 		return nil, nil
 	}
 	if s.embedder != nil {
+		s.used()
 		return s.embedder, nil
 	}
 	if s.embErr != nil && time.Now().Before(s.embRetry) {
@@ -356,6 +365,7 @@ func (s *Searcher) getEmbedder() (classify.TextEmbedder, error) {
 			err = fmt.Errorf("%q can't embed text", s.cfg.Embedder)
 		} else {
 			s.embedder, s.embErr = te, nil
+			s.used()
 			return te, nil
 		}
 	}
@@ -364,15 +374,53 @@ func (s *Searcher) getEmbedder() (classify.TextEmbedder, error) {
 	return nil, err
 }
 
+// used says that the embedder was wanted just now, for as long as Idle. The
+// caller has s.mu.
+func (s *Searcher) used() {
+	if s.cfg.Idle <= 0 {
+		return
+	}
+	s.lastUse = time.Now()
+	if s.idle == nil {
+		s.idle = time.AfterFunc(s.cfg.Idle, s.unloadIdle)
+	} else {
+		s.idle.Reset(s.cfg.Idle)
+	}
+}
+
+// unloadIdle lets go of the embedder, if it hasn't been wanted for Idle; the
+// next search starts it again.
+func (s *Searcher) unloadIdle() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.embedder == nil {
+		return
+	}
+	if left := s.cfg.Idle - time.Since(s.lastUse); left > 0 {
+		s.idle.Reset(left)
+		return
+	}
+	if c, ok := s.embedder.(interface{ Close() error }); ok {
+		c.Close()
+	}
+	s.embedder, s.ready = nil, false
+	slog.Info("search embedder unloaded", "idle", s.cfg.Idle)
+}
+
 // Warm starts the embedder in the background, and has it embed something, so
 // that the first search doesn't wait for the model to load: starting a worker
 // is only starting its process, and it answers when the model is in. A failure
-// is logged and left for a search to try again.
+// is logged and left for a search to try again. If it is already running this
+// only says that it is wanted, so a page that leads to a search can call it
+// (an embedder that is let go when idle is back by the time the search is).
 func (s *Searcher) Warm() {
 	go func() {
 		start := time.Now()
+		s.mu.Lock()
+		running := s.ready && s.embedder != nil
+		s.mu.Unlock()
 		te, _ := s.getEmbedder()
-		if te == nil {
+		if te == nil || running {
 			return
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -382,6 +430,9 @@ func (s *Searcher) Warm() {
 			s.embedderFailed(te, err)
 			return
 		}
+		s.mu.Lock()
+		s.ready = s.embedder == te
+		s.mu.Unlock()
 		slog.Info("search embedder ready", "took", time.Since(start).Round(time.Millisecond))
 	}()
 }
@@ -396,7 +447,7 @@ func (s *Searcher) embedderFailed(te classify.TextEmbedder, err error) {
 	if c, ok := te.(interface{ Close() error }); ok {
 		c.Close()
 	}
-	s.embedder, s.embErr, s.embRetry = nil, err, time.Now().Add(embedderRetry)
+	s.embedder, s.ready, s.embErr, s.embRetry = nil, false, err, time.Now().Add(embedderRetry)
 }
 
 // A vecIndex is a model's embeddings, unit length, in memory.

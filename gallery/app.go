@@ -268,6 +268,7 @@ func (a *App) Bind(r chi.Router) {
 }
 
 func (a *App) list(w http.ResponseWriter, req *http.Request) {
+	a.search.Warm() // a page of photos may be followed by a search of them
 	svc, err := a.service()
 	if err != nil {
 		app.Http500("gallery not configured", w, err)

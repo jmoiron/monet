@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -47,6 +48,7 @@ type options struct {
 	ConfigPath string
 	Debug      bool
 	Version    bool
+	GenConfig  bool
 
 	AddUser    string
 	LoadPosts  string
@@ -111,6 +113,16 @@ func main() {
 		return
 	}
 
+	if opts.GenConfig {
+		// the example, with what --config says over it
+		cfg := conf.Example()
+		if opts.ConfigPath != "" {
+			must(cfg.FromPath(opts.ConfigPath), "loading config")
+		}
+		fmt.Print(cfg.String())
+		return
+	}
+
 	config := die(loadConfig(opts.ConfigPath))("loading config")
 
 	// set up filesystems
@@ -154,8 +166,9 @@ func main() {
 		pagesApp     = pages.NewApp(dbh)
 		uploadApp    = uploads.NewApp(dbh, fss)
 		galleryApp   = gallery.NewApp(dbh, fss).WithBaseURL("/gallery/").WithDebug(config.Debug).
-				WithSearch(gallery.SearchConfig{Embedder: config.Classify.Embedder, MinVector: config.Classify.MinVector}).
-				WithPlaces(config.Geo.Dir)
+				WithSearch(gallery.SearchConfig{Embedder: config.Classify.Embedder, MinVector: config.Classify.MinVector,
+				Idle: time.Duration(config.Classify.IdleMinutes) * time.Minute}).
+			WithPlaces(config.Geo.Dir)
 	)
 
 	// pages should be last as it binds to /*
@@ -252,7 +265,9 @@ func main() {
 
 	slog.Info("Running with config", "config", config.String())
 	slog.Info("Listening on", "addr", config.ListenAddr)
-	galleryApp.WarmSearch()
+	if config.Classify.IdleMinutes == 0 {
+		galleryApp.WarmSearch()
+	}
 	go galleryApp.EnsurePlaces(context.Background())
 	if err := http.ListenAndServe(config.ListenAddr, r); err != nil {
 		slog.Error("error listening", "err", err)
@@ -410,6 +425,7 @@ func parseOpts(opts *options) {
 	pflag.StringVarP(&opts.ConfigPath, "config", "c", os.Getenv(cfgEnvVar), "path to a json config file")
 	pflag.BoolVarP(&opts.Debug, "debug", "d", false, "enable debug mode")
 	pflag.BoolVarP(&opts.Version, "version", "v", false, "show version info")
+	pflag.BoolVar(&opts.GenConfig, "gen-config", false, "print a config with every setting to stdout (with --config, that file's settings over it)")
 	pflag.StringVar(&opts.AddUser, "add-user", "", "add a user (will be prompted for pw)")
 	pflag.StringVar(&opts.LoadPosts, "load-posts", "", "load posts from json")
 	pflag.StringVar(&opts.LoadEvents, "load-events", "", "load events from json")

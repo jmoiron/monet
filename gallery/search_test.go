@@ -237,3 +237,35 @@ func TestWarmHasTheEmbedderEmbed(t *testing.T) {
 		t.Fatal("warming didn't ask the embedder for anything")
 	}
 }
+
+type closingEmbedder struct {
+	fakeEmbedder
+	closed chan struct{}
+}
+
+func (c closingEmbedder) Close() error { close(c.closed); return nil }
+
+// an embedder nobody has wanted for Idle is let go, and one that is wanted is kept
+func TestIdleEmbedderIsUnloaded(t *testing.T) {
+	svc := newTestService(t)
+	s := NewSearcher(svc.db, SearchConfig{Idle: 80 * time.Millisecond})
+	e := closingEmbedder{fakeEmbedder{"x": {1, 0, 0, 0}}, make(chan struct{})}
+	s.embedder = e
+	for i := 0; i < 4; i++ { // wanted for longer than Idle, in steps shorter than it
+		time.Sleep(40 * time.Millisecond)
+		got, _ := s.getEmbedder()
+		assert.NotNil(t, got)
+	}
+	select {
+	case <-e.closed:
+		t.Fatal("unloaded while it was being used")
+	default:
+	}
+	select {
+	case <-e.closed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("not unloaded when idle")
+	}
+	got, _ := s.getEmbedder()
+	assert.Nil(t, got) // no spec to start another from: the test's embedder was set by hand
+}

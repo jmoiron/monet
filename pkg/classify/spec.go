@@ -12,6 +12,9 @@ import (
 //	ollama:qwen2.5vl:7b             a model in ollama (at localhost)
 //	ollama:gemma3:4b@box:11434      ...or an ollama on another machine
 //	worker:python3 scripts/worker_openclip.py --model ViT-B-16-SigLIP2
+//	onnx:pkg/classify/onnx/siglip2  a text tower exported to ONNX (it embeds queries
+//	                                only), run by ONNX Runtime; "onnx:DIR@LIBDIR" if
+//	                                libonnxruntime.so isn't in /usr/lib. Needs --tags=ORT.
 //
 // A spec can be prefixed with a name and "=", which is then what the results
 // file is called: "siglip2=worker:python3 ...".
@@ -53,9 +56,12 @@ func (s Spec) Open() (Classifier, error) {
 			o.Host = host
 		}
 		return o, nil
+	case "onnx":
+		dir, lib, _ := strings.Cut(rest, "@")
+		return openONNX(s.Name(), dir, lib)
 	case "worker":
 		argv := strings.Fields(rest)
 		return StartWorker(s.Name(), argv...)
 	}
-	return nil, fmt.Errorf("%q: unknown backend (ollama:MODEL or worker:COMMAND)", s)
+	return nil, fmt.Errorf("%q: unknown backend (ollama:MODEL, worker:COMMAND or onnx:DIR)", s)
 }

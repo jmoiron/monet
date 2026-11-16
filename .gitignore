@@ -15,3 +15,6 @@ classify-results/
 
 # geo: the GeoNames files its tool reads (make -C pkg/geo data)
 pkg/geo/data/
+
+# classify: the ONNX text tower and ONNX Runtime (make -C pkg/classify onnx onnxruntime)
+pkg/classify/onnx/

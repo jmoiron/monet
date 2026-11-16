@@ -10,10 +10,10 @@ all:
 	$(MAKE) --no-print-directory build
 
 build:
-	go build --tags="fts5"
+	go build --tags=fts5,ORT
 
 test:
-	go test --tags="fts5" ./...
+	go test --tags=fts5,ORT ./...
 
 reload:
 	./monet --load-posts backup/posts.json
@@ -24,4 +24,4 @@ fmt:
 	goimports -w $(shell git ls-files '*.go')
 
 run:
-	reflex -g '*.go' -s -- sh -c "go build --tags=fts5 && ./monet --config=dev.cfg.json"
+	reflex -g '*.go' -s -- sh -c "go build --tags=fts5,ORT && ./monet --config=dev.cfg.json"

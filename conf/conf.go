@@ -25,6 +25,10 @@ type ClassifyConfig struct {
 	// MinVector is the least cosine a photo has to have with a query to match
 	// it by vector; 0 for the default.
 	MinVector float64
+	// IdleMinutes is how long the embedder is kept after the last search; 0 for
+	// always. With it the embedder is not loaded when the server starts, but
+	// when a gallery page is looked at.
+	IdleMinutes int
 }
 
 // GeoConfig is where the names of places come from.
@@ -108,6 +112,40 @@ func (c *Config) WithConfig(ctx context.Context) context.Context {
 // ConfigFromContext returns the config embedded within the context.
 func ConfigFromContext(ctx context.Context) *Config {
 	return ctx.Value(configKey{}).(*Config)
+}
+
+// Example is a config for a server, with every setting there is and a value
+// that works if the directories are made: what `monet --gen-config` prints, to
+// be edited. Relative paths are from where monet is run.
+func Example() *Config {
+	c := Default()
+	c.ListenAddr = "0.0.0.0:7000"
+	c.SessionSecret = "SET-A-LONG-RANDOM-STRING"
+	c.DatabaseURI = "monet.db?cache=shared"
+	c.FSS = FSSConfig{
+		Paths: map[string]string{
+			"static":      "./static",
+			"images":      "./images",
+			"uploads":     "./images",
+			"blog-files":  "./images",
+			"screenshots": "./images/ss/",
+			"photos":      "./images/photos/",
+		},
+		URLs: map[string]string{
+			"images":      "/i/",
+			"uploads":     "/i/",
+			"blog-files":  "/i/",
+			"screenshots": "/i/ss/",
+			"photos":      "/i/photos/",
+		},
+	}
+	// make -C pkg/classify onnx onnxruntime, and copy the two directories it makes
+	c.Classify = ClassifyConfig{
+		Embedder:    "siglip2=onnx:onnx/siglip2@onnx/lib",
+		IdleMinutes: 10,
+	}
+	c.Geo = GeoConfig{Dir: "geo"}
+	return c
 }
 
 // Default returns a sensible default config with environment overrides

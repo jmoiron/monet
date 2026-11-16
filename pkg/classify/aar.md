@@ -440,13 +440,62 @@ anywhere. The search then treats where a photo was taken as fact.
   it), and models that gave only an embedding have no row at all.
 - Searching published photos (`/gallery/?q=`) and all photos (admin) share it.
 
+## 12a. The query embedder without PyTorch (ONNX, hugot)
+
+Only the *text* tower is needed on the server (the photos' embeddings come from
+the classify run), so it is exported alone and run by hugot (v0.8.6) over ONNX
+Runtime, CPU. `make -C pkg/classify onnx onnxruntime`, build with `--tags=ORT`
+(the Makefile does), and set `Classify.Embedder` to
+`siglip2=onnx:pkg/classify/onnx/siglip2@pkg/classify/onnx/lib`. The `worker:`
+spec still works, and is what makes the photos' embeddings.
+
+What was measured (RTX 3070 box, CPU only for ONNX; 5 test queries incl. 東京):
+
+| | PyTorch worker | ONNX fp32 | ONNX, word table int8 (used) |
+|---|---|---|---|
+| model on disk | 1.4 GB | 1.1 GB | 540 MB |
+| ready (load + first query) | ~5 s+ | ~1.3 s | **~1.0 s** |
+| a query | | 75 ms (python) | **~19 ms** |
+| resident | 1.7 GB VRAM + python | 880 MB | **550 MB** (server total 600 MB) |
+| cosine to the PyTorch embedding | 1 | 1.0000 | 0.998-0.9999 |
+
+Decisions and traps:
+- 3/4 of the text tower is the 256k x 768 word table, so int8 on the *Gather
+  only* is almost free (cos 0.998+). int8 on the MatMuls too is not: cos
+  0.93-0.98, which moves scores by more than the 0.09 floor's margin. fp32
+  matmuls stay.
+- The weights are saved as external data (`model.onnx.data`): ORT maps them
+  instead of reading the file in and copying (880 MB -> 550 MB resident).
+- SigLIP pools the **last position** of a text padded to 64. hugot pads to the
+  longest text, so the model pads itself (`F.pad` in the exported graph).
+- hugot sizes a batch by `attention_mask`; a model without that input gets every
+  text cut to one token (cos 0.95 for "a photo", 0.59 for longer queries). The
+  export has the input, and uses it (`ids * mask`) so it is not pruned.
+- The query is cleaned as open_clip does (`canonicalize`: lower case, ASCII
+  punctuation out, `_` to space), `cleanText` in `embed_clean.go`. ftfy and html
+  unescape, which open_clip also runs first, are not done.
+- hugot's tokenizer is pure Go (gomlx/go-huggingface); the ids matched
+  open_clip's on the test queries. Not checked: every script, long queries.
+- hugot's pure-Go (GoMLX) backend failed to compile the graph ("Node is nil");
+  ORT it is. That needs `libonnxruntime.so` at run time (not at build time).
+- go.mod went to `go 1.27.0` (hugot's requirement) and gained gomlx and friends.
+- On a small server the model is loaded on demand: `Classify.IdleMinutes` (0 =
+  keep it) lets go of the embedder that long after its last use, and a look at
+  any gallery list page (`/gallery/`, its pages, a search) starts it, so that it
+  is in by the time the next search is made (~1 s to load). Measured: server
+  32 MB at start, 570 MB after a gallery page, 238 MB after the unload (not all
+  of it comes back: ~200 MB stays, probably the Go side's tokenizer and the
+  allocator; not investigated), 596 MB again after a search.
+- Re-export when changing model: the tokenizer, `context_length` and the pooling
+  are model specific (this was only checked for ViT-B-16-SigLIP2).
+
 ## 13. Decision log (what to re-examine, and when)
 
 | question | now | re-examine when |
 |---|---|---|
 | vector floor | 0.09, by eye, SigLIP 2 B/16 | a different embedding model (cosines differ: new floor), or a judge file exists: use `classify compare` |
 | which VLM for words | undecided; qwen3-vl:4b-instruct likely | new VLMs; write ~15 real queries and a judge TSV, `compare` |
-| embedding model | SigLIP 2 B/16 (PyTorch worker) | SO400M or Jina CLIP v2 / Nomic Embed Vision to compare; the server's 1 GiB means an int8 ONNX text tower or a text-only worker |
+| embedding model | SigLIP 2 B/16 (PyTorch worker for photos; ONNX for queries, 12a) | SO400M or Jina CLIP v2 / Nomic Embed Vision to compare; the server's 1 GiB means an int8 ONNX text tower or a text-only worker |
 | fusion | RRF k=60 + place boost 0.05 | if results look wrong: weights between words and vectors, the cosine as a score, a date tie-break |
 | GeoNames lists | cities1000 serves all three sizes | GeoNames improves (Refresh), or street level detail is wanted (Nominatim) |
 | local names | first country language with a name | the data gaps above, or a UX that shows them (the user wants them as a hover or option) |
@@ -481,7 +530,7 @@ go build -o classify ./pkg/classify/cmd/classify
 - [ ] write ~15 real queries and a judge TSV; `compare` the backends and settle the VLM
 - [ ] run qwen3-vl:4b-instruct (and gemma3:4b) over all 296 photos
 - [ ] the floor tunable in the admin (per-search field first)
-- [ ] a smaller query embedder for the server (text-only worker, fp16, or int8 ONNX)
+- [x] a smaller query embedder for the server: int8 ONNX, section 12a. Left: the *photo* side (classify runs) is still PyTorch; try the image tower as ONNX too, and compare search results of the two embedders on the real photos
 - [ ] try a bigger SigLIP 2, Jina CLIP v2, Nomic Embed Vision (new floor each)
 - [ ] a place line on the photo pages (and the local names, as a hover); a date tie-break for place matches
 - [ ] a periodic or on demand Rescan and Refresh beyond the admin buttons

@@ -1,6 +1,5 @@
 <div class="photo-detail">
-    <p class="photo-back"><a href="/gallery/">&larr; Photos</a></p>
-    {{if .photo.Title}}<h2>{{.photo.Title}}</h2>{{end}}
+    {{if .photo.Title}}<h2><a href="/gallery/{{.photo.ID}}">{{.photo.Title}}</a></h2>{{end}}
 
     <a href="{{photoURL .photo.File}}"><img class="photo-large" src="{{photoURL .photo.DisplayFile}}" alt="{{if .photo.Title}}{{.photo.Title}}{{else}}{{.photo.Caption}}{{end}}"></a>
 
@@ -13,29 +12,4 @@
         </div>
         {{if .photo.HasGPS}}<div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>{{end}}
     </div>
-
-    {{if .albums}}
-    <p class="photo-albums">In {{range $i, $a := .albums}}{{if $i}}, {{end}}<a href="/gallery/collections/{{$a.Slug}}">{{$a.Title}}</a>{{end}}</p>
-    {{end}}
 </div>
-
-{{if .photo.HasGPS}}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script>
-$(function() {
-    if (typeof L === 'undefined') { return; }
-    L.Icon.Default.imagePath = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/';
-    var el = document.querySelector('.photo-locator');
-    var at = [parseFloat(el.dataset.lat), parseFloat(el.dataset.lng)];
-    // a page that scrolls shouldn't have its wheel taken by the map
-    var map = L.map(el, {scrollWheelZoom: false}).setView(at, 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    L.marker(at).addTo(map);
-    new ResizeObserver(function() { map.invalidateSize(); }).observe(el);
-});
-</script>
-{{end}}

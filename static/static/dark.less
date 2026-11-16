@@ -216,3 +216,17 @@ html[data-theme="dark"] {
 }
 
 @import "dark-admin.less";
+
+html[data-theme="dark"] .photo-overlay {
+  .photo-overlay-panel { background: @dark-surface; color: @dark-text; }
+  .photo-overlay-close { color: @dark-muted; &:hover { color: @dark-strong; } }
+}
+
+// the view icons: the one that is showing is bright, the others are dim
+html[data-theme="dark"] .gallery-views {
+  button, a {
+    color: @dark-faint;
+    &:hover, &:focus-visible { color: @dark-link-hover; }
+    &[aria-pressed="true"] { color: @dark-strong; }
+  }
+}

@@ -1546,7 +1546,7 @@ h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
 .gallery-bar {
   display: flex; align-items: center; gap: 16px; margin: 20px 0 10px;
   .photo-search { flex: 1; margin: 0; }
-  .gallery-views { flex: none; margin: 0; }
+  .gallery-views { flex: none; margin: 0 0 0 auto; } // right even when the search is hidden
 }
 .gallery-views {
   text-align: right;
@@ -1599,6 +1599,15 @@ h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
 .photo-detail {
   h2 { margin: 0 0 18px; }
   .photo-large { margin-top: 18px; }
+}
+// a photo's page over the page that links to it
+.photo-overlay {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 200; overflow-y: auto; scrollbar-gutter: stable both-edges; // a gutter either side, so the panel stays centered whether or not it scrolls
+  background: rgba(0, 0, 0, .75); padding: 4vh 16px;
+  .photo-overlay-panel { position: relative; box-sizing: border-box; max-width: @site-width + 180; margin: 0 auto; padding: 20px; background: #fff; border-radius: 5px; min-height: 120px; }
+  .photo-overlay-close { position: absolute; top: 4px; right: 10px; padding: 0; border: 0; background: none; color: #777; font-size: 2em; line-height: 1; cursor: pointer; &:hover { color: #000; } }
+  .photo-large { display: block; max-width: 100%; max-height: 70vh; margin-left: auto; margin-right: auto; }
+  .photo-detail h2 { padding-right: 30px; }
 }
 .photo-info {
   display: grid; gap: 16px 24px; align-items: start;

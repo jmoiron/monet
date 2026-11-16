@@ -1,5 +1,10 @@
-<p class="photo-back"><a href="/gallery/">&larr; Photos</a></p>
-<h2>Collections</h2>
+<div class="gallery-bar">
+<h2 class="gallery-views">
+    <a href="/gallery/" title="grid view" aria-label="grid view"><i class="fa-solid fa-table-cells-large"></i></a>
+    <a href="/gallery/#map" title="map view" aria-label="map view"><i class="fa-solid fa-map-location-dot"></i></a>
+    <a href="/gallery/collections" aria-pressed="true" title="collections" aria-label="collections"><i class="fa-solid fa-layer-group"></i></a>
+</h2>
+</div>
 
 {{if .collections}}
 <div class="photo-grid collection-grid">

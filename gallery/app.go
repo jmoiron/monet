@@ -384,19 +384,21 @@ func (a *App) detail(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	albums, err := NewAlbumService(a.db).AlbumsOf(p.ID, true)
-	if err != nil {
-		slog.Error("loading albums of photo", "err", err)
-	}
 	reg := mtr.RegistryFromContext(req.Context())
 	title := p.Title
 	if title == "" {
 		title = "Photo"
 	}
+	// the overlay on the page that links here wants just the photo
+	if req.URL.Query().Get("partial") != "" {
+		if err := reg.Render(w, "gallery/detail.html", mtr.Ctx{"photo": p}); err != nil {
+			slog.Error("rendering photo", "err", err)
+		}
+		return
+	}
 	err = reg.RenderWithBase(w, "base", "gallery/detail.html", mtr.Ctx{
 		"title":               title,
 		"photo":               p,
-		"albums":              albums,
 		"extraContainerClass": "wide",
 		"hideSiteTitle":       true, // so the photo is not half below the fold
 	})

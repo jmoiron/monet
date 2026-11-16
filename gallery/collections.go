@@ -18,8 +18,9 @@ func (a *App) collections(w http.ResponseWriter, req *http.Request) {
 	}
 	reg := mtr.RegistryFromContext(req.Context())
 	err = reg.RenderWithBase(w, "base", "gallery/collections.html", mtr.Ctx{
-		"title":       "Collections",
-		"collections": collections,
+		"title":               "Collections",
+		"collections":         collections,
+		"extraContainerClass": "wide",
 	})
 	if err != nil {
 		slog.Error("rendering collections", "err", err)
@@ -41,9 +42,10 @@ func (a *App) collection(w http.ResponseWriter, req *http.Request) {
 	}
 	reg := mtr.RegistryFromContext(req.Context())
 	err = reg.RenderWithBase(w, "base", "gallery/collection.html", mtr.Ctx{
-		"title":      album.Title,
-		"collection": album,
-		"photos":     photos,
+		"title":               album.Title,
+		"collection":          album,
+		"photos":              photos,
+		"extraContainerClass": "wide",
 	})
 	if err != nil {
 		slog.Error("rendering collection", "err", err)

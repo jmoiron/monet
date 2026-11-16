@@ -6,7 +6,7 @@
 {{if .photos}}
 <div class="photo-grid">
 {{range $photo := .photos}}
-    <a class="photo-tile" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
+    <a class="photo-tile" data-photo="{{$photo.ID}}" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
         <img src="{{photoURL $photo.ThumbFile}}" alt="{{if $photo.Title}}{{$photo.Title}}{{else}}{{$photo.Caption}}{{end}}" width="{{$photo.Width}}" height="{{$photo.Height}}" loading="lazy">
     </a>
 {{end}}

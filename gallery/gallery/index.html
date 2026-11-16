@@ -7,8 +7,8 @@
     <input type="search" name="q" class="search" value="{{.q}}" placeholder="Search">
 </form>
 <h2 class="gallery-views">
-    <button type="button" id="view-table" aria-pressed="true" title="grid view" aria-label="grid view"><i class="fa-solid fa-table-cells-large"></i></button>
-    <button type="button" id="view-map" aria-pressed="false" title="map view" aria-label="map view"><i class="fa-solid fa-map-location-dot"></i></button>
+    <a href="/gallery/" id="view-table" aria-pressed="true" title="grid view" aria-label="grid view"><i class="fa-solid fa-table-cells-large"></i></a>
+    <a href="/gallery/#map" id="view-map" aria-pressed="false" title="map view" aria-label="map view"><i class="fa-solid fa-map-location-dot"></i></a>
     {{if .hasCollections}}<a href="/gallery/collections" title="collections" aria-label="collections"><i class="fa-solid fa-layer-group"></i></a>{{end}}
 </h2>
 </div>
@@ -20,7 +20,7 @@
 <div class="photo-grid">
 {{range $photo := .photos}}
     <div class="photo-result">
-        <a class="photo-tile" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
+        <a class="photo-tile" data-photo="{{$photo.ID}}" href="/gallery/{{$photo.ID}}" title="{{$photo.Caption}}">
             <img src="{{photoURL $photo.ThumbFile}}" alt="{{if $photo.Title}}{{$photo.Title}}{{else}}{{$photo.Caption}}{{end}}" width="{{$photo.Width}}" height="{{$photo.Height}}" loading="lazy">
         </a>
         {{if $.why}}{{with index $.why $photo.ID}}
@@ -64,8 +64,8 @@
         if (isMap) { loadMap(); }
         try { history.replaceState(null, '', isMap ? '#map' : location.pathname + location.search); } catch (e) {}
     }
-    tableBtn.addEventListener('click', function() { show('table'); });
-    mapBtn.addEventListener('click', function() { show('map'); });
+    tableBtn.addEventListener('click', function(e) { e.preventDefault(); show('table'); });
+    mapBtn.addEventListener('click', function(e) { e.preventDefault(); show('map'); });
 
     function loadScript(src) {
         return new Promise(function(resolve, reject) {
@@ -107,7 +107,7 @@
         var SIZE = 120, COLS = 3, FEW = 6, GAP = 4;
         var POPUP = {minWidth: 0, maxWidth: COLS * (SIZE + GAP)};
         function thumb(s) {
-            return '<a class="map-photo" href="/gallery/' + esc(s.id) + '" title="' +
+            return '<a class="map-photo" data-photo="' + esc(s.id) + '" href="/gallery/' + esc(s.id) + '" title="' +
                 esc([s.title, s.date].filter(Boolean).join(' · ')) + '">' +
                 '<img class="map-thumb" width="' + SIZE + '" height="' + SIZE + '" src="' + esc(s.thumb) + '" alt=""></a>';
         }

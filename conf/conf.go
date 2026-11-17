@@ -148,7 +148,6 @@ func Example() *Config {
 	c.DatabaseURI = "monet.db?cache=shared"
 	c.FSS = FSSConfig{
 		Paths: map[string]string{
-			"static":      "./static",
 			"images":      "./images",
 			"uploads":     "./images",
 			"blog-files":  "./images",

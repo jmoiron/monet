@@ -132,15 +132,21 @@ func main() {
 	// set up filesystems
 	fss := vfs.NewRegistry(vfs.NewURLMapper(config.FSS.URLs))
 	for name, path := range config.FSS.Paths {
-		if name == gallery.FSName {
-			// the gallery's files are its own, so it may make the directory
-			must(os.MkdirAll(path, 0o755), "creating photos path", "path", path)
+		if name != "static" {
+			// where uploads, images and photos are kept is monet's to make; a
+			// static path is somebody's own files, and a mistake if it isn't there
+			must(os.MkdirAll(path, 0o755), "creating path", "name", name, "path", path)
 		}
 		must(fss.AddPath(name, path), "loading paths")
 	}
 
 	static := die(fs.Sub(static, "static"))("initializing static fs")
-	staticAlt := try(fss.Get("static"))("initializing alternative static path")
+	// the files in the "static" path, if there is one, can stand in for the
+	// embedded ones in debug, to see changes without a rebuild
+	var staticAlt fs.FS
+	if _, ok := config.FSS.Paths["static"]; ok {
+		staticAlt = try(fss.Get("static"))("initializing alternative static path")
+	}
 
 	if config.Debug {
 		slog.Info("debug enabled")
@@ -230,7 +236,9 @@ func main() {
 	*/
 
 	swp := hotswap.NewSwapper(static)
-	swp.Add(staticAlt)
+	if staticAlt != nil {
+		swp.Add(staticAlt)
+	}
 	if config.Debug {
 		swp.Swap()
 	}

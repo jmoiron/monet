@@ -553,6 +553,8 @@
 
 .upload-progress {
   margin: 20px 0;
+  // Figtree's numerals are all one width, so a percentage doesn't jitter as it counts
+  font-family: 'Figtree', @body-font; font-variant-numeric: tabular-nums;
 
   .progress-item {
     display: flex;

@@ -1413,7 +1413,11 @@ h2 .small { font-size: 14px; }
 
 .photo-form {
   .photo-title-input { width: 100%; box-sizing: border-box; font-weight: bold; font-size: 1.2em; }
-  .photo-caption-input { width: 100%; box-sizing: border-box; min-height: 6em; }
+  // as the blog's editor (.split-content-input, .admin textarea), but not as tall
+  .photo-caption-input {
+    height: auto; min-height: 6em;
+    font-family: @body-font; line-height: 1.6; padding: 10px; border: 0;
+  }
   .photo-source-line { color: #999; font-size: .85em; }
 }
 
@@ -1574,12 +1578,18 @@ h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
 // what the models saw in a photo, and how a search found it
 .photo-class {
   margin: 10px 0;
-  .photo-class-model { color: #999; font-size: .85em; font-variant-caps: all-small-caps; letter-spacing: .06em; }
+  .photo-class-model { color: #999; font-family: 'Figtree', @body-font; font-size: 1.15em; font-variant-caps: all-small-caps; letter-spacing: .06em; }
   p { margin: 2px 0; }
+  .photo-tags { margin-top: 12px; } // apart from the caption above it
+}
+.photo-classification {
+  margin: 20px 0 40px; // well clear of the buttons below, which it is easy to hit instead
+  summary { cursor: pointer; color: #999; font-family: 'Figtree', @body-font; font-size: 1.25em; font-variant-caps: all-small-caps; letter-spacing: .06em; padding: 4px 0; }
+  .photo-class-meta { color: #999; font-size: .8em; font-variant-numeric: tabular-nums; }
 }
 .photo-tags span {
-  display: inline-block; margin: 0 4px 4px 0; padding: 0 8px;
-  border: 1px solid #ddd; border-radius: 10px; font-size: .85em;
+  display: inline-block; margin: 0 4px 4px 0; padding: 1px 9px;
+  background: #f0f2f5; border-radius: 10px; font-size: .85em;
 }
 .photo-why { font-size: .8em; color: #777; line-height: 1.35; margin-top: 4px; }
 .photo-why-words { color: #999; i { font-style: normal; font-variant-caps: all-small-caps; margin-right: 4px; } }
@@ -1609,6 +1619,22 @@ h3 .gallery-actions { float: right; font-size: .75em; font-weight: normal; }
   .photo-overlay-close { position: absolute; top: 4px; right: 10px; padding: 0; border: 0; background: none; color: #777; font-size: 2em; line-height: 1; cursor: pointer; &:hover { color: #000; } }
   .photo-large { display: block; max-width: 100%; max-height: 70vh; margin-left: auto; margin-right: auto; }
   .photo-detail h2 { padding-right: 30px; }
+}
+// the map of where a photo was taken, or the names of the place: one at a time
+.photo-geo {
+  position: relative;
+  // over the map and the first row of facts
+  .photo-geo-switch {
+    position: absolute; top: 21px; right: 6px; z-index: 1; // 15px of margin above both, then 6px in padding: 3px 7px; border-radius: 3px;
+    background: rgba(255, 255, 255, .85); color: #666; cursor: pointer; line-height: 1;
+    &:hover { color: @bluehover; }
+  }
+  .photo-locator { position: relative; z-index: 0; } // so that the map's own layers stay under it
+  &[data-view="map"] .photo-place, &[data-view="text"] .photo-locator { display: none; }
+  // the icon is the view that a click goes to
+  &[data-view="map"] .fa-map-location-dot, &[data-view="text"] .fa-bars { display: none; }
+  .photo-place .photo-facts { grid-template-columns: 1fr; } // one list, so the whole column
+  .photo-place dl { padding-right: 32px; } // the first row is not under the icon
 }
 .photo-info {
   display: grid; gap: 16px 24px; align-items: start;

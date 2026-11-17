@@ -575,11 +575,18 @@ func (a *Admin) showEdit(w http.ResponseWriter, r *http.Request, svc *PhotoServi
 	if err != nil {
 		slog.Error("loading classifications of photo", "err", err)
 	}
+	var place *Place
+	if a.places != nil {
+		if place, err = a.places.Of(p.ID); err != nil {
+			slog.Error("loading place of photo", "err", err)
+		}
+	}
 	reg := mtr.RegistryFromContext(r.Context())
 	ctx := mtr.Ctx{
 		"photo":   p,
 		"albums":  albums,
 		"classes": classes,
+		"place":   place,
 		"message": message,
 	}
 	// the modal wants the form alone, to put in its own frame

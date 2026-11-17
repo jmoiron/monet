@@ -1,13 +1,24 @@
 // Photos in the gallery admin open in a modal over the page they were
 // chosen from, rather than a page of their own. Any link to a photo's edit page
 // does it, and the modal goes away with Escape, a click outside it, or its X.
+// The photo is the page's hash (#ID), so that reloading, or the back button,
+// brings the modal back, or takes it away.
 (function() {
     var editURL = /^\/admin\/gallery\/edit\/[^\/?#]+$/;
     var $overlay, $body, $link;
+    var pushed = 0; // history entries that opening a modal made
 
-    function close() {
+    // take the modal away
+    function hide() {
         if ($overlay) { $overlay.remove(); $overlay = null; }
         $(document).off('keydown.photomodal');
+    }
+
+    // the user is done with it: back to the page as it was
+    function close() {
+        if (pushed > 0) { history.back(); return; }
+        try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+        hide();
     }
 
     function bindForm(id) {
@@ -35,11 +46,12 @@
 
     function open(href, $from) {
         var id = href.split('/').pop();
-        close();
+        hide();
         $link = $from;
         $overlay = $('<div class="rename-modal photo-modal"><div class="modal-content">' +
             '<a href="#" class="modal-close" title="Close"><i class="fa-solid fa-circle-xmark"></i></a>' +
             '<div class="photo-modal-body">Loading…</div></div></div>').css('display', 'block').appendTo($('.admin').first().length ? $('.admin').first() : 'body');
+        $overlay.data('id', id);
         $body = $overlay.find('.photo-modal-body');
         $overlay.on('mousedown', function(e) {
             if (e.target === this) { close(); }
@@ -57,6 +69,21 @@
         var href = this.getAttribute('href');
         if (!editURL.test(href)) { return; }
         e.preventDefault();
+        history.pushState({photo: href.split('/').pop()}, '', '#' + href.split('/').pop());
+        pushed++;
         open(href, $(this));
     });
+
+    // the hash says which photo, if any
+    function sync() {
+        var id = decodeURIComponent(location.hash.slice(1));
+        if (id) {
+            if (!$overlay || $overlay.data('id') !== id) { open('/admin/gallery/edit/' + encodeURIComponent(id), null); }
+        } else {
+            hide();
+        }
+    }
+    window.addEventListener('popstate', function() { if (pushed > 0 && !location.hash) { pushed--; } sync(); });
+    window.addEventListener('hashchange', sync);
+    $(sync);
 })();

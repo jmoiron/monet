@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/monet/db/monarch"
+	"github.com/jmoiron/monet/mtr"
 	"github.com/jmoiron/monet/pkg/classify"
 	"github.com/jmoiron/monet/pkg/vfs"
 	"github.com/jmoiron/sqlx"
@@ -394,4 +395,46 @@ func TestCollectionSearchOthers(t *testing.T) {
 	none, err := a.searchOthers(svc, nil, where, []any{album.ID})
 	require.NoError(t, err)
 	assert.Empty(t, none)
+}
+
+// the photo's admin page says what was imported for it and where it was placed
+func TestPhotoPageShowsClassification(t *testing.T) {
+	a, _, svc := newTestAdmin(t)
+	a.places = NewPlaces(svc.db, geoData(t))
+	svc.places = a.places
+	a.places.Ensure(context.Background())
+	p := addPhotoAt(t, svc, 0, 35.69, 139.69)
+	_, err := NewClassService(svc.db).Import([]classify.Item{
+		item(p, "gemma", "a street at night", []string{"street", "neon"}, nil),
+	})
+	require.NoError(t, err)
+
+	reg := mtr.NewRegistry()
+	(&App{fss: a.fss}).Register(reg)
+	require.NoError(t, reg.Build())
+	class, err := NewClassService(svc.db).For(p.ID)
+	require.NoError(t, err)
+	place, err := a.places.Of(p.ID)
+	require.NoError(t, err)
+	require.NotNil(t, place)
+
+	render := func(ctx mtr.Ctx) string {
+		var buf bytes.Buffer
+		ctx["photo"], ctx["modal"] = p, true
+		require.NoError(t, reg.Render(&buf, "gallery/admin/photo-edit.html", ctx))
+		return buf.String()
+	}
+	out := render(mtr.Ctx{"classes": class, "place": place})
+	assert.Contains(t, out, "<details")
+	assert.Contains(t, out, "a street at night")
+	assert.Contains(t, out, "no embedding")
+	assert.Contains(t, out, "2 labels")
+	assert.Contains(t, out, place.City)
+	assert.Contains(t, out, "Distance")
+	assert.Contains(t, out, `class="photo-geo" data-view="map"`) // the map first, with a switch to the names
+	assert.Contains(t, out, "fa-bars")
+	assert.Contains(t, out, "fa-map-location-dot")
+
+	// a photo with coordinates and no place says so
+	assert.Contains(t, render(mtr.Ctx{"classes": nil, "place": (*Place)(nil)}), "not placed")
 }

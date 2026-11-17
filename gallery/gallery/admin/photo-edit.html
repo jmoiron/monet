@@ -9,24 +9,51 @@
         <input type="text" name="title" class="photo-title-input" placeholder="Title" value="{{.photo.Title}}">
     </div>
     <div>
-        <textarea name="caption" class="photo-caption-input" placeholder="Caption">{{.photo.Caption}}</textarea>
+        <textarea name="caption" class="split-content-input photo-caption-input" placeholder="Caption">{{.photo.Caption}}</textarea>
     </div>
 
-    <div class="photo-info{{if .photo.HasGPS}} has-locator{{end}}">
+    <div class="photo-info{{if or .photo.HasGPS .place}} has-locator{{end}}">
         <div class="photo-data">
             <div class="photo-facts">{{range photoFactCols .photo}}<dl>{{range .}}<dt>{{.Label}}</dt><dd>{{.Value}}</dd>{{end}}</dl>{{end}}</div>
             {{with photoPosted .photo}}<p class="photo-posted">{{.}}</p>{{end}}
         </div>
-        {{if .photo.HasGPS}}<div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>{{end}}
+        {{if or .photo.HasGPS .place}}
+        <div class="photo-geo" data-view="{{if .photo.HasGPS}}map{{else}}text{{end}}">
+            {{if .photo.HasGPS}}
+            <a href="#" class="photo-geo-switch"><i class="fa-solid fa-bars"></i><i class="fa-solid fa-map-location-dot"></i></a>
+            <div class="photo-locator" data-lat="{{.photo.Latitude}}" data-lng="{{.photo.Longitude}}"></div>
+            {{end}}
+            <div class="photo-place photo-data"><div class="photo-facts"><dl>
+                {{with .place}}
+                <dt>City</dt><dd>{{.City}}{{if .Local}} &middot; {{.Local}}{{end}}</dd>
+                {{if .Region}}<dt>Region</dt><dd>{{.Region}}{{if .RegionLocal}} &middot; {{.RegionLocal}}{{end}}</dd>{{end}}
+                <dt>Country</dt><dd>{{.Country}}{{if .CountryLocal}} &middot; {{.CountryLocal}}{{end}}{{if .CountryCode}} ({{.CountryCode}}){{end}}</dd>
+                <dt>Continent</dt><dd>{{.Continent}}</dd>
+                <dt>Distance</dt><dd>{{printf "%.1f" .Km}} km</dd>
+                {{if .Near}}<dt>Near</dt><dd>{{.NearList}}</dd>{{end}}
+                <dt>Placed</dt><dd>{{.Scanned}}</dd>
+                {{else}}
+                <dt>Place</dt><dd>not placed</dd>
+                {{end}}
+            </dl></div></div>
+        </div>
+        {{end}}
     </div>
-    {{range .classes}}{{if or .Caption .LabelNames}}
-    <div class="photo-class">
-        <span class="photo-class-model">{{.Model}}</span>
-        {{if .Caption}}<p>{{.Caption}}</p>{{end}}
-        {{if .LabelNames}}<p class="photo-tags">{{range .LabelNames}}<span>{{.}}</span>{{end}}</p>{{end}}
-    </div>
-    {{end}}{{end}}
-    <p class="photo-source-line">{{if eq .photo.Source "instagram"}}<i class="fa-brands fa-instagram" title="Instagram"></i>{{else if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else}}{{.photo.Source}}{{end}}{{range .albums}} · in {{.Title}}{{end}}</p>
+    {{if .classes}}
+    <details class="photo-classification">
+        <summary>Classification</summary>
+        {{range .classes}}
+        <div class="photo-class">
+            <span class="photo-class-model">{{.Model}}</span>
+            {{if .Caption}}<p>{{.Caption}}</p>{{end}}
+            {{if .LabelNames}}<p class="photo-tags">{{range .LabelNames}}<span>{{.}}</span>{{end}}</p>{{end}}
+            <p class="photo-class-meta">{{if .Dims}}{{.Dims}} dimensions{{else}}no embedding{{end}} &middot; {{len .LabelNames}} label{{if ne (len .LabelNames) 1}}s{{end}} &middot; {{.Created}}</p>
+        </div>
+        {{end}}
+    </details>
+    {{end}}
+    {{/* where it came from: an instagram photo says so in its Posted line */}}
+    {{if or (ne .photo.Source "instagram") .albums}}<p class="photo-source-line">{{if eq .photo.Source "upload"}}<i class="fa-solid fa-camera" title="Upload"></i>{{else if ne .photo.Source "instagram"}}{{.photo.Source}}{{end}}{{range $i, $a := .albums}}{{if or $i (ne $.photo.Source "instagram")}} · {{end}}in {{$a.Title}}{{end}}</p>{{end}}
 
     <div class="button-group">
       <div class="published">
@@ -44,6 +71,30 @@
 
 {{if .photo.HasGPS}}
 <script>
+(function() {
+    // which of the map and the place's names shows is kept, as the theme is,
+    // across photos
+    var geo = document.querySelector('.photo-geo');
+    if (geo) {
+        var view = 'map';
+        try { view = localStorage.getItem('photo-geo') === 'text' ? 'text' : 'map'; } catch (e) {}
+        var sw = geo.querySelector('.photo-geo-switch');
+        // the icon is for the view a click goes to
+        var set = function(v) {
+            geo.dataset.view = v;
+            var to = v === 'map' ? 'place' : 'map';
+            sw.title = to;
+            sw.setAttribute('aria-label', to);
+        };
+        set(view);
+        sw.addEventListener('click', function(e) {
+            e.preventDefault();
+            var v = geo.dataset.view === 'map' ? 'text' : 'map';
+            set(v);
+            try { localStorage.setItem('photo-geo', v); } catch (err) {}
+        });
+    }
+})();
 (function() {
     // this form may be put in the page after it has loaded (the modal), so leaflet is
     // fetched here, and the map made when it has arrived

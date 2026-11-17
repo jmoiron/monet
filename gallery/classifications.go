@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/monet/db"
 	"github.com/jmoiron/monet/pkg/classify"
@@ -21,6 +22,14 @@ type Classification struct {
 	LabelsRaw string `db:"labels"`
 	Embedding []byte `db:"embedding"` // float16s; nil when the model gave none
 	CreatedAt int64  `db:"created_at"`
+}
+
+// Dims is the length of the embedding; 0 if the model gave none.
+func (c *Classification) Dims() int { return len(c.Embedding) / 2 }
+
+// Created is when it was imported.
+func (c *Classification) Created() string {
+	return fmtTime(time.Unix(c.CreatedAt, 0), "Jan 2, 2006 15:04")
 }
 
 // Labels are the classification's labels.

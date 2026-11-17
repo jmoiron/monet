@@ -35,6 +35,12 @@ type Place struct {
 	ScannedAt    int64   `db:"scanned_at"`
 }
 
+// NearList is the other cities near the place, in a line.
+func (p Place) NearList() string { return strings.Join(strings.Split(p.Near, "\n"), ", ") }
+
+// Scanned is when the place was worked out.
+func (p Place) Scanned() string { return fmtTime(time.Unix(p.ScannedAt, 0), "Jan 2, 2006 15:04") }
+
 // Words are what is searched of a place: every name there is of it.
 func (p Place) Words() string {
 	var w []string

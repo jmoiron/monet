@@ -208,8 +208,9 @@ html[data-theme="dark"] {
   .photo-facts dt { color: @dark-muted; }
 
   // what the models saw, and why a search found a photo
-  .photo-class .photo-class-model, .photo-why, .photo-why-words, .classify-models th { color: @dark-muted; }
-  .photo-tags span { border-color: @dark-border; }
+  .photo-class .photo-class-model, .photo-classification summary, .photo-class-meta, .photo-why, .photo-why-words, .classify-models th { color: @dark-muted; }
+  .photo-tags span { background: @dark-raised; }
+  .photo-modal .photo-tags span { background: @dark-surface; } // the modal is itself the raised grey
   .photo-why mark { background: fade(@dark-link, 30%); color: @dark-strong; }
   .photo-search input.search { border-color: @dark-border; }
   .search-note { color: #e0a860; }

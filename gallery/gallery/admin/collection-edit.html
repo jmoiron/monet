@@ -5,7 +5,7 @@
        {{if gt .collection.Published 0}}· <a href="/gallery/collections/{{.collection.Slug}}">view</a>{{end}}</p>
 
     <div><input type="text" name="title" class="photo-title-input" placeholder="Title" value="{{.collection.Title}}"></div>
-    <div><textarea name="description" class="photo-caption-input" placeholder="Description">{{.collection.Description}}</textarea></div>
+    <div><textarea name="description" class="split-content-input photo-caption-input" placeholder="Description">{{.collection.Description}}</textarea></div>
 
     <div class="button-group">
       <div class="published">

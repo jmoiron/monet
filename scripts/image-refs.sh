@@ -1,7 +1,7 @@
 #!/bin/sh
 # Lists the files in the images dir that the site refers to: links to /i/... or
 # jmoiron.net/i/... in any text of the database (posts, pages, the stream,
-# bookmarks, og images), and the files the uploads table has. Paths come out
+# bookmarks, og images). Paths come out
 # relative to the images dir, one a line, ready for rsync --files-from.
 #
 #   scripts/image-refs.sh monet.db ~/i > keep.txt          (on the old server)
@@ -27,8 +27,6 @@ dir=${2:-}
 			next if $p =~ m{^(web|photos)/} || $p =~ m{(^|/)\.\.(/|$)} || $p eq "" || $p =~ m{/$};
 			say $p;
 		}'
-	# uploads kept in the images dir by their names alone
-	sqlite3 -batch -noheader -list "$db" "SELECT filename FROM upload WHERE filesystem_name IN ('images','uploads','blog-files')"
 } | sort -u | {
 	if [ -z "$dir" ]; then cat; exit; fi
 	while IFS= read -r f; do

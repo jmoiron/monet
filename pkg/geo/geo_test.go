@@ -154,4 +154,18 @@ func TestFetch(t *testing.T) {
 	got, err := Open(into)
 	require.NoError(t, err)
 	assert.Equal(t, "東京", got.Nearest(35.69, 139.69).Local)
+
+	// an alternateNamesV2.zip that is already there is used, and not fetched
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	f, _ := zw.Create("alternateNamesV2.txt")
+	f.Write([]byte("0\t1\tja\tトウキョウ\t\t1\t\t\n"))
+	zw.Close()
+	require.NoError(t, os.WriteFile(filepath.Join(into, alternates), buf.Bytes(), 0o644))
+	require.NoError(t, Fetch(context.Background(), into))
+	got, err = Open(into)
+	require.NoError(t, err)
+	assert.Equal(t, "トウキョウ", got.Nearest(35.69, 139.69).Local, "the file that was there made the names")
+	_, err = os.Stat(filepath.Join(into, alternates))
+	assert.NoError(t, err, "and it is left")
 }

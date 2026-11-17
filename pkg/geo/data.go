@@ -52,7 +52,8 @@ func Open(dir string) (*Index, error) {
 
 // Fetch gets the data from GeoNames into dir, and makes the file of the names
 // in local languages from the alternate names, which are a few hundred
-// megabytes and are not kept. It replaces what is there file by file, so that
+// megabytes and are not kept, unless they were already in dir: then they are
+// not fetched. It replaces what is there file by file, so that
 // a run that fails leaves the data it found.
 func Fetch(ctx context.Context, dir string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -64,9 +65,14 @@ func Fetch(ctx context.Context, dir string) error {
 		}
 	}
 	alt := filepath.Join(dir, alternates)
-	defer os.Remove(alt)
-	if err := download(ctx, DumpURL+alternates, alt); err != nil {
-		return err
+	if _, err := os.Stat(alt); err == nil {
+		// one that was put there (the download can be slow from some places) is
+		// used, and left; a wrong one can be deleted
+	} else {
+		defer os.Remove(alt)
+		if err := download(ctx, DumpURL+alternates, alt); err != nil {
+			return err
+		}
 	}
 	ix, err := Load(filepath.Join(dir, citiesFile), filepath.Join(dir, countryFile), filepath.Join(dir, adminFile))
 	if err != nil {

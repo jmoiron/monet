@@ -1,28 +1,38 @@
 {
-    "DatabaseURI": "prod.db?cache=shared",
-    "ListenAddr": "0.0.0.0:7001",
-    "Debug": true,
-    "FSS": {
-      "Paths": {
-        "blog-files": "./images",
-        "uploads": "./images",
-        "static": "./static",
-        "images": "./images",
-        "screenshots": "./images/ss/",
-        "photos": "./images/photos/"
-      },
-      "URLs": {
-        "blog-files": "/i/",
-        "uploads": "/i/",
-        "images": "/i/",
-        "screenshots": "/i/ss/",
-        "photos": "/i/photos/"
-      }
+  "Debug": true,
+  "ListenAddr": "0.0.0.0:7001",
+  "SessionSecret": "162f0d7a373b370686edde2bde9d97739ac9c346353336abf19d9485934f9ec8",
+  "GoogleAnalyticsTrackingID": "",
+  "StaticPath": "./static",
+  "TemplatePaths": [
+    "./templates"
+  ],
+  "TemplatePreCompile": true,
+  "DatabaseURI": "prod.db?cache=shared",
+  "FSS": {
+    "Paths": {
+      "blog-files": "./images",
+      "images": "./images",
+      "photos": "./images/photos/",
+      "screenshots": "./images/ss/",
+      "static": "./static",
+      "uploads": "./images"
     },
-    "Geo": {
-      "Dir": "pkg/geo/data"
-    },
-    "Classify": {
-      "Embedder": "siglip2=onnx:pkg/classify/onnx/siglip2@pkg/classify/onnx/lib"
+    "URLs": {
+      "blog-files": "/i/",
+      "images": "/i/",
+      "photos": "/i/photos/",
+      "screenshots": "/i/ss/",
+      "uploads": "/i/"
     }
+  },
+  "ChromePath": "",
+  "Classify": {
+    "Embedder": "siglip2=onnx:pkg/classify/onnx/siglip2@pkg/classify/onnx/lib",
+    "MinVector": 0,
+    "IdleMinutes": 10
+  },
+  "Geo": {
+    "Dir": "pkg/geo/data"
+  }
 }

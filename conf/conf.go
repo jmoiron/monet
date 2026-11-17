@@ -3,10 +3,13 @@ package conf
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 type configKey struct{}
@@ -69,6 +72,18 @@ type Config struct {
 	Geo GeoConfig
 }
 
+// Redacted is a copy of the config that is safe to log: the secrets are hidden.
+func (c *Config) Redacted() *Config {
+	r := *c
+	if r.SessionSecret != "" {
+		r.SessionSecret = "(set)"
+		if c.InsecureSecret() {
+			r.SessionSecret = "(NOT SECRET: " + c.SessionSecret + ")"
+		}
+	}
+	return &r
+}
+
 // String returns the config as a string.
 func (c *Config) String() string {
 	var buf bytes.Buffer
@@ -114,13 +129,33 @@ func ConfigFromContext(ctx context.Context) *Config {
 	return ctx.Value(configKey{}).(*Config)
 }
 
+// Secrets that are in this repository, and so are no secret.
+const (
+	defaultSecret = "SET-IN-CONFIG-FILE"
+)
+
+// RandomSecret is a new random string to sign sessions with.
+func RandomSecret() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err) // there is no safe way to go on without randomness
+	}
+	return hex.EncodeToString(b)
+}
+
+// InsecureSecret is whether sessions are signed with something that is empty
+// or known: anyone could then make a cookie that logs them in.
+func (c *Config) InsecureSecret() bool {
+	return c.SessionSecret == "" || c.SessionSecret == defaultSecret || strings.HasPrefix(c.SessionSecret, "SET-")
+}
+
 // Example is a config for a server, with every setting there is and a value
 // that works if the directories are made: what `monet --gen-config` prints, to
 // be edited. Relative paths are from where monet is run.
 func Example() *Config {
 	c := Default()
 	c.ListenAddr = "0.0.0.0:7000"
-	c.SessionSecret = "SET-A-LONG-RANDOM-STRING"
+	c.SessionSecret = RandomSecret()
 	c.DatabaseURI = "monet.db?cache=shared"
 	c.FSS = FSSConfig{
 		Paths: map[string]string{
@@ -155,7 +190,7 @@ func Default() *Config {
 	c.ListenAddr = "0.0.0.0:7000"
 	c.StaticPath = "./static"
 	c.TemplatePaths = []string{"./templates"}
-	c.SessionSecret = "SET-IN-CONFIG-FILE"
+	c.SessionSecret = defaultSecret
 	c.TemplatePreCompile = true
 
 	/*

@@ -125,6 +125,10 @@ func main() {
 
 	config := die(loadConfig(opts.ConfigPath))("loading config")
 
+	if config.InsecureSecret() {
+		warnSecret(config.Debug)
+	}
+
 	// set up filesystems
 	fss := vfs.NewRegistry(vfs.NewURLMapper(config.FSS.URLs))
 	for name, path := range config.FSS.Paths {
@@ -263,7 +267,7 @@ func main() {
 		}
 	}
 
-	slog.Info("Running with config", "config", config.String())
+	slog.Info("Running with config", "config", config.Redacted().String())
 	slog.Info("Listening on", "addr", config.ListenAddr)
 	if config.Classify.IdleMinutes == 0 {
 		galleryApp.WarmSearch()
@@ -408,6 +412,24 @@ func loadInstagram(dbh db.DB, fss vfs.Registry, path string) error {
 
 func loadPosts(dbh db.DB, path string) error {
 	return loadPath(blog.NewLoader(dbh), path)
+}
+
+// warnSecret says, loudly, that sessions are signed with a secret that is not
+// one: it is in the source, and with it anyone can log in as anyone.
+func warnSecret(debug bool) {
+	lines := []string{
+		"SessionSecret IS NOT SET (or is the default, or a placeholder)",
+		"Sessions are signed with a key that anyone can read in the source,",
+		"so anyone can make themselves a login cookie and walk into the admin.",
+		`Set "SessionSecret" in the config; "monet --gen-config" makes one.`,
+	}
+	bar := strings.Repeat("!", 78)
+	fmt.Fprintf(os.Stderr, "\n%s\n", bar)
+	for _, l := range lines {
+		fmt.Fprintf(os.Stderr, "!!  %-70s  !!\n", l)
+	}
+	fmt.Fprintf(os.Stderr, "%s\n\n", bar)
+	slog.Error("WARNING: no custom session secret set, use --gen-config to generate one", "debug", debug)
 }
 
 func loadConfig(path string) (*conf.Config, error) {

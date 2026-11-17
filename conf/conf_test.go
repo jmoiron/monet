@@ -36,3 +36,25 @@ func TestExampleRoundTrips(t *testing.T) {
 		t.Errorf("the example leaves out settings: %+v", got)
 	}
 }
+
+func TestSecrets(t *testing.T) {
+	assert := assert.New(t)
+	assert.True(Default().InsecureSecret())
+	assert.True((&Config{}).InsecureSecret())
+	assert.True((&Config{SessionSecret: "SET-A-LONG-RANDOM-STRING"}).InsecureSecret())
+	a, b := RandomSecret(), RandomSecret()
+	assert.Len(a, 64)
+	assert.NotEqual(a, b)
+	assert.False((&Config{SessionSecret: a}).InsecureSecret())
+	assert.False(Example().InsecureSecret())
+}
+
+func TestRedacted(t *testing.T) {
+	c := Example()
+	secret := c.SessionSecret
+	out := c.Redacted().String()
+	assert.NotContains(t, out, secret)
+	assert.Contains(t, out, `"(set)"`)
+	assert.Equal(t, secret, c.SessionSecret) // the config itself is as it was
+	assert.Contains(t, c.String(), secret)   // and --gen-config still prints it
+}

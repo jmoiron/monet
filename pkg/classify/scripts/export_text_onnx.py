@@ -16,9 +16,13 @@ It writes, in OUT, what hugot's feature extraction pipeline loads:
 The queries have to be cleaned like open_clip's tokenizer does before that: see
 cleanText in embed_onnx.go.
 
-The text tower is mostly the 256k word table, 3/4 of 1.1 GB: it is stored as
-int8 (--no-quantize to keep it float32), which moves the embeddings by 0.001 or
-so of cosine. Quantizing the matrix multiplies as well moves them 0.02-0.07.
+The text tower is mostly the 256k word table (3/4 of 1.1 GB), which is stored as
+int8; the transformer's weights stay as trained (--bits 32, the default: 540 MB,
+~550 MB to run). --bits 8 stores them as 8-bit integers with the arithmetic still
+in float: 280 MB, ~400 MB to run, embeddings within 0.002 cosine of the above.
+--bits 4 is 240 MB and 0.01 away.
+Quantizing the matrix multiplies' *activations* as well (onnxruntime's
+quantize_dynamic) moves them 0.02-0.07, and is not used.
 """
 import argparse
 import json
@@ -32,7 +36,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("--model", default="ViT-B-16-SigLIP2")
 ap.add_argument("--pretrained", default="webli")
 ap.add_argument("--out", required=True)
-ap.add_argument("--no-quantize", action="store_true")
+ap.add_argument("--bits", type=int, choices=(4, 8, 32), default=32, help="bits of the transformer weights (8 or 4: weight-only, smaller); 32 leaves them as trained")
 args = ap.parse_args()
 
 model, _, _ = open_clip.create_model_and_transforms(args.model, pretrained=args.pretrained, device="cpu")
@@ -69,15 +73,30 @@ print("exported; context", ids.shape[1], "dim", ref.shape[0])
 with open(os.path.join(args.out, "config.json"), "w") as f:
     json.dump({"max_position_embeddings": ids.shape[1]}, f)
 
-if not args.no_quantize:
-    from onnxruntime.quantization import QuantType, quantize_dynamic
-    path = os.path.join(args.out, "model.onnx")
-    quantize_dynamic(path, path + ".int8", weight_type=QuantType.QInt8, op_types_to_quantize=["Gather"])
-    os.replace(path + ".int8", path)
+import onnx
+
+from onnxruntime.quantization import QuantType, quantize_dynamic
+
+# the word table is always int8 (cos 0.998+); the transformer's weights only if --bits says
+path = os.path.join(args.out, "model.onnx")
+mid = os.path.join(args.out, "mid.onnx")
+if args.bits != 32:
+    from onnxruntime.quantization.matmul_nbits_quantizer import MatMulNBitsQuantizer
+
+    q = MatMulNBitsQuantizer(onnx.load(path), bits=args.bits, block_size=32, is_symmetric=True, accuracy_level=4)
+    q.process()
+    onnx.save_model(q.model.model, mid, save_as_external_data=True, all_tensors_to_one_file=True,
+                    location="mid.data", size_threshold=1024)
+else:
+    os.replace(path, mid)
+quantize_dynamic(mid, path, weight_type=QuantType.QInt8, op_types_to_quantize=["Gather"],
+                 use_external_data_format=True)
+for f in ("mid.onnx", "mid.data"):
+    if os.path.exists(os.path.join(args.out, f)):
+        os.remove(os.path.join(args.out, f))
 
 # the weights beside the graph, not in it: ONNX Runtime maps them from the file
-# instead of reading them in twice (550 MB resident, not 880)
-import onnx
+# instead of reading them in twice
 m = onnx.load(os.path.join(args.out, "model.onnx"))
 data = "model.onnx.data"
 if os.path.exists(os.path.join(args.out, data)):

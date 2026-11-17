@@ -453,13 +453,25 @@ What was measured (RTX 3070 box, CPU only for ONNX; 5 test queries incl. 東京)
 
 | | PyTorch worker | ONNX fp32 | ONNX, word table int8 (used) |
 |---|---|---|---|
-| model on disk | 1.4 GB | 1.1 GB | 540 MB |
+| model on disk | 1.4 GB | 1.1 GB | 540 MB (used; `--bits 8`: 281 MB) |
 | ready (load + first query) | ~5 s+ | ~1.3 s | **~1.0 s** |
 | a query | | 75 ms (python) | **~19 ms** |
 | resident | 1.7 GB VRAM + python | 880 MB | **550 MB** (server total 600 MB) |
 | cosine to the PyTorch embedding | 1 | 1.0000 | 0.998-0.9999 |
 
 Decisions and traps:
+- **Option, from the first server run** (a 1 GiB box already 1 GiB into swap:
+  the load took 43 s, reading the file only ~1.5 s, and the embedder died). The
+  default went back to the 540 MB model once the server moved to a 4 GiB box;
+  `export_text_onnx.py --bits 8` stores the transformer's weights as int8 too, *weight-only* (onnxruntime's
+  `MatMulNBitsQuantizer`, 8 bits, blocks of 32; the arithmetic stays float), so
+  the model is 281 MB and the process 410 MB resident instead of 550-620 MB, with
+  the same embeddings (cos 0.9977-0.9998 to PyTorch's, as before). `--bits 4`:
+  241 MB, 370 MB resident, cos 0.985-0.998 (not used). The activations are still
+  not quantized, which is what hurt before (0.93-0.98).
+  What is left of the 410 MB is the model (281), hugot's Go tokenizer of 256k
+  tokens and ONNX Runtime. A pruned word table (the tokens that are likely in
+  queries, mapped inside the graph) would save ~150 MB more, and was not done.
 - 3/4 of the text tower is the 256k x 768 word table, so int8 on the *Gather
   only* is almost free (cos 0.998+). int8 on the MatMuls too is not: cos
   0.93-0.98, which moves scores by more than the 0.09 floor's margin. fp32

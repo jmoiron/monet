@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/knights-analytics/hugot"
 	"github.com/knights-analytics/hugot/options"
@@ -37,10 +39,12 @@ func openONNX(name, dir, libDir string) (Classifier, error) {
 	// its memory arena only holds on to what one query needed
 	opts = append(opts, options.WithCPUMemArena(false), options.WithMemPattern(false))
 	ctx := context.Background()
+	start := time.Now()
 	session, err := hugot.NewORTSession(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("onnx runtime: %w", err)
 	}
+	runtime := time.Since(start)
 	p, err := hugot.NewPipeline(session, hugot.FeatureExtractionConfig{
 		ModelPath: dir,
 		Name:      name,
@@ -50,6 +54,9 @@ func openONNX(name, dir, libDir string) (Classifier, error) {
 		session.Destroy()
 		return nil, fmt.Errorf("onnx model %s: %w", dir, err)
 	}
+	// where the time goes when it is slow: reading the weights is the disk, and the
+	// rest is the machine
+	slog.Info("onnx model loaded", "dir", dir, "runtime", runtime.Round(time.Millisecond), "model", (time.Since(start) - runtime).Round(time.Millisecond))
 	return &ONNXEmbedder{name: name, session: session, pipeline: p}, nil
 }
 

@@ -206,7 +206,6 @@ func main() {
 
 	// add sessions, config, & db
 	r.Use(authApp.Sessions.AddSessionMiddleware)
-	r.Use(conf.Default().AddConfigMiddleware)
 	r.Use(db.AddDbMiddleware(dbh))
 
 	r.Use(middleware.RequestID)

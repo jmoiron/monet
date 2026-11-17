@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 )
@@ -46,12 +45,7 @@ type Config struct {
 	Debug      bool
 	ListenAddr string
 
-	SessionSecret             string
-	GoogleAnalyticsTrackingID string
-
-	StaticPath         string
-	TemplatePaths      []string
-	TemplatePreCompile bool
+	SessionSecret string
 
 	// DatabaseURI is a connectable URI string
 	DatabaseURI string
@@ -111,22 +105,17 @@ func (c *Config) FromReader(r io.Reader) error {
 	return json.NewDecoder(r).Decode(c)
 }
 
-// AddConfigMiddleware adds this config to the request contxt.
-func (c *Config) AddConfigMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(c.WithConfig(r.Context())))
-	})
-}
-
 // WithConfig adds this config to the context. Get it back out with
 // conf.ConfigFromContext(ctx).
 func (c *Config) WithConfig(ctx context.Context) context.Context {
 	return context.WithValue(ctx, configKey{}, c)
 }
 
-// ConfigFromContext returns the config embedded within the context.
+// ConfigFromContext returns the config embedded within the context, or nil if
+// there isn't one.
 func ConfigFromContext(ctx context.Context) *Config {
-	return ctx.Value(configKey{}).(*Config)
+	c, _ := ctx.Value(configKey{}).(*Config)
+	return c
 }
 
 // Secrets that are in this repository, and so are no secret.
@@ -183,24 +172,11 @@ func Example() *Config {
 	return c
 }
 
-// Default returns a sensible default config with environment overrides
-// and the a config file loaded into it.
+// Default is the config before a config file is loaded into it.
 func Default() *Config {
 	c := &Config{}
 	c.ListenAddr = "0.0.0.0:7000"
-	c.StaticPath = "./static"
-	c.TemplatePaths = []string{"./templates"}
 	c.SessionSecret = defaultSecret
-	c.TemplatePreCompile = true
-
-	/*
-		if path := os.Getenv("MONET_CONFIG_PATH"); len(path) > 0 {
-			err := c.FromPath(path)
-			if err != nil {
-				fmt.Printf("Error loading config: %s\n", err)
-			}
-		}
-	*/
 
 	return c
 }

@@ -2,6 +2,7 @@ package conf
 
 import (
 	"bytes"
+	"context"
 	"strings"
 	"testing"
 
@@ -57,4 +58,10 @@ func TestRedacted(t *testing.T) {
 	assert.Contains(t, out, `"(set)"`)
 	assert.Equal(t, secret, c.SessionSecret) // the config itself is as it was
 	assert.Contains(t, c.String(), secret)   // and --gen-config still prints it
+}
+
+func TestConfigInContext(t *testing.T) {
+	c := Example()
+	assert.Same(t, c, ConfigFromContext(c.WithConfig(context.Background())))
+	assert.Nil(t, ConfigFromContext(context.Background())) // not a panic
 }
